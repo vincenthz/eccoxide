@@ -648,7 +648,7 @@ pub mod p521r1 {
     ];
 }
 
-/// Elliptic curve parameters for t113r1 over F2m (114 bits)
+/// Elliptic curve parameters for t113r1 over F2m (113 bits)
 pub mod t113r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 15] = [
@@ -676,7 +676,7 @@ pub mod t113r1 {
     pub const GY_LIMBS: [u64; 2] = [0x0000a52830277958, 0xee84d1315ed31886];
 }
 
-/// Elliptic curve parameters for t113r2 over F2m (114 bits)
+/// Elliptic curve parameters for t113r2 over F2m (113 bits)
 pub mod t113r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 15] = [
@@ -704,7 +704,7 @@ pub mod t113r2 {
     pub const GY_LIMBS: [u64; 2] = [0x0000b3adc94ed1fe, 0x674c06e695baba1d];
 }
 
-/// Elliptic curve parameters for t131r1 over F2m (132 bits)
+/// Elliptic curve parameters for t131r1 over F2m (131 bits)
 pub mod t131r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 17] = [
@@ -736,7 +736,7 @@ pub mod t131r1 {
     pub const GY_LIMBS: [u64; 3] = [0x0000000000000007, 0x8c6e7ea38c001f73, 0xc8134b1b4ef9e150];
 }
 
-/// Elliptic curve parameters for t131r2 over F2m (132 bits)
+/// Elliptic curve parameters for t131r2 over F2m (131 bits)
 pub mod t131r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 17] = [
@@ -768,7 +768,7 @@ pub mod t131r2 {
     pub const GY_LIMBS: [u64; 3] = [0x0000000000000006, 0x48f06d867940a536, 0x6d9e265de9eb240f];
 }
 
-/// Elliptic curve parameters for t163k1 over F2m (164 bits)
+/// Elliptic curve parameters for t163k1 over F2m (163 bits)
 pub mod t163k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 21] = [
@@ -800,7 +800,7 @@ pub mod t163k1 {
     pub const GY_LIMBS: [u64; 3] = [0x0000000289070fb0, 0x5d38ff58321f2e80, 0x0536d538ccdaa3d9];
 }
 
-/// Elliptic curve parameters for t163r1 over F2m (164 bits)
+/// Elliptic curve parameters for t163r1 over F2m (163 bits)
 pub mod t163r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 21] = [
@@ -832,7 +832,7 @@ pub mod t163r1 {
     pub const GY_LIMBS: [u64; 3] = [0x00000000435edb42, 0xefafb2989d51fefc, 0xe3c80988f41ff883];
 }
 
-/// Elliptic curve parameters for t163r2 over F2m (164 bits)
+/// Elliptic curve parameters for t163r2 over F2m (163 bits)
 pub mod t163r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 21] = [
@@ -864,7 +864,7 @@ pub mod t163r2 {
     pub const GY_LIMBS: [u64; 3] = [0x00000000d51fbc6c, 0x71a0094fa2cdd545, 0xb11c5c0c797324f1];
 }
 
-/// Elliptic curve parameters for t193r1 over F2m (194 bits)
+/// Elliptic curve parameters for t193r1 over F2m (193 bits)
 pub mod t193r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 25] = [
@@ -911,7 +911,7 @@ pub mod t193r1 {
     pub const GY_LIMBS: [u64; 3] = [0x25e399f2903712cc, 0xf3ea9e3a1ad17fb0, 0xb3201b6af7ce1b05];
 }
 
-/// Elliptic curve parameters for t193r2 over F2m (194 bits)
+/// Elliptic curve parameters for t193r2 over F2m (193 bits)
 pub mod t193r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 25] = [
@@ -958,7 +958,7 @@ pub mod t193r2 {
     ];
 }
 
-/// Elliptic curve parameters for t233k1 over F2m (234 bits)
+/// Elliptic curve parameters for t233k1 over F2m (233 bits)
 pub mod t233k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 30] = [
@@ -1010,7 +1010,7 @@ pub mod t233k1 {
     ];
 }
 
-/// Elliptic curve parameters for t233r1 over F2m (234 bits)
+/// Elliptic curve parameters for t233r1 over F2m (233 bits)
 pub mod t233r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 30] = [
@@ -1062,7 +1062,7 @@ pub mod t233r1 {
     ];
 }
 
-/// Elliptic curve parameters for t239k1 over F2m (240 bits)
+/// Elliptic curve parameters for t239k1 over F2m (239 bits)
 pub mod t239k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 30] = [
@@ -1114,7 +1114,7 @@ pub mod t239k1 {
     ];
 }
 
-/// Elliptic curve parameters for t283k1 over F2m (284 bits)
+/// Elliptic curve parameters for t283k1 over F2m (283 bits)
 pub mod t283k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 36] = [
@@ -1174,7 +1174,7 @@ pub mod t283k1 {
     ];
 }
 
-/// Elliptic curve parameters for t283r1 over F2m (284 bits)
+/// Elliptic curve parameters for t283r1 over F2m (283 bits)
 pub mod t283r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 36] = [
@@ -1234,7 +1234,7 @@ pub mod t283r1 {
     ];
 }
 
-/// Elliptic curve parameters for t409k1 over F2m (410 bits)
+/// Elliptic curve parameters for t409k1 over F2m (409 bits)
 pub mod t409k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 52] = [
@@ -1306,7 +1306,7 @@ pub mod t409k1 {
     ];
 }
 
-/// Elliptic curve parameters for t409r1 over F2m (410 bits)
+/// Elliptic curve parameters for t409r1 over F2m (409 bits)
 pub mod t409r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 52] = [
@@ -1378,7 +1378,7 @@ pub mod t409r1 {
     ];
 }
 
-/// Elliptic curve parameters for t571k1 over F2m (572 bits)
+/// Elliptic curve parameters for t571k1 over F2m (571 bits)
 pub mod t571k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 72] = [
@@ -1462,7 +1462,7 @@ pub mod t571k1 {
     ];
 }
 
-/// Elliptic curve parameters for t571r1 over F2m (572 bits)
+/// Elliptic curve parameters for t571r1 over F2m (571 bits)
 pub mod t571r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 72] = [
