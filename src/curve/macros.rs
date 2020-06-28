@@ -1,65 +1,148 @@
 #[doc(hidden)]
 #[macro_export]
-macro_rules! prime_weirstrass_curve {
-
 macro_rules! scalar_impl {
-    ($sz) => {
+    ($p: expr) => {
         #[derive(Debug, Clone)]
-        pub struct Scalar([u64; $sz]);
+        pub struct Scalar(num_bigint::BigUint);
 
         impl PartialEq for Scalar {
             fn eq(&self, other: &Self) -> bool {
-                todo!()
+                &self.0 == &other.0
             }
         }
 
+        impl Eq for Scalar {}
+
         impl Scalar {
             /// the zero constant (additive identity)
-            pub const fn zero() -> Self {
-                Scalar([0u64; $sz])
+            pub fn zero() -> Self {
+                use num_traits::identities::Zero;
+                Scalar(BigUint::zero())
             }
 
             /// The one constant (multiplicative identity)
-            pub const fn one() -> Self {
-                let mut b = [0u64; $sz];
-                b[$sz - 1] = 0x1;
-                Scalar(b)
-            }
-
-            /// Add another scalar
-            pub fn add(&self, other: &Self) -> Self {
-                todo!()
+            pub fn one() -> Self {
+                use num_traits::identities::One;
+                Scalar(BigUint::one())
             }
 
             /// Self add another Scalar
             pub fn add_assign(&mut self, other: &Self) {
-                todo!()
+                self.0 += &other.0;
+                self.0 %= $p;
             }
 
             /// Negate the scalar
-            pub fn negate(&mut self) {
-                todo!()
-            }
-
-            /// Multiplicate 2 Scalar
-            pub fn mul(&self, other: &Self) -> Self {
-                todo!()
+            pub fn negate(&self) -> Self {
+                Scalar(($p - &self.0) % $p)
             }
 
             /// Get the multiplicative inverse
             ///
             /// Note that 0 doesn't have a multiplicative inverse
             pub fn inverse(&self) -> Option<Self> {
-                todo!()
+                use num_traits::identities::Zero;
+                if self.0.is_zero() {
+                    None
+                } else {
+                    Some(Scalar(mod_inverse(&self.0, $p)))
+                }
             }
 
             /*
             pub fn from_bytes(&self, ) -> Option<Self> {
-
             }
             pub fn to_bytes(&self) -> [u8; $sz] {
             }
             */
+        }
+
+        // ****************
+        // Scalar Addition
+        // ****************
+
+        impl<'a, 'b> std::ops::Add<&'b Scalar> for &'a Scalar {
+            type Output = Scalar;
+
+            fn add(self, other: &'b Scalar) -> Scalar {
+                Scalar((&self.0 + &other.0) % $p)
+            }
+        }
+
+        impl<'a> std::ops::Add<Scalar> for &'a Scalar {
+            type Output = Scalar;
+
+            fn add(self, other: Scalar) -> Scalar {
+                Scalar((&self.0 + &other.0) % $p)
+            }
+        }
+
+        impl<'b> std::ops::Add<&'b Scalar> for Scalar {
+            type Output = Scalar;
+
+            fn add(self, other: &'b Scalar) -> Scalar {
+                Scalar((&self.0 + &other.0) % $p)
+            }
+        }
+
+        impl std::ops::Add<Scalar> for Scalar {
+            type Output = Scalar;
+
+            fn add(self, other: Scalar) -> Scalar {
+                Scalar((&self.0 + &other.0) % $p)
+            }
+        }
+
+        // *******************
+        // Scalar Subtraction
+        // *******************
+
+        impl<'a, 'b> std::ops::Sub<&'b Scalar> for &'a Scalar {
+            type Output = Scalar;
+
+            fn sub(self, other: &'b Scalar) -> Scalar {
+                Scalar((&self.0 + &other.negate().0) % $p)
+            }
+        }
+
+        //lref!(FieldElement, Sub, FieldElement, FieldElement, sub);
+        //rref!(FieldElement, Sub, FieldElement, FieldElement, sub);
+        //nref!(FieldElement, Sub, FieldElement, FieldElement, sub);
+
+        // **********************
+        // Scalar Multiplication
+        // **********************
+
+        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Scalar {
+            type Output = Scalar;
+
+            fn mul(self, other: &'b Scalar) -> Scalar {
+                Scalar((&self.0 * &other.0) % $p)
+            }
+        }
+
+        impl<'b> std::ops::Mul<&'b Scalar> for Scalar {
+            type Output = Scalar;
+
+            fn mul(self, other: &'b Scalar) -> Scalar {
+                Scalar((&self.0 * &other.0) % $p)
+            }
+        }
+
+        impl<'a, 'b> std::ops::Mul<Scalar> for &'a Scalar {
+            type Output = Scalar;
+
+            fn mul(self, other: Scalar) -> Scalar {
+                Scalar((&self.0 * &other.0) % $p)
+            }
+        }
+
+        impl std::ops::Mul<Scalar> for Scalar {
+            type Output = Scalar;
+
+            fn mul(self, other: Scalar) -> Scalar {
+                Scalar((&self.0 * &other.0) % $p)
+            }
         }
     };
 }
