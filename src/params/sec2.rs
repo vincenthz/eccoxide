@@ -14,6 +14,18 @@ pub mod p112r1 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 2] = [0x0000db7c2abf62e3, 0x5e7628dfac6561c5];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 14] = [
+        0xdb, 0x7c, 0x2a, 0xbf, 0x62, 0xe3, 0x5e, 0x66, 0x80, 0x76, 0xbe, 0xad, 0x20, 0x88,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 2] = [0x0000db7c2abf62e3, 0x5e668076bead2088];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 14] = [
+        0x65, 0x9e, 0xf8, 0xba, 0x04, 0x39, 0x16, 0xee, 0xde, 0x89, 0x11, 0x70, 0x2b, 0x22,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 2] = [0x0000659ef8ba0439, 0x16eede8911702b22];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 14] = [
         0x09, 0x48, 0x72, 0x39, 0x99, 0x5a, 0x5e, 0xe7, 0x6b, 0x55, 0xf9, 0xc2, 0xf0, 0x98,
@@ -42,6 +54,18 @@ pub mod p112r2 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 2] = [0x000036df0aafd8b8, 0xd7597ca10520d04b];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 14] = [
+        0x61, 0x27, 0xc2, 0x4c, 0x05, 0xf3, 0x8a, 0x0a, 0xaa, 0xf6, 0x5c, 0x0e, 0xf0, 0x2c,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 2] = [0x00006127c24c05f3, 0x8a0aaaf65c0ef02c];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 14] = [
+        0x51, 0xde, 0xf1, 0x81, 0x5d, 0xb5, 0xed, 0x74, 0xfc, 0xc3, 0x4c, 0x85, 0xd7, 0x09,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 2] = [0x000051def1815db5, 0xed74fcc34c85d709];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 14] = [
         0x4b, 0xa3, 0x0a, 0xb5, 0xe8, 0x92, 0xb4, 0xe1, 0x64, 0x9d, 0xd0, 0x92, 0x86, 0x43,
@@ -72,6 +96,20 @@ pub mod p128r1 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 2] = [0xfffffffe00000000, 0x75a30d1b9038a115];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 16] = [
+        0xff, 0xff, 0xff, 0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xfc,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 2] = [0xfffffffdffffffff, 0xfffffffffffffffc];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 16] = [
+        0xe8, 0x75, 0x79, 0xc1, 0x10, 0x79, 0xf4, 0x3d, 0xd8, 0x24, 0x99, 0x3c, 0x2c, 0xee, 0x5e,
+        0xd3,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 2] = [0xe87579c11079f43d, 0xd824993c2cee5ed3];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 16] = [
         0x16, 0x1f, 0xf7, 0x52, 0x8b, 0x89, 0x9b, 0x2d, 0x0c, 0x28, 0x60, 0x7c, 0xa5, 0x2c, 0x5b,
@@ -104,6 +142,20 @@ pub mod p128r2 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 2] = [0x3fffffff7fffffff, 0xbe0024720613b5a3];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 16] = [
+        0xd6, 0x03, 0x19, 0x98, 0xd1, 0xb3, 0xbb, 0xfe, 0xbf, 0x59, 0xcc, 0x9b, 0xbf, 0xf9, 0xae,
+        0xe1,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 2] = [0xd6031998d1b3bbfe, 0xbf59cc9bbff9aee1];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 16] = [
+        0x5e, 0xee, 0xfc, 0xa3, 0x80, 0xd0, 0x29, 0x19, 0xdc, 0x2c, 0x65, 0x58, 0xbb, 0x6d, 0x8a,
+        0x5d,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 2] = [0x5eeefca380d02919, 0xdc2c6558bb6d8a5d];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 16] = [
         0x7b, 0x6a, 0xa5, 0xd8, 0x5e, 0x57, 0x29, 0x83, 0xe6, 0xfb, 0x32, 0xa7, 0xcd, 0xeb, 0xc1,
@@ -136,6 +188,14 @@ pub mod p160k1 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 3] = [0x0000000100000000, 0x000000000001b8fa, 0x16dfab9aca16b6b3];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 1] = [0x00];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 1] = [0x0000000000000000];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 1] = [0x07];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 1] = [0x0000000000000007];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 20] = [
         0x3b, 0x4c, 0x38, 0x2c, 0xe3, 0x7a, 0xa1, 0x92, 0xa4, 0x01, 0x9e, 0x76, 0x30, 0x36, 0xf4,
@@ -168,6 +228,20 @@ pub mod p160r1 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 3] = [0x0000000100000000, 0x000000000001f4c8, 0xf927aed3ca752257];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 20] = [
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0x7f, 0xff, 0xff, 0xfc,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 3] = [0x00000000ffffffff, 0xffffffffffffffff, 0xffffffff7ffffffc];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 20] = [
+        0x1c, 0x97, 0xbe, 0xfc, 0x54, 0xbd, 0x7a, 0x8b, 0x65, 0xac, 0xf8, 0x9f, 0x81, 0xd4, 0xd4,
+        0xad, 0xc5, 0x65, 0xfa, 0x45,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 3] = [0x000000001c97befc, 0x54bd7a8b65acf89f, 0x81d4d4adc565fa45];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 20] = [
         0x4a, 0x96, 0xb5, 0x68, 0x8e, 0xf5, 0x73, 0x28, 0x46, 0x64, 0x69, 0x89, 0x68, 0xc3, 0x8b,
@@ -200,6 +274,20 @@ pub mod p160r2 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 3] = [0x0000000100000000, 0x000000000000351e, 0xe786a818f3a1a16b];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 20] = [
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xfe, 0xff, 0xff, 0xac, 0x70,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 3] = [0x00000000ffffffff, 0xffffffffffffffff, 0xfffffffeffffac70];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 20] = [
+        0xb4, 0xe1, 0x34, 0xd3, 0xfb, 0x59, 0xeb, 0x8b, 0xab, 0x57, 0x27, 0x49, 0x04, 0x66, 0x4d,
+        0x5a, 0xf5, 0x03, 0x88, 0xba,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 3] = [0x00000000b4e134d3, 0xfb59eb8bab572749, 0x04664d5af50388ba];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 20] = [
         0x52, 0xdc, 0xb0, 0x34, 0x29, 0x3a, 0x11, 0x7e, 0x1f, 0x4f, 0xf1, 0x1b, 0x30, 0xf7, 0x19,
@@ -232,6 +320,14 @@ pub mod p192k1 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 3] = [0xffffffffffffffff, 0xfffffffe26f2fc17, 0x0f69466a74defd8d];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 1] = [0x00];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 1] = [0x0000000000000000];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 1] = [0x03];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 1] = [0x0000000000000003];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 24] = [
         0xdb, 0x4f, 0xf1, 0x0e, 0xc0, 0x57, 0xe9, 0xae, 0x26, 0xb0, 0x7d, 0x02, 0x80, 0xb7, 0xf4,
@@ -264,6 +360,20 @@ pub mod p192r1 {
     ];
     /// Order of point on the curve (BE 64-bits limbs representation)
     pub const ORDER_LIMBS: [u64; 3] = [0xffffffffffffffff, 0xffffffff99def836, 0x146bc9b1b4d22831];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 24] = [
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfc,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 3] = [0xffffffffffffffff, 0xfffffffffffffffe, 0xfffffffffffffffc];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 24] = [
+        0x64, 0x21, 0x05, 0x19, 0xe5, 0x9c, 0x80, 0xe7, 0x0f, 0xa7, 0xe9, 0xab, 0x72, 0x24, 0x30,
+        0x49, 0xfe, 0xb8, 0xde, 0xec, 0xc1, 0x46, 0xb9, 0xb1,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 3] = [0x64210519e59c80e7, 0x0fa7e9ab72243049, 0xfeb8deecc146b9b1];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 24] = [
         0x18, 0x8d, 0xa8, 0x0e, 0xb0, 0x30, 0x90, 0xf6, 0x7c, 0xbf, 0x20, 0xeb, 0x43, 0xa1, 0x88,
@@ -306,6 +416,14 @@ pub mod p224k1 {
         0x0001dce8d2ec6184,
         0xcaf0a971769fb1f7,
     ];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 1] = [0x00];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 1] = [0x0000000000000000];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 1] = [0x05];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 1] = [0x0000000000000005];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 28] = [
         0xa1, 0x45, 0x5b, 0x33, 0x4d, 0xf0, 0x99, 0xdf, 0x30, 0xfc, 0x28, 0xa1, 0x69, 0xa4, 0x67,
@@ -357,6 +475,30 @@ pub mod p224r1 {
         0xffffffffffffffff,
         0xffff16a2e0b8f03e,
         0x13dd29455c5c2a3d,
+    ];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 28] = [
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 4] = [
+        0x00000000ffffffff,
+        0xffffffffffffffff,
+        0xfffffffeffffffff,
+        0xfffffffffffffffe,
+    ];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 28] = [
+        0xb4, 0x05, 0x0a, 0x85, 0x0c, 0x04, 0xb3, 0xab, 0xf5, 0x41, 0x32, 0x56, 0x50, 0x44, 0xb0,
+        0xb7, 0xd7, 0xbf, 0xd8, 0xba, 0x27, 0x0b, 0x39, 0x43, 0x23, 0x55, 0xff, 0xb4,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 4] = [
+        0x00000000b4050a85,
+        0x0c04b3abf5413256,
+        0x5044b0b7d7bfd8ba,
+        0x270b39432355ffb4,
     ];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 28] = [
@@ -412,6 +554,14 @@ pub mod p256k1 {
         0xbaaedce6af48a03b,
         0xbfd25e8cd0364141,
     ];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 1] = [0x00];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 1] = [0x0000000000000000];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 1] = [0x07];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 1] = [0x0000000000000007];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 32] = [
         0x79, 0xbe, 0x66, 0x7e, 0xf9, 0xdc, 0xbb, 0xac, 0x55, 0xa0, 0x62, 0x95, 0xce, 0x87, 0x0b,
@@ -467,6 +617,32 @@ pub mod p256r1 {
         0xffffffffffffffff,
         0xbce6faada7179e84,
         0xf3b9cac2fc632551,
+    ];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 32] = [
+        0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xfc,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 4] = [
+        0xffffffff00000001,
+        0x0000000000000000,
+        0x00000000ffffffff,
+        0xfffffffffffffffc,
+    ];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 32] = [
+        0x5a, 0xc6, 0x35, 0xd8, 0xaa, 0x3a, 0x93, 0xe7, 0xb3, 0xeb, 0xbd, 0x55, 0x76, 0x98, 0x86,
+        0xbc, 0x65, 0x1d, 0x06, 0xb0, 0xcc, 0x53, 0xb0, 0xf6, 0x3b, 0xce, 0x3c, 0x3e, 0x27, 0xd2,
+        0x60, 0x4b,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 4] = [
+        0x5ac635d8aa3a93e7,
+        0xb3ebbd55769886bc,
+        0x651d06b0cc53b0f6,
+        0x3bce3c3e27d2604b,
     ];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 32] = [
@@ -529,6 +705,38 @@ pub mod p384r1 {
         0xc7634d81f4372ddf,
         0x581a0db248b0a77a,
         0xecec196accc52973,
+    ];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 48] = [
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xfe, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
+        0xff, 0xff, 0xfc,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 6] = [
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xfffffffffffffffe,
+        0xffffffff00000000,
+        0x00000000fffffffc,
+    ];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 48] = [
+        0xb3, 0x31, 0x2f, 0xa7, 0xe2, 0x3e, 0xe7, 0xe4, 0x98, 0x8e, 0x05, 0x6b, 0xe3, 0xf8, 0x2d,
+        0x19, 0x18, 0x1d, 0x9c, 0x6e, 0xfe, 0x81, 0x41, 0x12, 0x03, 0x14, 0x08, 0x8f, 0x50, 0x13,
+        0x87, 0x5a, 0xc6, 0x56, 0x39, 0x8d, 0x8a, 0x2e, 0xd1, 0x9d, 0x2a, 0x85, 0xc8, 0xed, 0xd3,
+        0xec, 0x2a, 0xef,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 6] = [
+        0xb3312fa7e23ee7e4,
+        0x988e056be3f82d19,
+        0x181d9c6efe814112,
+        0x0314088f5013875a,
+        0xc656398d8a2ed19d,
+        0x2a85c8edd3ec2aef,
     ];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 48] = [
@@ -605,6 +813,46 @@ pub mod p521r1 {
         0x7fcc0148f709a5d0,
         0x3bb5c9b8899c47ae,
         0xbb6fb71e91386409,
+    ];
+    /// A factor in the short weirstrass curve (BE bytes representation)
+    pub const A_BYTES: [u8; 66] = [
+        0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xfc,
+    ];
+    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const A_LIMBS: [u64; 9] = [
+        0x00000000000001ff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xffffffffffffffff,
+        0xfffffffffffffffc,
+    ];
+    /// B factor in the short weirstrass curve (BE bytes representation)
+    pub const B_BYTES: [u8; 65] = [
+        0x51, 0x95, 0x3e, 0xb9, 0x61, 0x8e, 0x1c, 0x9a, 0x1f, 0x92, 0x9a, 0x21, 0xa0, 0xb6, 0x85,
+        0x40, 0xee, 0xa2, 0xda, 0x72, 0x5b, 0x99, 0xb3, 0x15, 0xf3, 0xb8, 0xb4, 0x89, 0x91, 0x8e,
+        0xf1, 0x09, 0xe1, 0x56, 0x19, 0x39, 0x51, 0xec, 0x7e, 0x93, 0x7b, 0x16, 0x52, 0xc0, 0xbd,
+        0x3b, 0xb1, 0xbf, 0x07, 0x35, 0x73, 0xdf, 0x88, 0x3d, 0x2c, 0x34, 0xf1, 0xef, 0x45, 0x1f,
+        0xd4, 0x6b, 0x50, 0x3f, 0x00,
+    ];
+    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
+    pub const B_LIMBS: [u64; 9] = [
+        0x0000000000000051,
+        0x953eb9618e1c9a1f,
+        0x929a21a0b68540ee,
+        0xa2da725b99b315f3,
+        0xb8b489918ef109e1,
+        0x56193951ec7e937b,
+        0x1652c0bd3bb1bf07,
+        0x3573df883d2c34f1,
+        0xef451fd46b503f00,
     ];
     /// X-Coordinate of the generator point of the curve (BE bytes representation)
     pub const GX_BYTES: [u8; 65] = [
