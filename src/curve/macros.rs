@@ -49,12 +49,32 @@ macro_rules! scalar_impl {
                 }
             }
 
-            /*
-            pub fn from_bytes(&self, ) -> Option<Self> {
+            pub fn double(&self) -> Self {
+                self * self
             }
+
+            pub fn power(&self, n: u64) -> Self {
+                Scalar(self.0.modpow(&n.into(), $p))
+            }
+
+            pub fn from_bytes(slice: &[u8]) -> Option<Self> {
+                let n = BigUint::from_bytes_be(&slice);
+                if &n >= $p {
+                    None
+                } else {
+                    Some(Scalar(n))
+                }
+            }
+
             pub fn to_bytes(&self) -> [u8; $sz] {
+                let mut out = [0u8; $sz];
+                let bytes: usize = ((self.0.bits() + 7) >> 3) as usize;
+                let start: usize = $sz - bytes;
+
+                let bs = self.0.to_bytes_be();
+                out[start..].copy_from_slice(&bs);
+                out
             }
-            */
         }
 
         // ****************
