@@ -105,9 +105,29 @@ macro_rules! scalar_impl {
             }
         }
 
-        //lref!(FieldElement, Sub, FieldElement, FieldElement, sub);
-        //rref!(FieldElement, Sub, FieldElement, FieldElement, sub);
-        //nref!(FieldElement, Sub, FieldElement, FieldElement, sub);
+        impl<'a> std::ops::Sub<Scalar> for &'a Scalar {
+            type Output = Scalar;
+
+            fn sub(self, other: Scalar) -> Scalar {
+                self - &other
+            }
+        }
+
+        impl<'b> std::ops::Sub<&'b Scalar> for Scalar {
+            type Output = Scalar;
+
+            fn sub(self, other: &'b Scalar) -> Scalar {
+                &self - other
+            }
+        }
+
+        impl std::ops::Sub<Scalar> for Scalar {
+            type Output = Scalar;
+
+            fn sub(self, other: Scalar) -> Scalar {
+                &self - &other
+            }
+        }
 
         // **********************
         // Scalar Multiplication
