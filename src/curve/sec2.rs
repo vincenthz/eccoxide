@@ -3,14 +3,16 @@ macro_rules! prime_curve {
         pub mod $m {
             use super::super::helper::mod_inverse;
             use crate::params::sec2::$m::*;
-            use crate::scalar_impl;
+            use crate::{point_impl, scalar_impl};
             use lazy_static;
             use num_bigint::BigUint;
 
             lazy_static! {
                 static ref P: BigUint = BigUint::from_bytes_be(&P_BYTES);
+                static ref ORDER: BigUint = BigUint::from_bytes_be(&ORDER_BYTES);
             }
             scalar_impl!(&*P, $szfe);
+            point_impl!(&*GX, &*GY);
         }
     };
 }

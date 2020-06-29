@@ -1,7 +1,7 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! scalar_impl {
-    ($p: expr) => {
+    ($p: expr, $sz: expr) => {
         #[derive(Debug, Clone)]
         pub struct Scalar(num_bigint::BigUint);
 
@@ -182,6 +182,144 @@ macro_rules! scalar_impl {
 
             fn mul(self, other: Scalar) -> Scalar {
                 Scalar((&self.0 * &other.0) % $p)
+            }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! point_impl {
+    ($gx: expr, $gy: expr) => {
+        /// Affine Point on the curve
+        #[derive(Clone, Debug)]
+        pub struct PointAffine {
+            x: Scalar,
+            y: Scalar,
+        }
+
+        /// Point on the curve
+        #[derive(Clone, Debug)]
+        pub struct Point {
+            x: Scalar,
+            y: Scalar,
+            z: Scalar,
+        }
+
+        lazy_static! {
+            static ref A: Scalar = Scalar(BigUint::from_bytes_be(&A_BYTES));
+            static ref B: Scalar = Scalar(BigUint::from_bytes_be(&B_BYTES));
+            static ref GX: Scalar = Scalar(BigUint::from_bytes_be(&GX_BYTES));
+            static ref GY: Scalar = Scalar(BigUint::from_bytes_be(&GY_BYTES));
+        }
+
+        impl PointAffine {
+            /// Curve generator point
+            pub fn generator() -> Self {
+                PointAffine {
+                    x: GX.clone(),
+                    y: GY.clone(),
+                }
+            }
+
+            // check if y^2 = x^3 + a*x + b (mod p) holds
+            pub fn from_coordinate(x: &Scalar, y: &Scalar) -> Option<Self> {
+                let y2 = y * y;
+                let x3 = x * x * x;
+                let ax = &*A * x;
+
+                if y2 == x3 + ax + &*B {
+                    Some(PointAffine {
+                        x: x.clone(),
+                        y: y.clone(),
+                    })
+                } else {
+                    None
+                }
+            }
+
+            pub fn to_coordinate(&self) -> (&Scalar, &Scalar) {
+                (&self.x, &self.y)
+            }
+        }
+
+        impl Point {
+            /// Curve generator point
+            pub fn generator() -> Self {
+                Point {
+                    x: GX.clone(),
+                    y: GY.clone(),
+                    z: Scalar::one(),
+                }
+            }
+
+            /// Point at infinity
+            pub fn infinity() -> Self {
+                Point {
+                    x: Scalar::zero(),
+                    y: Scalar::one(),
+                    z: Scalar::zero(),
+                }
+            }
+
+            pub fn from_affine(p: &PointAffine) -> Self {
+                Point {
+                    x: p.x.clone(),
+                    y: p.y.clone(),
+                    z: Scalar::one(),
+                }
+            }
+
+            pub fn to_affine(&self) -> Option<PointAffine> {
+                match self.z.inverse() {
+                    None => None,
+                    Some(inv) => Some(PointAffine {
+                        x: &self.x * &inv,
+                        y: &self.y * &inv,
+                    }),
+                }
+            }
+        }
+
+        impl From<PointAffine> for Point {
+            fn from(p: PointAffine) -> Self {
+                Point {
+                    x: p.x,
+                    y: p.y,
+                    z: Scalar::one(),
+                }
+            }
+        }
+
+        impl From<&PointAffine> for Point {
+            fn from(p: &PointAffine) -> Self {
+                Point::from_affine(p)
+            }
+        }
+
+        // *************
+        // Point Scaling
+        // *************
+
+        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Point {
+            type Output = Point;
+
+            fn mul(self, _other: &'b Scalar) -> Point {
+                //
+                todo!()
+            }
+        }
+
+        // **************
+        // Point Addition
+        // **************
+
+        impl<'a, 'b> std::ops::Add<&'b Point> for &'a Point {
+            type Output = Point;
+
+            fn add(self, _other: &'b Point) -> Point {
+                //
+                todo!()
             }
         }
     };
