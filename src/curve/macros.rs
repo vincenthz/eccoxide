@@ -5,6 +5,7 @@
 //!
 //! * [Complete addition formulas for prime order elliptic curves](https://eprint.iacr.org/2015/1060.pdf) (1)
 //! * Handbook of Elliptic and Hyperelliptic Curve Cryptography - Chapter 13
+//! * [NIST.SP.800-186](https://csrc.nist.gov/publications/detail/sp/800-186/draft) : Appendix D & E
 
 #[doc(hidden)]
 #[macro_export]
@@ -90,6 +91,7 @@ macro_rules! scalar_impl {
                 let start: usize = $sz - bytes;
 
                 let bs = self.0.to_bytes_be();
+                // skip some bytes at the beginning if necessary, act as a 0-padt d
                 out[start..].copy_from_slice(&bs);
                 out
             }
@@ -426,6 +428,16 @@ macro_rules! point_impl {
                     z: z3,
                 }
             }
+
+            /*
+            pub fn compress(&self) -> (Scalar, bool) {
+                todo!()
+            }
+
+            pub fn decompress(x: Scalar, bit: bool) -> Option<Point> {
+                todo!()
+            }
+            */
         }
 
         impl From<PointAffine> for Point {
@@ -456,7 +468,7 @@ macro_rules! point_impl {
                 let mut n = self.clone();
                 let mut q = Point::infinity();
 
-                for (ith, digit) in x.iter().rev().enumerate() {
+                for digit in x.iter().rev() {
                     for i in 0..32 {
                         if digit & (1 << i) != 0 {
                             q = q + &n;
@@ -465,6 +477,14 @@ macro_rules! point_impl {
                     }
                 }
                 q
+            }
+        }
+
+        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a Scalar {
+            type Output = Point;
+
+            fn mul(self, other: &'b Point) -> Point {
+                other * self
             }
         }
 
