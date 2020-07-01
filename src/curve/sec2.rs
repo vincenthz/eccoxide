@@ -55,12 +55,10 @@ mod tests {
             let y = Scalar::from_bytes(k2_y).unwrap();
 
             let p_expected = PointAffine::from_coordinate(&x, &y).unwrap();
-            let p_got = &Point::generator() + &Point::generator();
+            let p_got = &Point::generator().double();
             let p_got_affine = p_got.to_affine().unwrap();
-            let p_got_affine = PointAffine::generator();
 
             assert_eq!(p_expected, p_got_affine);
-            //
         }
     }
 
@@ -116,8 +114,17 @@ mod tests {
             let p = PointAffine::generator();
             assert_eq!(p, points[0]);
 
-            let p = Point::generator() + Point::generator();
-            assert_eq!(p.to_affine().unwrap(), points[1]);
+            let p2 = p.double();
+            assert_eq!(p2, points[1]);
+
+            let p3 = &p + &p2;
+            assert_eq!(p3, points[2]);
+
+            let p3x = Point::from_affine(&p) + Point::from_affine(&p2);
+            assert_eq!(p3x, Point::from_affine(&points[2]));
+
+            //let p = Point::generator() + Point::generator();
+            //assert_eq!(p.to_affine().unwrap(), points[1]);
         }
     }
 }

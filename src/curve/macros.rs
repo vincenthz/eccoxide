@@ -1,3 +1,11 @@
+//!
+//! macros to generate various types (Scalar, PointAffine, Point) given different curve properties.
+//!
+//! Reference reading:
+//!
+//! * [Complete addition formulas for prime order elliptic curves](https://eprint.iacr.org/2015/1060.pdf) (1)
+//! * Handbook of Elliptic and Hyperelliptic Curve Cryptography - Chapter 13
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! scalar_impl {
@@ -36,6 +44,11 @@ macro_rules! scalar_impl {
                 Scalar(BigUint::one())
             }
 
+            pub fn from_u64(n: u64) -> Self {
+                use num_traits::cast::FromPrimitive;
+                Scalar(BigUint::from_u64(n).unwrap())
+            }
+
             /// Self add another Scalar
             pub fn add_assign(&mut self, other: &Self) {
                 self.0 += &other.0;
@@ -55,7 +68,7 @@ macro_rules! scalar_impl {
             }
 
             pub fn double(&self) -> Self {
-                self * self
+                self + self
             }
 
             pub fn power(&self, n: u64) -> Self {
@@ -272,6 +285,38 @@ macro_rules! point_impl {
             pub fn to_coordinate(&self) -> (&Scalar, &Scalar) {
                 (&self.x, &self.y)
             }
+
+            pub fn double(&self) -> PointAffine {
+                let PointAffine {
+                    x: ref x1,
+                    y: ref y1,
+                } = self;
+                let l = (Scalar::from_u64(3) * (x1 * x1) + &*A)
+                    * (Scalar::from_u64(2) * y1).inverse().unwrap();
+                let l2 = &l * &l;
+                let x3 = l2 - Scalar::from_u64(2) * x1;
+                let y3 = l * (x1 - &x3) - y1;
+                PointAffine { x: x3, y: y3 }
+            }
+        }
+
+        impl<'a, 'b> std::ops::Add<&'b PointAffine> for &'a PointAffine {
+            type Output = PointAffine;
+            fn add(self, other: &'b PointAffine) -> PointAffine {
+                let PointAffine {
+                    x: ref x1,
+                    y: ref y1,
+                } = &self;
+                let PointAffine {
+                    x: ref x2,
+                    y: ref y2,
+                } = &other;
+                let l = (y1 - y2) * (x1 - x2).inverse().expect("inverse exist");
+                let l2 = &l * &l;
+                let x3 = l2 - x1 - x2;
+                let y3 = &l * (x1 - &x3) - y1;
+                PointAffine { x: x3, y: y3 }
+            }
         }
 
         impl Point {
@@ -310,6 +355,77 @@ macro_rules! point_impl {
                     }),
                 }
             }
+
+            pub fn normalize(&mut self) {
+                let zinv = self.z.inverse().unwrap();
+
+                self.x = &self.x * &zinv;
+                self.y = &self.y * &zinv;
+                self.z = Scalar::one()
+            }
+
+            pub fn double(&self) -> Self {
+                let Point {
+                    x: ref x,
+                    y: ref y,
+                    z: ref z,
+                } = &self;
+
+                // Algorithm 3 from (1) - doubling formula for arbitrary a
+                // ```magma
+                // DBL := function (X ,Y ,Z ,a , b3 )
+                //    t0 := X ^2; t1 := Y ^2; t2 := Z ^2;
+                //    t3 := X * Y ; t3 := t3 + t3 ; Z3 := X * Z ;
+                //    Z3 := Z3 + Z3 ; X3 := a * Z3 ; Y3 := b3 * t2 ;
+                //    Y3 := X3 + Y3 ; X3 := t1 - Y3 ; Y3 := t1 + Y3 ;
+                //    Y3 := X3 * Y3 ; X3 := t3 * X3 ; Z3 := b3 * Z3 ;
+                //    t2 := a * t2 ; t3 := t0 - t2 ; t3 := a * t3 ;
+                //    t3 := t3 + Z3 ; Z3 := t0 + t0 ; t0 := Z3 + t0 ;
+                //    t0 := t0 + t2 ; t0 := t0 * t3 ; Y3 := Y3 + t0 ;
+                //    t2 := Y * Z ; t2 := t2 + t2 ; t0 := t2 * t3 ;
+                //    X3 := X3 - t0 ; Z3 := t2 * t1 ; Z3 := Z3 + Z3 ;
+                //    Z3 := Z3 + Z3 ;
+                //    return X3 , Y3 , Z3 ;
+                // end function ;
+                // ```
+                let t0 = x * x;
+                let t1 = y * y;
+                let t2 = z * z;
+                let t3 = x * y;
+                let t3 = t3.double();
+                let z3 = x * z;
+                let z3 = &z3 + &z3;
+                let x3 = &*A * &z3;
+                let y3 = &*B3 * &t2;
+                let y3 = &x3 + &y3;
+                let x3 = &t1 - &y3;
+                let y3 = &t1 + &y3;
+                let y3 = &x3 * &y3;
+                let x3 = &t3 * &x3;
+                let z3 = &*B3 * &z3;
+                let t2 = &*A * &t2;
+                let t3 = &t0 - &t2;
+                let t3 = &*A * &t3;
+                let t3 = &t3 + &z3;
+                let z3 = &t0 + &t0;
+                let t0 = &z3 + &t0;
+                let t0 = &t0 + &t2;
+                let t0 = &t0 * &t3;
+                let y3 = &y3 + &t0;
+                let t2 = y * z;
+                let t2 = &t2 + &t2;
+                let t0 = &t2 * &t3;
+                let x3 = &x3 - &t0;
+                let z3 = &t2 * &t1;
+                let z3 = &z3 + &z3;
+                let z3 = &z3 + &z3;
+
+                Point {
+                    x: x3,
+                    y: y3,
+                    z: z3,
+                }
+            }
         }
 
         impl From<PointAffine> for Point {
@@ -336,26 +452,19 @@ macro_rules! point_impl {
             type Output = Point;
 
             fn mul(self, other: &'b Scalar) -> Point {
-                /*
-                let mut p1 = self.clone();
-                let mut p2 = self.double();
-                let n = other.clone();
-                let b = BigUInt::from(1);
-                let mut bits = n.bits();
-                while bits {
-                    if n & b == b {
-                        p1 = &p1 + &p1;
-                        p2 = &p1 + p2;
-                    } else {
-                        p1 = p1 + &p2;
-                        p2 = &p2 + &p2;
+                let x: Vec<u32> = other.0.to_u32_digits();
+                let mut n = self.clone();
+                let mut q = Point::infinity();
+
+                for (ith, digit) in x.iter().rev().enumerate() {
+                    for i in 0..32 {
+                        if digit & (1 << i) != 0 {
+                            q = q + &n;
+                        }
+                        n = n.double()
                     }
-                    n >>= 1;
-                    bits -= 1;
                 }
-                p1
-                */
-                todo!()
+                q
             }
         }
 
@@ -378,24 +487,27 @@ macro_rules! point_impl {
                     z: ref z2,
                 } = &other;
 
-                // https://eprint.iacr.org/2015/1060.pdf
-                // Algorithm 1. Complete, projective point addition for arbitrary
-                // prime order short weirstrass curves E/Fq : y^2 = x^3 + ax + b
+                // Algorithm 1 from (1) - addition formula for arbitrary a
                 //
-                //  1. t0 ← X1 · X2     2. t1 ← Y1 · Y2     3. t2 ← Z1 · Z2
-                //  4. t3 ← X1 + Y1     5. t4 ← X2 + Y2     6. t3 ← t3 · t4
-                //  7. t4 ← t0 + t1     8. t3 ← t3 − t4     9. t4 ← X1 + Z1
-                // 10. t5 ← X2 + Z2    11. t4 ← t4 · t5    12. t5 ← t0 + t2
-                // 13. t4 ← t4 − t5    14. t5 ← Y1 + Z1    15. X3 ← Y2 + Z2
-                // 16. t5 ← t5 · X3    17. X3 ← t1 + t2    18. t5 ← t5 − X3
-                // 19. Z3 ← a · t4     20. X3 ← b3 · t2    21. Z3 ← X3 + Z3
-                // 22. X3 ← t1 − Z3    23. Z3 ← t1 + Z3    24. Y3 ← X3 · Z3
-                // 25. t1 ← t0 + t0    26. t1 ← t1 + t0    27. t2 ← a · t2
-                // 28. t4 ← b3 · t4    29. t1 ← t1 + t2    30. t2 ← t0 − t2
-                // 31. t2 ← a · t2     32. t4 ← t4 + t2    33. t0 ← t1 · t4
-                // 34. Y3 ← Y3 + t0    35. t0 ← t5 · t4    36. X3 ← t3 · X3
-                // 37. X3 ← X3 − t0    38. t0 ← t3 · t1    39. Z3 ← t5 · Z3
-                // 40. Z3 ← Z3 + t0
+                // ```magma
+                // ADD := function ( X1 , Y1 , Z1 , X2 , Y2 , Z2 ,a , b3 )
+                //     t0 := X1 * X2 ; t1 := Y1 * Y2 ; t2 := Z1 * Z2 ;
+                //     t3 := X1 + Y1 ; t4 := X2 + Y2 ; t3 := t3 * t4 ;
+                //     t4 := t0 + t1 ; t3 := t3 - t4 ; t4 := X1 + Z1 ;
+                //     t5 := X2 + Z2 ; t4 := t4 * t5 ; t5 := t0 + t2 ;
+                //     t4 := t4 - t5 ; t5 := Y1 + Z1 ; X3 := Y2 + Z2 ;
+                //     t5 := t5 * X3 ; X3 := t1 + t2 ; t5 := t5 - X3 ;
+                //     Z3 := a * t4 ; X3 := b3 * t2 ; Z3 := X3 + Z3 ;
+                //     X3 := t1 - Z3 ; Z3 := t1 + Z3 ; Y3 := X3 * Z3 ;
+                //     t1 := t0 + t0 ; t1 := t1 + t0 ; t2 := a * t2 ;
+                //     t4 := b3 * t4 ; t1 := t1 + t2 ; t2 := t0 - t2 ;
+                //     t2 := a * t2 ; t4 := t4 + t2 ; t0 := t1 * t4 ;
+                //     Y3 := Y3 + t0 ; t0 := t5 * t4 ; X3 := t3 * X3 ;
+                //     X3 := X3 - t0 ; t0 := t3 * t1 ; Z3 := t5 * Z3 ;
+                //     Z3 := Z3 + t0 ;
+                //     return X3 , Y3 , Z3 ;
+                // end function ;
+                // ```
 
                 let t0 = x1 * x2;
                 let t1 = y1 * y2;
@@ -506,11 +618,32 @@ macro_rules! test_point_arithmetic {
             assert_eq!(Point::generator() + Point::infinity(), Point::generator())
         }
 
+        #[test]
         fn point_affine_projective() {
             assert_eq!(
                 Point::from(Point::generator().to_affine().unwrap()),
                 Point::generator()
             )
+        }
+
+        #[test]
+        fn point_mul() {
+            let p1 = Point::generator();
+
+            let p2 = p1.double();
+            let p4 = p2.double();
+            let p6 = &p2 + &p4;
+            let p8 = p4.double();
+            let p2got = &p1 * &Scalar::from_u64(2);
+            let p4got = &p1 * &Scalar::from_u64(4);
+
+            let p6got = &p1 * &Scalar::from_u64(6);
+            let p8got = &p1 * &Scalar::from_u64(8);
+
+            assert_eq!(p2, p2got);
+            assert_eq!(p4, p4got);
+            assert_eq!(p6, p6got);
+            assert_eq!(p8, p8got);
         }
     };
 }
