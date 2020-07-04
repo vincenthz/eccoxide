@@ -1,17 +1,25 @@
 macro_rules! prime_curve {
     ($m: ident, $szfe: expr) => {
         pub mod $m {
-            use super::super::helper::mod_inverse;
+            use super::super::helper::{mod_inverse, tonelli_shanks};
             use crate::params::sec2::$m::*;
             use crate::{point_impl, scalar_impl};
             use lazy_static;
             use num_bigint::BigUint;
+            use num_traits::{cast::ToPrimitive, identities::One};
 
             lazy_static! {
                 static ref P: BigUint = BigUint::from_bytes_be(&P_BYTES);
+                static ref PMOD4: u32 = {
+                    let pmodded = &*P & BigUint::from(0b11u32);
+                    pmodded.to_u64().unwrap() as u32
+                };
+
+                // "constant" (P + 1) / 4
+                static ref PP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
                 static ref ORDER: BigUint = BigUint::from_bytes_be(&ORDER_BYTES);
             }
-            scalar_impl!(&*P, $szfe);
+            scalar_impl!(&*P, $szfe, (P % BigUint::from_u64(4) == 3));
             point_impl!(&*GX, &*GY);
 
             #[cfg(test)]
@@ -22,25 +30,29 @@ macro_rules! prime_curve {
                 test_scalar_arithmetic!();
                 test_point_arithmetic!();
             }
+            #[cfg(test)]
+            mod bench {
+                // placeholder
+            }
         }
     };
 }
 
-prime_curve!(p112r1, 14);
-prime_curve!(p112r2, 14);
-prime_curve!(p128r1, 16);
-prime_curve!(p128r2, 16);
-prime_curve!(p160k1, 20);
-prime_curve!(p160r1, 20);
-prime_curve!(p160r2, 20);
-prime_curve!(p192k1, 24);
-prime_curve!(p192r1, 24);
-prime_curve!(p224k1, 28);
-prime_curve!(p224r1, 28);
-prime_curve!(p256k1, 32);
-prime_curve!(p256r1, 32);
-prime_curve!(p384r1, 48);
-prime_curve!(p521r1, 66);
+prime_curve!(p112r1, 112);
+prime_curve!(p112r2, 112);
+prime_curve!(p128r1, 128);
+prime_curve!(p128r2, 128);
+prime_curve!(p160k1, 160);
+prime_curve!(p160r1, 160);
+prime_curve!(p160r2, 160);
+prime_curve!(p192k1, 192);
+prime_curve!(p192r1, 192);
+prime_curve!(p224k1, 224);
+prime_curve!(p224r1, 224);
+prime_curve!(p256k1, 256);
+prime_curve!(p256r1, 256);
+prime_curve!(p384r1, 384);
+prime_curve!(p521r1, 521);
 
 #[cfg(test)]
 mod tests {

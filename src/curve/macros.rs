@@ -10,7 +10,7 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! scalar_impl {
-    ($p: expr, $sz: expr) => {
+    ($p: expr, $sz: expr, $pmod4: expr) => {
         #[derive(Clone)]
         pub struct Scalar(num_bigint::BigUint);
 
@@ -33,6 +33,9 @@ macro_rules! scalar_impl {
         impl Eq for Scalar {}
 
         impl Scalar {
+            const SIZE_BITS: usize = $sz;
+            const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
+
             /// the zero constant (additive identity)
             pub fn zero() -> Self {
                 use num_traits::identities::Zero;
@@ -48,6 +51,18 @@ macro_rules! scalar_impl {
             pub fn from_u64(n: u64) -> Self {
                 use num_traits::cast::FromPrimitive;
                 Scalar(BigUint::from_u64(n).unwrap())
+            }
+
+            pub fn is_zero(&self) -> bool {
+                use num_traits::identities::Zero;
+                self.0.is_zero()
+            }
+
+            // there's no really negative number in Fp, but if high bit is set ...
+            pub fn high_bit_set(&self) -> bool {
+                //use num_traits::identities::Zero;
+                use num_traits::cast::FromPrimitive;
+                self.0 > ($p / BigUint::from_u64(2).unwrap())
             }
 
             /// Self add another Scalar
@@ -68,15 +83,30 @@ macro_rules! scalar_impl {
                 }
             }
 
+            /// Double the field element, this is equivalent to 2*self or self+self, but can be implemented faster
             pub fn double(&self) -> Self {
                 self + self
             }
 
+            /// Compute the field element raised to a power of n, modulus p
             pub fn power(&self, n: u64) -> Self {
                 Scalar(self.0.modpow(&n.into(), $p))
             }
 
+            /// Compute the square root 'x' of the field element such that x*x = self
+            pub fn sqrt(&self) -> Option<Self> {
+                if *PMOD4 == 3 {
+                    // P mod 4 == 3, then we can compute sqrt with one exponentiation with (P+1)/4
+                    Some(Scalar(self.0.modpow(&*PP1D4, $p)))
+                } else {
+                    tonelli_shanks(&self.0, $p).map(|n| Scalar(n))
+                }
+            }
+
             pub fn from_bytes(slice: &[u8]) -> Option<Self> {
+                if slice.len() != Self::SIZE_BYTES {
+                    return None;
+                }
                 let n = BigUint::from_bytes_be(&slice);
                 if &n >= $p {
                     None
@@ -85,10 +115,10 @@ macro_rules! scalar_impl {
                 }
             }
 
-            pub fn to_bytes(&self) -> [u8; $sz] {
-                let mut out = [0u8; $sz];
+            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+                let mut out = [0u8; Self::SIZE_BYTES];
                 let bytes: usize = ((self.0.bits() + 7) >> 3) as usize;
-                let start: usize = $sz - bytes;
+                let start: usize = Self::SIZE_BYTES - bytes;
 
                 let bs = self.0.to_bytes_be();
                 // skip some bytes at the beginning if necessary, act as a 0-padt d
@@ -300,6 +330,22 @@ macro_rules! point_impl {
                 let y3 = l * (x1 - &x3) - y1;
                 PointAffine { x: x3, y: y3 }
             }
+
+            pub fn compress(&self) -> (&Scalar, bool) {
+                (&self.x, self.y.high_bit_set())
+            }
+
+            pub fn decompress(x: &Scalar, bit: bool) -> Option<Self> {
+                // Y^2 = X^3 - 3*X + b
+                let yy = x.power(3) + (&*A * x) + &*B;
+                let y = yy.sqrt()?;
+                let x = x.clone();
+                if bit == y.high_bit_set() {
+                    Some(PointAffine { x, y })
+                } else {
+                    Some(PointAffine { x, y: -y })
+                }
+            }
         }
 
         impl<'a, 'b> std::ops::Add<&'b PointAffine> for &'a PointAffine {
@@ -429,15 +475,21 @@ macro_rules! point_impl {
                 }
             }
 
-            /*
-            pub fn compress(&self) -> (Scalar, bool) {
-                todo!()
-            }
+            /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
+            fn scalar_mul_daa_limbs32(&self, n: &[u32]) -> Self {
+                let mut a = self.clone();
+                let mut q = Point::infinity();
 
-            pub fn decompress(x: Scalar, bit: bool) -> Option<Point> {
-                todo!()
+                for digit in n.iter().rev() {
+                    for i in 0..32 {
+                        if digit & (1 << i) != 0 {
+                            q = &q + &a;
+                        }
+                        a = a.double()
+                    }
+                }
+                q
             }
-            */
         }
 
         impl From<PointAffine> for Point {
@@ -460,23 +512,15 @@ macro_rules! point_impl {
         // Point Scaling
         // *************
 
+        // note that scalar multiplication is really defined for arbitrary scalar
+        // (of any size), not just the *field element* scalar defined in F(p).
+        // this semantic abuse makes it easier to use.
+
         impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Point {
             type Output = Point;
 
             fn mul(self, other: &'b Scalar) -> Point {
-                let x: Vec<u32> = other.0.to_u32_digits();
-                let mut n = self.clone();
-                let mut q = Point::infinity();
-
-                for digit in x.iter().rev() {
-                    for i in 0..32 {
-                        if digit & (1 << i) != 0 {
-                            q = q + &n;
-                        }
-                        n = n.double()
-                    }
-                }
-                q
+                self.scalar_mul_daa_limbs32(&other.0.to_u32_digits())
             }
         }
 
@@ -614,6 +658,12 @@ macro_rules! test_scalar_arithmetic {
         }
 
         #[test]
+        fn scalar_high() {
+            assert!(!(Scalar::one().high_bit_set()), "1");
+            assert!((-Scalar::one()).high_bit_set(), "-1");
+        }
+
+        #[test]
         fn scalar_inverse() {
             assert_eq!(
                 Scalar::one() * Scalar::one().inverse().unwrap(),
@@ -625,6 +675,12 @@ macro_rules! test_scalar_arithmetic {
                 assert_eq!(&v * v.inverse().unwrap(), Scalar::one());
                 v = v + Scalar::one();
             }
+        }
+
+        #[test]
+        fn scalar_sqrt() {
+            let y = Scalar::one().sqrt().unwrap();
+            assert_eq!(&y * &y, Scalar::one());
         }
     };
 }
@@ -664,6 +720,13 @@ macro_rules! test_point_arithmetic {
             assert_eq!(p4, p4got);
             assert_eq!(p6, p6got);
             assert_eq!(p8, p8got);
+        }
+
+        #[test]
+        fn point_serialization() {
+            let p = PointAffine::generator();
+            let (x, ysign) = p.compress();
+            assert_eq!(p, PointAffine::decompress(x, ysign).unwrap());
         }
     };
 }
