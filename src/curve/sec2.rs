@@ -115,8 +115,8 @@ mod tests {
 
             let mut points = Vec::new();
             for k in &kats {
-                let x = Scalar::from_bytes(k.0).unwrap();
-                let y = Scalar::from_bytes(k.1).unwrap();
+                let x = Scalar::from_slice(k.0).unwrap();
+                let y = Scalar::from_slice(k.1).unwrap();
 
                 let p_expected = PointAffine::from_coordinate(&x, &y)
                     .expect("cannot convert from affine: test vector value failed");

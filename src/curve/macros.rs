@@ -103,11 +103,12 @@ macro_rules! scalar_impl {
                 }
             }
 
-            pub fn from_bytes(slice: &[u8]) -> Option<Self> {
-                if slice.len() != Self::SIZE_BYTES {
-                    return None;
-                }
-                let n = BigUint::from_bytes_be(&slice);
+            /// Initialize a new scalar from its bytes representation
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                let n = BigUint::from_bytes_be(bytes);
                 if &n >= $p {
                     None
                 } else {
@@ -115,15 +116,59 @@ macro_rules! scalar_impl {
                 }
             }
 
+            /// Similar to from_bytes but take values from a slice.
+            ///
+            /// If the slice is not of the right size, then None is returned
+            pub fn from_slice(slice: &[u8]) -> Option<Self> {
+                if slice.len() != Self::SIZE_BYTES {
+                    return None;
+                }
+                let n = BigUint::from_bytes_be(slice);
+                if &n >= $p {
+                    None
+                } else {
+                    Some(Scalar(n))
+                }
+            }
+
+            /// Output the scalar bytes representation
             pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out = [0u8; Self::SIZE_BYTES];
                 let bytes: usize = ((self.0.bits() + 7) >> 3) as usize;
                 let start: usize = Self::SIZE_BYTES - bytes;
 
                 let bs = self.0.to_bytes_be();
-                // skip some bytes at the beginning if necessary, act as a 0-padt d
+                // skip some bytes at the beginning if necessary, act as a 0-pad
                 out[start..].copy_from_slice(&bs);
                 out
+            }
+
+            /// Output the scalar bytes representation to the mutable slice
+            ///
+            /// the slice needs to be of the correct size
+            pub fn to_slice(&self, slice: &mut [u8]) {
+                assert_eq!(slice.len(), Self::SIZE_BYTES);
+
+                // TODO don't create temporary buffer
+                let bytes = self.to_bytes();
+                slice.copy_from_slice(&bytes[..]);
+            }
+
+            /// Initialize from a wide buffer of random data.
+            ///
+            /// The difference with 'from_bytes' or 'from_slice' is that it takes
+            /// a random initialized buffer and used modulo operation to initialize
+            /// as a field element, but due to inherent bias in modulo operation
+            /// we take a double sized buffer.
+            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                Scalar(BigUint::from_bytes_be(&random) % $p)
+            }
+
+            /// Similar to 'init_from_wide_bytes' but initialize the scalar to the curve group order.
+            ///
+            /// This is useful to create a random scalar that is between 0 and GROUP ORDER.
+            pub fn init_group_order_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                Scalar(BigUint::from_bytes_be(&random) % &*ORDER)
             }
         }
 
