@@ -323,7 +323,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl Eq for &Point {}
+        impl Eq for Point {}
 
         lazy_static! {
             static ref A: Scalar = Scalar(BigUint::from_bytes_be(&A_BYTES));
