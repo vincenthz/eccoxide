@@ -457,134 +457,9 @@ macro_rules! point_impl {
                 self.z = Scalar::one()
             }
 
-            pub fn double(&self) -> Self {
-                let Point {
-                    x: ref x,
-                    y: ref y,
-                    z: ref z,
-                } = &self;
+            fn add_different<'b>(&self, other: &'b Point) -> Point {
+                assert!(self != other);
 
-                // Algorithm 3 from (1) - doubling formula for arbitrary a
-                // ```magma
-                // DBL := function (X ,Y ,Z ,a , b3 )
-                //    t0 := X ^2; t1 := Y ^2; t2 := Z ^2;
-                //    t3 := X * Y ; t3 := t3 + t3 ; Z3 := X * Z ;
-                //    Z3 := Z3 + Z3 ; X3 := a * Z3 ; Y3 := b3 * t2 ;
-                //    Y3 := X3 + Y3 ; X3 := t1 - Y3 ; Y3 := t1 + Y3 ;
-                //    Y3 := X3 * Y3 ; X3 := t3 * X3 ; Z3 := b3 * Z3 ;
-                //    t2 := a * t2 ; t3 := t0 - t2 ; t3 := a * t3 ;
-                //    t3 := t3 + Z3 ; Z3 := t0 + t0 ; t0 := Z3 + t0 ;
-                //    t0 := t0 + t2 ; t0 := t0 * t3 ; Y3 := Y3 + t0 ;
-                //    t2 := Y * Z ; t2 := t2 + t2 ; t0 := t2 * t3 ;
-                //    X3 := X3 - t0 ; Z3 := t2 * t1 ; Z3 := Z3 + Z3 ;
-                //    Z3 := Z3 + Z3 ;
-                //    return X3 , Y3 , Z3 ;
-                // end function ;
-                // ```
-                let t0 = x * x;
-                let t1 = y * y;
-                let t2 = z * z;
-                let t3 = x * y;
-                let t3 = t3.double();
-                let z3 = x * z;
-                let z3 = &z3 + &z3;
-                let x3 = &*A * &z3;
-                let y3 = &*B3 * &t2;
-                let y3 = &x3 + &y3;
-                let x3 = &t1 - &y3;
-                let y3 = &t1 + &y3;
-                let y3 = &x3 * &y3;
-                let x3 = &t3 * &x3;
-                let z3 = &*B3 * &z3;
-                let t2 = &*A * &t2;
-                let t3 = &t0 - &t2;
-                let t3 = &*A * &t3;
-                let t3 = &t3 + &z3;
-                let z3 = &t0 + &t0;
-                let t0 = &z3 + &t0;
-                let t0 = &t0 + &t2;
-                let t0 = &t0 * &t3;
-                let y3 = &y3 + &t0;
-                let t2 = y * z;
-                let t2 = &t2 + &t2;
-                let t0 = &t2 * &t3;
-                let x3 = &x3 - &t0;
-                let z3 = &t2 * &t1;
-                let z3 = &z3 + &z3;
-                let z3 = &z3 + &z3;
-
-                Point {
-                    x: x3,
-                    y: y3,
-                    z: z3,
-                }
-            }
-
-            /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
-            fn scalar_mul_daa_limbs32(&self, n: &[u32]) -> Self {
-                let mut a = self.clone();
-                let mut q = Point::infinity();
-
-                for digit in n.iter().rev() {
-                    for i in 0..32 {
-                        if digit & (1 << i) != 0 {
-                            q = &q + &a;
-                        }
-                        a = a.double()
-                    }
-                }
-                q
-            }
-        }
-
-        impl From<PointAffine> for Point {
-            fn from(p: PointAffine) -> Self {
-                Point {
-                    x: p.x,
-                    y: p.y,
-                    z: Scalar::one(),
-                }
-            }
-        }
-
-        impl From<&PointAffine> for Point {
-            fn from(p: &PointAffine) -> Self {
-                Point::from_affine(p)
-            }
-        }
-
-        // *************
-        // Point Scaling
-        // *************
-
-        // note that scalar multiplication is really defined for arbitrary scalar
-        // (of any size), not just the *field element* scalar defined in F(p).
-        // this semantic abuse makes it easier to use.
-
-        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Point {
-            type Output = Point;
-
-            fn mul(self, other: &'b Scalar) -> Point {
-                self.scalar_mul_daa_limbs32(&other.0.to_u32_digits())
-            }
-        }
-
-        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a Scalar {
-            type Output = Point;
-
-            fn mul(self, other: &'b Point) -> Point {
-                other * self
-            }
-        }
-
-        // **************
-        // Point Addition
-        // **************
-
-        impl<'a, 'b> std::ops::Add<&'b Point> for &'a Point {
-            type Output = Point;
-
-            fn add(self, other: &'b Point) -> Point {
                 let Point {
                     x: ref x1,
                     y: ref y1,
@@ -664,6 +539,137 @@ macro_rules! point_impl {
                     y: y3,
                     z: z3,
                 }
+            }
+
+            pub fn double(&self) -> Self {
+                let Point {
+                    x: ref x,
+                    y: ref y,
+                    z: ref z,
+                } = &self;
+
+                // Algorithm 3 from (1) - doubling formula for arbitrary a
+                // ```magma
+                // DBL := function (X ,Y ,Z ,a , b3 )
+                //    t0 := X ^2; t1 := Y ^2; t2 := Z ^2;
+                //    t3 := X * Y ; t3 := t3 + t3 ; Z3 := X * Z ;
+                //    Z3 := Z3 + Z3 ; X3 := a * Z3 ; Y3 := b3 * t2 ;
+                //    Y3 := X3 + Y3 ; X3 := t1 - Y3 ; Y3 := t1 + Y3 ;
+                //    Y3 := X3 * Y3 ; X3 := t3 * X3 ; Z3 := b3 * Z3 ;
+                //    t2 := a * t2 ; t3 := t0 - t2 ; t3 := a * t3 ;
+                //    t3 := t3 + Z3 ; Z3 := t0 + t0 ; t0 := Z3 + t0 ;
+                //    t0 := t0 + t2 ; t0 := t0 * t3 ; Y3 := Y3 + t0 ;
+                //    t2 := Y * Z ; t2 := t2 + t2 ; t0 := t2 * t3 ;
+                //    X3 := X3 - t0 ; Z3 := t2 * t1 ; Z3 := Z3 + Z3 ;
+                //    Z3 := Z3 + Z3 ;
+                //    return X3 , Y3 , Z3 ;
+                // end function ;
+                // ```
+                let t0 = x * x;
+                let t1 = y * y;
+                let t2 = z * z;
+                let t3 = x * y;
+                let t3 = t3.double();
+                let z3 = x * z;
+                let z3 = &z3 + &z3;
+                let x3 = &*A * &z3;
+                let y3 = &*B3 * &t2;
+                let y3 = &x3 + &y3;
+                let x3 = &t1 - &y3;
+                let y3 = &t1 + &y3;
+                let y3 = &x3 * &y3;
+                let x3 = &t3 * &x3;
+                let z3 = &*B3 * &z3;
+                let t2 = &*A * &t2;
+                let t3 = &t0 - &t2;
+                let t3 = &*A * &t3;
+                let t3 = &t3 + &z3;
+                let z3 = &t0 + &t0;
+                let t0 = &z3 + &t0;
+                let t0 = &t0 + &t2;
+                let t0 = &t0 * &t3;
+                let y3 = &y3 + &t0;
+                let t2 = y * z;
+                let t2 = &t2 + &t2;
+                let t0 = &t2 * &t3;
+                let x3 = &x3 - &t0;
+                let z3 = &t2 * &t1;
+                let z3 = &z3 + &z3;
+                let z3 = &z3 + &z3;
+
+                Point {
+                    x: x3,
+                    y: y3,
+                    z: z3,
+                }
+            }
+
+            /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
+            fn scalar_mul_daa_limbs8(&self, n: &[u8]) -> Self {
+                let mut a = self.clone();
+                let mut q = Point::infinity();
+
+                for digit in n.iter().rev() {
+                    for i in 0..8 {
+                        if digit & (1 << i) != 0 {
+                            q = &q + &a;
+                        }
+                        a = a.double()
+                    }
+                }
+                q
+            }
+        }
+
+        impl From<PointAffine> for Point {
+            fn from(p: PointAffine) -> Self {
+                Point {
+                    x: p.x,
+                    y: p.y,
+                    z: Scalar::one(),
+                }
+            }
+        }
+
+        impl From<&PointAffine> for Point {
+            fn from(p: &PointAffine) -> Self {
+                Point::from_affine(p)
+            }
+        }
+
+        // *************
+        // Point Scaling
+        // *************
+
+        // note that scalar multiplication is really defined for arbitrary scalar
+        // (of any size), not just the *field element* scalar defined in F(p).
+        // this semantic abuse makes it easier to use.
+
+        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Point {
+            type Output = Point;
+
+            fn mul(self, other: &'b Scalar) -> Point {
+                self.scalar_mul_daa_limbs8(&other.to_bytes())
+            }
+        }
+
+        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a Scalar {
+            type Output = Point;
+
+            fn mul(self, other: &'b Point) -> Point {
+                other * self
+            }
+        }
+
+        // **************
+        // Point Addition
+        // **************
+
+        impl<'a, 'b> std::ops::Add<&'b Point> for &'a Point {
+            type Output = Point;
+
+            fn add(self, other: &'b Point) -> Point {
+                self.add_different(other)
             }
         }
 
