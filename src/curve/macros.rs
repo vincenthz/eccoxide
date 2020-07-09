@@ -10,17 +10,17 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! scalar_impl {
-    ($p: expr, $sz: expr, $pmod4: expr) => {
+    ($ty: ident, $p: expr, $sz: expr, $pmod4: expr, $pp1d4: expr) => {
         #[derive(Clone)]
-        pub struct Scalar(num_bigint::BigUint);
+        pub struct $ty(num_bigint::BigUint);
 
-        impl PartialEq for Scalar {
+        impl PartialEq for $ty {
             fn eq(&self, other: &Self) -> bool {
                 &self.0 == &other.0
             }
         }
 
-        impl std::fmt::Debug for Scalar {
+        impl std::fmt::Debug for $ty {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let bs = self.0.to_bytes_be();
                 for b in bs.iter() {
@@ -30,27 +30,27 @@ macro_rules! scalar_impl {
             }
         }
 
-        impl Eq for Scalar {}
+        impl Eq for $ty {}
 
-        impl Scalar {
-            const SIZE_BITS: usize = $sz;
-            const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
+        impl $ty {
+            pub const SIZE_BITS: usize = $sz;
+            pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
 
             /// the zero constant (additive identity)
             pub fn zero() -> Self {
                 use num_traits::identities::Zero;
-                Scalar(BigUint::zero())
+                Self(BigUint::zero())
             }
 
             /// The one constant (multiplicative identity)
             pub fn one() -> Self {
                 use num_traits::identities::One;
-                Scalar(BigUint::one())
+                Self(BigUint::one())
             }
 
             pub fn from_u64(n: u64) -> Self {
                 use num_traits::cast::FromPrimitive;
-                Scalar(BigUint::from_u64(n).unwrap())
+                Self(BigUint::from_u64(n).unwrap())
             }
 
             pub fn is_zero(&self) -> bool {
@@ -79,7 +79,7 @@ macro_rules! scalar_impl {
                 if self.0.is_zero() {
                     None
                 } else {
-                    Some(Scalar(mod_inverse(&self.0, $p)))
+                    Some(Self(mod_inverse(&self.0, $p)))
                 }
             }
 
@@ -90,16 +90,16 @@ macro_rules! scalar_impl {
 
             /// Compute the field element raised to a power of n, modulus p
             pub fn power(&self, n: u64) -> Self {
-                Scalar(self.0.modpow(&n.into(), $p))
+                Self(self.0.modpow(&n.into(), $p))
             }
 
             /// Compute the square root 'x' of the field element such that x*x = self
             pub fn sqrt(&self) -> Option<Self> {
-                if *PMOD4 == 3 {
+                if *$pmod4 == 3 {
                     // P mod 4 == 3, then we can compute sqrt with one exponentiation with (P+1)/4
-                    Some(Scalar(self.0.modpow(&*PP1D4, $p)))
+                    Some(Self(self.0.modpow(&*$pp1d4, $p)))
                 } else {
-                    tonelli_shanks(&self.0, $p).map(|n| Scalar(n))
+                    tonelli_shanks(&self.0, $p).map(|n| Self(n))
                 }
             }
 
@@ -112,7 +112,7 @@ macro_rules! scalar_impl {
                 if &n >= $p {
                     None
                 } else {
-                    Some(Scalar(n))
+                    Some(Self(n))
                 }
             }
 
@@ -127,17 +127,16 @@ macro_rules! scalar_impl {
                 if &n >= $p {
                     None
                 } else {
-                    Some(Scalar(n))
+                    Some(Self(n))
                 }
             }
 
             /// Output the scalar bytes representation
             pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out = [0u8; Self::SIZE_BYTES];
-                let bytes: usize = ((self.0.bits() + 7) >> 3) as usize;
-                let start: usize = Self::SIZE_BYTES - bytes;
-
                 let bs = self.0.to_bytes_be();
+                let start: usize = Self::SIZE_BYTES - bs.len();
+
                 // skip some bytes at the beginning if necessary, act as a 0-pad
                 out[start..].copy_from_slice(&bs);
                 out
@@ -161,30 +160,23 @@ macro_rules! scalar_impl {
             /// as a field element, but due to inherent bias in modulo operation
             /// we take a double sized buffer.
             pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
-                Scalar(BigUint::from_bytes_be(&random) % $p)
-            }
-
-            /// Similar to 'init_from_wide_bytes' but initialize the scalar to the curve group order.
-            ///
-            /// This is useful to create a random scalar that is between 0 and GROUP ORDER.
-            pub fn init_group_order_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
-                Scalar(BigUint::from_bytes_be(&random) % &*ORDER)
+                Self(BigUint::from_bytes_be(&random) % $p)
             }
         }
 
-        impl std::ops::Neg for Scalar {
-            type Output = Scalar;
+        impl std::ops::Neg for $ty {
+            type Output = $ty;
 
             fn neg(self) -> Self::Output {
-                Scalar($p - self.0)
+                $ty($p - self.0)
             }
         }
 
-        impl std::ops::Neg for &Scalar {
-            type Output = Scalar;
+        impl std::ops::Neg for &$ty {
+            type Output = $ty;
 
             fn neg(self) -> Self::Output {
-                Scalar($p - &self.0)
+                $ty($p - &self.0)
             }
         }
 
@@ -192,35 +184,35 @@ macro_rules! scalar_impl {
         // Scalar Addition
         // ****************
 
-        impl<'a, 'b> std::ops::Add<&'b Scalar> for &'a Scalar {
-            type Output = Scalar;
+        impl<'a, 'b> std::ops::Add<&'b $ty> for &'a $ty {
+            type Output = $ty;
 
-            fn add(self, other: &'b Scalar) -> Scalar {
-                Scalar((&self.0 + &other.0) % $p)
+            fn add(self, other: &'b $ty) -> $ty {
+                $ty((&self.0 + &other.0) % $p)
             }
         }
 
-        impl<'a> std::ops::Add<Scalar> for &'a Scalar {
-            type Output = Scalar;
+        impl<'a> std::ops::Add<$ty> for &'a $ty {
+            type Output = $ty;
 
-            fn add(self, other: Scalar) -> Scalar {
-                Scalar((&self.0 + &other.0) % $p)
+            fn add(self, other: $ty) -> $ty {
+                $ty((&self.0 + &other.0) % $p)
             }
         }
 
-        impl<'b> std::ops::Add<&'b Scalar> for Scalar {
-            type Output = Scalar;
+        impl<'b> std::ops::Add<&'b $ty> for $ty {
+            type Output = $ty;
 
-            fn add(self, other: &'b Scalar) -> Scalar {
-                Scalar((&self.0 + &other.0) % $p)
+            fn add(self, other: &'b $ty) -> $ty {
+                $ty((&self.0 + &other.0) % $p)
             }
         }
 
-        impl std::ops::Add<Scalar> for Scalar {
-            type Output = Scalar;
+        impl std::ops::Add<$ty> for $ty {
+            type Output = $ty;
 
-            fn add(self, other: Scalar) -> Scalar {
-                Scalar((&self.0 + &other.0) % $p)
+            fn add(self, other: $ty) -> $ty {
+                $ty((&self.0 + &other.0) % $p)
             }
         }
 
@@ -228,34 +220,34 @@ macro_rules! scalar_impl {
         // Scalar Subtraction
         // *******************
 
-        impl<'a, 'b> std::ops::Sub<&'b Scalar> for &'a Scalar {
-            type Output = Scalar;
+        impl<'a, 'b> std::ops::Sub<&'b $ty> for &'a $ty {
+            type Output = $ty;
 
-            fn sub(self, other: &'b Scalar) -> Scalar {
-                Scalar((&self.0 + (-other).0) % $p)
+            fn sub(self, other: &'b $ty) -> $ty {
+                $ty((&self.0 + (-other).0) % $p)
             }
         }
 
-        impl<'a> std::ops::Sub<Scalar> for &'a Scalar {
-            type Output = Scalar;
+        impl<'a> std::ops::Sub<$ty> for &'a $ty {
+            type Output = $ty;
 
-            fn sub(self, other: Scalar) -> Scalar {
+            fn sub(self, other: $ty) -> $ty {
                 self - &other
             }
         }
 
-        impl<'b> std::ops::Sub<&'b Scalar> for Scalar {
-            type Output = Scalar;
+        impl<'b> std::ops::Sub<&'b $ty> for $ty {
+            type Output = $ty;
 
-            fn sub(self, other: &'b Scalar) -> Scalar {
+            fn sub(self, other: &'b $ty) -> $ty {
                 &self - other
             }
         }
 
-        impl std::ops::Sub<Scalar> for Scalar {
-            type Output = Scalar;
+        impl std::ops::Sub<$ty> for $ty {
+            type Output = $ty;
 
-            fn sub(self, other: Scalar) -> Scalar {
+            fn sub(self, other: $ty) -> $ty {
                 &self - &other
             }
         }
@@ -264,35 +256,35 @@ macro_rules! scalar_impl {
         // Scalar Multiplication
         // **********************
 
-        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Scalar {
-            type Output = Scalar;
+        impl<'a, 'b> std::ops::Mul<&'b $ty> for &'a $ty {
+            type Output = $ty;
 
-            fn mul(self, other: &'b Scalar) -> Scalar {
-                Scalar((&self.0 * &other.0) % $p)
+            fn mul(self, other: &'b $ty) -> $ty {
+                $ty((&self.0 * &other.0) % $p)
             }
         }
 
-        impl<'b> std::ops::Mul<&'b Scalar> for Scalar {
-            type Output = Scalar;
+        impl<'b> std::ops::Mul<&'b $ty> for $ty {
+            type Output = $ty;
 
-            fn mul(self, other: &'b Scalar) -> Scalar {
-                Scalar((&self.0 * &other.0) % $p)
+            fn mul(self, other: &'b $ty) -> $ty {
+                $ty((&self.0 * &other.0) % $p)
             }
         }
 
-        impl<'a, 'b> std::ops::Mul<Scalar> for &'a Scalar {
-            type Output = Scalar;
+        impl<'a, 'b> std::ops::Mul<$ty> for &'a $ty {
+            type Output = $ty;
 
-            fn mul(self, other: Scalar) -> Scalar {
-                Scalar((&self.0 * &other.0) % $p)
+            fn mul(self, other: $ty) -> $ty {
+                $ty((&self.0 * &other.0) % $p)
             }
         }
 
-        impl std::ops::Mul<Scalar> for Scalar {
-            type Output = Scalar;
+        impl std::ops::Mul<$ty> for $ty {
+            type Output = $ty;
 
-            fn mul(self, other: Scalar) -> Scalar {
-                Scalar((&self.0 * &other.0) % $p)
+            fn mul(self, other: $ty) -> $ty {
+                $ty((&self.0 * &other.0) % $p)
             }
         }
     };
@@ -305,16 +297,16 @@ macro_rules! point_impl {
         /// Affine Point on the curve
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct PointAffine {
-            x: Scalar,
-            y: Scalar,
+            x: FieldElement,
+            y: FieldElement,
         }
 
         /// Point on the curve
         #[derive(Clone, Debug)]
         pub struct Point {
-            x: Scalar,
-            y: Scalar,
-            z: Scalar,
+            x: FieldElement,
+            y: FieldElement,
+            z: FieldElement,
         }
 
         impl PartialEq for Point {
@@ -326,12 +318,12 @@ macro_rules! point_impl {
         impl Eq for Point {}
 
         lazy_static! {
-            static ref A: Scalar = Scalar(BigUint::from_bytes_be(&A_BYTES));
-            static ref B: Scalar = Scalar(BigUint::from_bytes_be(&B_BYTES));
-            static ref B3: Scalar =
-                Scalar(BigUint::from_bytes_be(&B_BYTES) * BigUint::from_bytes_be(&[3]));
-            static ref GX: Scalar = Scalar(BigUint::from_bytes_be(&GX_BYTES));
-            static ref GY: Scalar = Scalar(BigUint::from_bytes_be(&GY_BYTES));
+            static ref A: FieldElement = FieldElement(BigUint::from_bytes_be(&A_BYTES));
+            static ref B: FieldElement = FieldElement(BigUint::from_bytes_be(&B_BYTES));
+            static ref B3: FieldElement =
+                FieldElement(BigUint::from_bytes_be(&B_BYTES) * BigUint::from_bytes_be(&[3]));
+            static ref GX: FieldElement = FieldElement(BigUint::from_bytes_be(&GX_BYTES));
+            static ref GY: FieldElement = FieldElement(BigUint::from_bytes_be(&GY_BYTES));
         }
 
         impl PointAffine {
@@ -344,7 +336,7 @@ macro_rules! point_impl {
             }
 
             // check if y^2 = x^3 + a*x + b (mod p) holds
-            pub fn from_coordinate(x: &Scalar, y: &Scalar) -> Option<Self> {
+            pub fn from_coordinate(x: &FieldElement, y: &FieldElement) -> Option<Self> {
                 let y2 = y * y;
                 let x3 = x.power(3);
                 let ax = &*A * x;
@@ -359,7 +351,7 @@ macro_rules! point_impl {
                 }
             }
 
-            pub fn to_coordinate(&self) -> (&Scalar, &Scalar) {
+            pub fn to_coordinate(&self) -> (&FieldElement, &FieldElement) {
                 (&self.x, &self.y)
             }
 
@@ -368,20 +360,20 @@ macro_rules! point_impl {
                     x: ref x1,
                     y: ref y1,
                 } = self;
-                let l = (Scalar::from_u64(3) * (x1 * x1) + &*A)
-                    * (Scalar::from_u64(2) * y1).inverse().unwrap();
+                let l = (FieldElement::from_u64(3) * (x1 * x1) + &*A)
+                    * (FieldElement::from_u64(2) * y1).inverse().unwrap();
                 let l2 = &l * &l;
-                let x3 = l2 - Scalar::from_u64(2) * x1;
+                let x3 = l2 - FieldElement::from_u64(2) * x1;
                 let y3 = l * (x1 - &x3) - y1;
                 PointAffine { x: x3, y: y3 }
             }
 
-            pub fn compress(&self) -> (&Scalar, bool) {
+            pub fn compress(&self) -> (&FieldElement, bool) {
                 (&self.x, self.y.high_bit_set())
             }
 
-            pub fn decompress(x: &Scalar, bit: bool) -> Option<Self> {
-                // Y^2 = X^3 - 3*X + b
+            pub fn decompress(x: &FieldElement, bit: bool) -> Option<Self> {
+                // Y^2 = X^3 - A*X + b
                 let yy = x.power(3) + (&*A * x) + &*B;
                 let y = yy.sqrt()?;
                 let x = x.clone();
@@ -418,16 +410,16 @@ macro_rules! point_impl {
                 Point {
                     x: GX.clone(),
                     y: GY.clone(),
-                    z: Scalar::one(),
+                    z: FieldElement::one(),
                 }
             }
 
             /// Point at infinity
             pub fn infinity() -> Self {
                 Point {
-                    x: Scalar::zero(),
-                    y: Scalar::one(),
-                    z: Scalar::zero(),
+                    x: FieldElement::zero(),
+                    y: FieldElement::one(),
+                    z: FieldElement::zero(),
                 }
             }
 
@@ -435,7 +427,7 @@ macro_rules! point_impl {
                 Point {
                     x: p.x.clone(),
                     y: p.y.clone(),
-                    z: Scalar::one(),
+                    z: FieldElement::one(),
                 }
             }
 
@@ -454,7 +446,7 @@ macro_rules! point_impl {
 
                 self.x = &self.x * &zinv;
                 self.y = &self.y * &zinv;
-                self.z = Scalar::one()
+                self.z = FieldElement::one()
             }
 
             fn add_different<'b>(&self, other: &'b Point) -> Point {
@@ -604,6 +596,14 @@ macro_rules! point_impl {
                 }
             }
 
+            fn add_or_double<'b>(&self, other: &'b Point) -> Point {
+                if self == other {
+                    self.double()
+                } else {
+                    self.add_different(other)
+                }
+            }
+
             /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
             fn scalar_mul_daa_limbs8(&self, n: &[u8]) -> Self {
                 let mut a = self.clone();
@@ -626,7 +626,7 @@ macro_rules! point_impl {
                 Point {
                     x: p.x,
                     y: p.y,
-                    z: Scalar::one(),
+                    z: FieldElement::one(),
                 }
             }
         }
@@ -634,6 +634,34 @@ macro_rules! point_impl {
         impl From<&PointAffine> for Point {
             fn from(p: &PointAffine) -> Self {
                 Point::from_affine(p)
+            }
+        }
+
+        // *************
+        // Point Negation
+        // *************
+
+        impl std::ops::Neg for Point {
+            type Output = Point;
+
+            fn neg(self) -> Self::Output {
+                Point {
+                    x: self.x,
+                    y: -self.y,
+                    z: self.z,
+                }
+            }
+        }
+
+        impl<'a> std::ops::Neg for &'a Point {
+            type Output = Point;
+
+            fn neg(self) -> Self::Output {
+                Point {
+                    x: self.x.clone(),
+                    y: -&self.y,
+                    z: self.z.clone(),
+                }
             }
         }
 
@@ -669,7 +697,7 @@ macro_rules! point_impl {
             type Output = Point;
 
             fn add(self, other: &'b Point) -> Point {
-                self.add_different(other)
+                self.add_or_double(other)
             }
         }
 
@@ -722,9 +750,16 @@ macro_rules! test_scalar_arithmetic {
             );
 
             let mut v = Scalar::one() + Scalar::one();
-            for _ in 0..15 {
+            for _ in 0..100 {
                 assert_eq!(&v * v.inverse().unwrap(), Scalar::one());
                 v = v + Scalar::one();
+            }
+
+            for i in 1..16 {
+                let s = Scalar::from_u64(i * 1048);
+                let sinv = s.inverse().unwrap();
+                let r = &s * &sinv;
+                assert_eq!(r, Scalar::one());
             }
         }
 
@@ -742,7 +777,10 @@ macro_rules! test_point_arithmetic {
     () => {
         #[test]
         fn point_add_infinity() {
-            assert_eq!(Point::generator() + Point::infinity(), Point::generator())
+            let p = &Point::generator() * &Scalar::from_u64(1245);
+            assert_eq!(Point::generator() + Point::infinity(), Point::generator());
+            assert_eq!(&p + Point::infinity(), p);
+            assert_eq!(Point::infinity() + &p, p);
         }
 
         #[test]
@@ -751,6 +789,18 @@ macro_rules! test_point_arithmetic {
                 Point::from(Point::generator().to_affine().unwrap()),
                 Point::generator()
             )
+        }
+
+        #[test]
+        fn point_mul_and_inv() {
+            let mut scalar = [0u8; Scalar::SIZE_BYTES];
+            scalar[Scalar::SIZE_BYTES - 1] = 0x2;
+            scalar[Scalar::SIZE_BYTES - 10] = 0xd6;
+            let s = Scalar::from_bytes(&scalar).unwrap();
+            let sinv = s.inverse().unwrap();
+            let p = &Point::generator() * &s;
+            let p2 = &p * &sinv;
+            assert_eq!(&p2, &Point::generator())
         }
 
         #[test]
@@ -771,6 +821,22 @@ macro_rules! test_point_arithmetic {
             assert_eq!(p4, p4got);
             assert_eq!(p6, p6got);
             assert_eq!(p8, p8got);
+            assert_eq!(&p2got * &Scalar::from_u64(4), p8got);
+
+            for b in &[4u64, 8, 10, 11, 39] {
+                let g = &Point::generator() * &Scalar::from_u64(*b);
+                for p in &[34u64, 56, 791, 12492124] {
+                    let p1: u64 = p / 2;
+                    let p2: u64 = p - p1;
+
+                    let r = &g * &Scalar::from_u64(*p);
+                    let r1 = &g * &Scalar::from_u64(p1);
+                    let r2 = &g * &Scalar::from_u64(p2);
+                    let rprim = r1 + r2;
+
+                    assert_eq!(r, rprim, "(p1 + p2) X == p1 X + p2 X");
+                }
+            }
         }
 
         #[test]

@@ -12,14 +12,23 @@ macro_rules! prime_curve {
                 static ref P: BigUint = BigUint::from_bytes_be(&P_BYTES);
                 static ref PMOD4: u32 = {
                     let pmodded = &*P & BigUint::from(0b11u32);
-                    pmodded.to_u64().unwrap() as u32
+                    pmodded.to_u32().unwrap()
                 };
 
                 // "constant" (P + 1) / 4
                 static ref PP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
+
                 static ref ORDER: BigUint = BigUint::from_bytes_be(&ORDER_BYTES);
+                static ref OMOD4: u32 = {
+                    let pmodded = &*ORDER & BigUint::from(0b11u32);
+                    pmodded.to_u32().unwrap()
+                };
+
+                // "constant" (ORDER + 1) / 4
+                static ref OP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
             }
-            scalar_impl!(&*P, $szfe, (P % BigUint::from_u64(4) == 3));
+            scalar_impl!(FieldElement, &*P, $szfe, PMOD4, PP1D4);
+            scalar_impl!(Scalar, &*ORDER, $szfe, OMOD4, OP1D4);
             point_impl!(&*GX, &*GY);
 
             #[cfg(test)]
@@ -63,8 +72,8 @@ mod tests {
         fn point_add() {
             let k2_x = b"\x7C\xF2\x7B\x18\x8D\x03\x4F\x7E\x8A\x52\x38\x03\x04\xB5\x1A\xC3\xC0\x89\x69\xE2\x77\xF2\x1B\x35\xA6\x0B\x48\xFC\x47\x66\x99\x78";
             let k2_y = b"\x07\x77\x55\x10\xDB\x8E\xD0\x40\x29\x3D\x9A\xC6\x9F\x74\x30\xDB\xBA\x7D\xAD\xE6\x3C\xE9\x82\x29\x9E\x04\xB7\x9D\x22\x78\x73\xD1";
-            let x = Scalar::from_bytes(k2_x).unwrap();
-            let y = Scalar::from_bytes(k2_y).unwrap();
+            let x = FieldElement::from_bytes(k2_x).unwrap();
+            let y = FieldElement::from_bytes(k2_y).unwrap();
 
             let p_expected = PointAffine::from_coordinate(&x, &y).unwrap();
             let p_got = &Point::generator().double();
@@ -115,8 +124,8 @@ mod tests {
 
             let mut points = Vec::new();
             for k in &kats {
-                let x = Scalar::from_slice(k.0).unwrap();
-                let y = Scalar::from_slice(k.1).unwrap();
+                let x = FieldElement::from_slice(k.0).unwrap();
+                let y = FieldElement::from_slice(k.1).unwrap();
 
                 let p_expected = PointAffine::from_coordinate(&x, &y)
                     .expect("cannot convert from affine: test vector value failed");
