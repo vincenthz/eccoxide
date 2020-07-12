@@ -730,43 +730,45 @@ macro_rules! point_impl {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! test_scalar_arithmetic {
-    () => {
+    ($scalar: ident) => {
+        use super::$scalar;
+
         #[test]
-        fn scalar_negate() {
-            assert_eq!(Scalar::one() + (-Scalar::one()), Scalar::zero())
+        fn negate() {
+            assert_eq!($scalar::one() + (-$scalar::one()), $scalar::zero())
         }
 
         #[test]
-        fn scalar_high() {
-            assert!(!(Scalar::one().high_bit_set()), "1");
-            assert!((-Scalar::one()).high_bit_set(), "-1");
+        fn high() {
+            assert!(!($scalar::one().high_bit_set()), "1");
+            assert!((-$scalar::one()).high_bit_set(), "-1");
         }
 
         #[test]
-        fn scalar_inverse() {
+        fn inverse() {
             assert_eq!(
-                Scalar::one() * Scalar::one().inverse().unwrap(),
-                Scalar::one()
+                $scalar::one() * $scalar::one().inverse().unwrap(),
+                $scalar::one()
             );
 
-            let mut v = Scalar::one() + Scalar::one();
+            let mut v = $scalar::one() + $scalar::one();
             for _ in 0..100 {
-                assert_eq!(&v * v.inverse().unwrap(), Scalar::one());
-                v = v + Scalar::one();
+                assert_eq!(&v * v.inverse().unwrap(), $scalar::one());
+                v = v + $scalar::one();
             }
 
             for i in 1..16 {
-                let s = Scalar::from_u64(i * 1048);
+                let s = $scalar::from_u64(i * 1048);
                 let sinv = s.inverse().unwrap();
                 let r = &s * &sinv;
-                assert_eq!(r, Scalar::one());
+                assert_eq!(r, $scalar::one());
             }
         }
 
         #[test]
-        fn scalar_sqrt() {
-            let y = Scalar::one().sqrt().unwrap();
-            assert_eq!(&y * &y, Scalar::one());
+        fn sqrt() {
+            let y = $scalar::one().sqrt().unwrap();
+            assert_eq!(&y * &y, $scalar::one());
         }
     };
 }

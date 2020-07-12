@@ -36,7 +36,14 @@ macro_rules! prime_curve {
                 use super::*;
                 use crate::{test_point_arithmetic, test_scalar_arithmetic};
 
-                test_scalar_arithmetic!();
+                mod scalar {
+                    use super::*;
+                    test_scalar_arithmetic!(Scalar);
+                }
+                mod field_element {
+                    use super::*;
+                    test_scalar_arithmetic!(FieldElement);
+                }
                 test_point_arithmetic!();
             }
             #[cfg(test)]
