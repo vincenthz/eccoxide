@@ -1,9 +1,11 @@
+//! macros to generate curve definition using biguint
+
 macro_rules! prime_curve {
     ($m: ident, $szfe: expr) => {
         pub mod $m {
-            use super::super::helper::{mod_inverse, tonelli_shanks};
+            use super::super::bifct::{mod_inverse, tonelli_shanks};
             use crate::params::sec2::$m::*;
-            use crate::{point_impl, scalar_impl};
+            use crate::{bi_scalar_impl, point_impl};
             use lazy_static;
             use num_bigint::BigUint;
             use num_traits::{cast::ToPrimitive, identities::One};
@@ -27,8 +29,8 @@ macro_rules! prime_curve {
                 // "constant" (ORDER + 1) / 4
                 static ref OP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
             }
-            scalar_impl!(FieldElement, &*P, $szfe, PMOD4, PP1D4);
-            scalar_impl!(Scalar, &*ORDER, $szfe, OMOD4, OP1D4);
+            bi_scalar_impl!(FieldElement, &*P, $szfe, PMOD4, PP1D4);
+            bi_scalar_impl!(Scalar, &*ORDER, $szfe, OMOD4, OP1D4);
             point_impl!(&*GX, &*GY);
 
             #[cfg(test)]
@@ -65,7 +67,7 @@ prime_curve!(p192k1, 192);
 prime_curve!(p192r1, 192);
 prime_curve!(p224k1, 224);
 prime_curve!(p224r1, 224);
-prime_curve!(p256k1, 256);
+//prime_curve!(p256k1, 256);
 prime_curve!(p256r1, 256);
 prime_curve!(p384r1, 384);
 prime_curve!(p521r1, 521);

@@ -9,7 +9,7 @@
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! scalar_impl {
+macro_rules! bi_scalar_impl {
     ($ty: ident, $p: expr, $sz: expr, $pmod4: expr, $pp1d4: expr) => {
         #[derive(Clone)]
         pub struct $ty(num_bigint::BigUint);
@@ -75,6 +75,12 @@ macro_rules! scalar_impl {
             ///
             /// Note that 0 doesn't have a multiplicative inverse
             pub fn inverse(&self) -> Option<Self> {
+                /*
+                use num_traits::cast::FromPrimitive;
+                let pm2 = $p - BigUint::from_u64(2).unwrap();
+                Some(Self(self.0.modpow(&pm2, $p)))
+                */
+
                 use num_traits::identities::Zero;
                 if self.0.is_zero() {
                     None
