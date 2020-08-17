@@ -61,16 +61,12 @@ pub fn limbsbe_lt<'a, 'b>(a: LimbsBE<'a>, b: LimbsBE<'b>) -> Choice {
 
     let mut borrow: Borrow = 0;
     let mut out = 0u64;
-    let mut limbs_acc = 0u64;
-    for (x, y) in b.iter_from_low().zip(a.iter_from_low()) {
+    for (x, y) in a.iter_from_low().zip(b.iter_from_low()) {
         let copied_borrow = borrow;
         limb_subborrow(&mut out, &mut borrow, copied_borrow, *x, *y);
-        limbs_acc |= out;
     }
-    //let ne = 1 ^ ((limbs_acc | (!limbs_acc).wrapping_add(1)) >> 63);
-    //(ne | borrow as u64) == 0
-    let ne = (limbs_acc | (!limbs_acc).wrapping_add(1)) >> 63;
-    Choice(ne | (1 ^ borrow as u64))
+    let borrow = borrow as u64;
+    Choice((borrow | borrow.wrapping_neg()) >> 63)
 }
 
 pub fn limbsle_le<'a, 'b>(a: LimbsLE<'a>, b: LimbsLE<'b>) -> Choice {
@@ -90,14 +86,12 @@ pub fn limbsle_lt<'a, 'b>(a: LimbsLE<'a>, b: LimbsLE<'b>) -> Choice {
 
     let mut borrow: Borrow = 0;
     let mut out = 0u64;
-    let mut limbs_acc = 0u64;
-    for (x, y) in b.iter_from_low().zip(a.iter_from_low()) {
+    for (x, y) in a.iter_from_low().zip(b.iter_from_low()) {
         let copied_borrow = borrow;
         limb_subborrow(&mut out, &mut borrow, copied_borrow, *x, *y);
-        limbs_acc |= out;
     }
-    let ne = (limbs_acc | (!limbs_acc).wrapping_add(1)) >> 63;
-    Choice(ne | (1 ^ borrow as u64))
+    let borrow = borrow as u64;
+    Choice((borrow | borrow.wrapping_neg()) >> 63)
 }
 
 impl<'a> CtEqual for LimbsLE<'a> {

@@ -54,43 +54,24 @@ impl FieldElement {
     pub const SIZE_BITS: usize = 256;
     pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
 
-    /*
-    /// init from limbs to internal representation (montgomery)
-    pub(super) fn init(current: &[u64; FE_LIMBS_SIZE]) -> Self {
+    fn init(current: &[u64; FE_LIMBS_SIZE]) -> Self {
         let mut out = [0u64; FE_LIMBS_SIZE];
-        let mut current_swapped = [0u64; FE_LIMBS_SIZE];
-        current_swapped[0] = u64::from_be(current[3]);
-        current_swapped[1] = u64::from_be(current[2]);
-        current_swapped[2] = u64::from_be(current[1]);
-        current_swapped[3] = u64::from_be(current[0]);
-        fiat_secp256k1_to_montgomery(&mut out, &current_swapped);
+        fiat_secp256k1_to_montgomery(&mut out, &current);
         Self(out)
     }
-    */
 
     /// the zero constant (additive identity)
     pub fn zero() -> Self {
-        Self::from_bytes(&[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0,
-        ])
-        .unwrap()
-        //Self::init(&[0, 0, 0, 0])
+        Self::init(&[0, 0, 0, 0])
     }
 
     /// The one constant (multiplicative identity)
     pub fn one() -> Self {
-        Self::from_bytes(&[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ])
-        .unwrap()
+        Self::init(&[1, 0, 0, 0])
     }
 
     pub fn from_u64(n: u64) -> Self {
-        let mut bytes = [0u8; 32];
-        bytes[24..32].copy_from_slice(&n.to_be_bytes());
-        Self::from_bytes(&bytes).unwrap()
+        Self::init(&[n, 0, 0, 0])
     }
 
     pub fn is_zero(&self) -> bool {
@@ -111,6 +92,15 @@ impl FieldElement {
         todo!()
     }
 
+    pub fn to_string(&self) -> String {
+        let mut s = String::new();
+        let bytes = self.to_bytes();
+        for b in bytes.iter() {
+            s.push_str(&format!("{:02x}", b));
+        }
+        s
+    }
+
     pub fn square(&self) -> Self {
         let mut out = [0u64; FE_LIMBS_SIZE];
         fiat_secp256k1_square(&mut out, &self.0);
@@ -125,19 +115,11 @@ impl FieldElement {
         x
     }
 
-    pub fn to_string(&self) -> String {
-        let mut s = String::new();
-        let bytes = self.to_bytes();
-        for b in bytes.iter() {
-            s.push_str(&format!("{:02x}", b));
-        }
-        s
-    }
-
     /// Get the multiplicative inverse
     ///
     /// Note that 0 doesn't have a multiplicative inverse
-    fn r_inverse(&self) -> Self {
+    pub fn inverse(&self) -> Self {
+        assert!(!self.is_zero());
         let x2 = self.square() * self;
         let x3 = x2.square() * self;
         let x6 = x3.square_rep(3) * &x3;
@@ -158,14 +140,11 @@ impl FieldElement {
         t1 * self
     }
 
-    pub fn inverse(&self) -> Self {
-        assert!(!self.is_zero());
-        self.r_inverse()
-    }
-
     /// Double the field element, this is equivalent to 2*self or self+self, but can be implemented faster
     pub fn double(&self) -> Self {
-        self + self
+        let mut out = [0u64; FE_LIMBS_SIZE];
+        fiat_secp256k1_add(&mut out, &self.0, &self.0);
+        FieldElement(out)
     }
 
     pub fn triple(&self) -> Self {
@@ -182,7 +161,7 @@ impl FieldElement {
             self.square()
         } else {
             let mut a = self.clone();
-            let mut q = Self::zero();
+            let mut q = Self::one();
 
             for i in 0..64 {
                 if n & (1 << i) != 0 {
@@ -445,6 +424,12 @@ mod tests {
         assert_eq!(f1 * f2, fr)
     }
 
+    fn power_small(v1: u64, v2: u32) {
+        let f1 = FieldElement::from_u64(v1);
+        let fr = FieldElement::from_u64(v1.pow(v2));
+        assert_eq!(f1.power(v2 as u64), fr)
+    }
+
     #[test]
     fn add() {
         add_small(3, 24);
@@ -465,6 +450,14 @@ mod tests {
         mul_small(0x0, 1);
         mul_small(0xff01, 1);
         mul_small(0x10001, 0x100);
+    }
+
+    #[test]
+    fn power() {
+        power_small(3, 24);
+        power_small(0x2, 9);
+        power_small(0xff01, 4);
+        power_small(0x13, 13);
     }
 
     #[test]
@@ -494,7 +487,7 @@ mod tests {
 
     #[test]
     fn inverse() {
-        for i in 2..124 {
+        for i in 1..124 {
             println!("{}", i);
             let fe = FieldElement::from_u64(i);
             let r = &fe * fe.inverse();

@@ -1,5 +1,6 @@
 use crate::curve::fiat::secp256k1_scalar_64::*;
-//use crate::params::sec2::p256k1::PM2_BYTES;
+use crate::mp::ct::{Choice, CtEqual, CtZero};
+use crate::params::sec2::p256k1::ORDER_LIMBS;
 
 const GM_LIMBS_SIZE: usize = 4;
 
@@ -29,48 +30,49 @@ impl std::fmt::Debug for Scalar {
     }
 }
 
+impl CtZero for &Scalar {
+    fn ct_zero(f: &Scalar) -> Choice {
+        let mut out = 0;
+        fiat_secp256k1_scalar_nonzero(&mut out, &f.0);
+        CtZero::ct_zero(out)
+    }
+    fn ct_nonzero(f: &Scalar) -> Choice {
+        let mut out = 0;
+        fiat_secp256k1_scalar_nonzero(&mut out, &f.0);
+        CtZero::ct_nonzero(out)
+    }
+}
+impl CtEqual for &Scalar {
+    fn ct_eq(f1: &Scalar, f2: &Scalar) -> Choice {
+        let r = f1 - f2;
+        CtZero::ct_zero(&r)
+    }
+}
 impl Eq for Scalar {}
 
 impl Scalar {
     pub const SIZE_BITS: usize = 256;
     pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
 
-    /*
-    /// init from limbs to internal representation (montgomery)
+    /// init from LE-limbs to internal representation (montgomery)
     fn init(current: &[u64; GM_LIMBS_SIZE]) -> Self {
         let mut out = [0u64; GM_LIMBS_SIZE];
-        let mut current_swapped = [0u64; GM_LIMBS_SIZE];
-        current_swapped[0] = current[3];
-        current_swapped[1] = current[2];
-        current_swapped[2] = current[1];
-        current_swapped[3] = current[0];
-        fiat_secp256k1_scalar_to_montgomery(&mut out, &current_swapped);
+        fiat_secp256k1_scalar_to_montgomery(&mut out, &current);
         Self(out)
     }
-    */
 
     /// the zero constant (additive identity)
     pub fn zero() -> Self {
-        Self::from_bytes(&[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0,
-        ])
-        .unwrap()
+        Self::init(&[0, 0, 0, 0])
     }
 
     /// The one constant (multiplicative identity)
     pub fn one() -> Self {
-        Self::from_bytes(&[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ])
-        .unwrap()
+        Self::init(&[1, 0, 0, 0])
     }
 
     pub fn from_u64(n: u64) -> Self {
-        let mut bytes = [0u8; 32];
-        bytes[24..32].copy_from_slice(&n.to_be_bytes());
-        Self::from_bytes(&bytes).unwrap()
+        Self::init(&[n, 0, 0, 0])
     }
 
     pub fn is_zero(&self) -> bool {
@@ -116,6 +118,7 @@ impl Scalar {
     ///
     /// Note that 0 doesn't have a multiplicative inverse
     pub fn inverse(&self) -> Self {
+        assert!(!self.is_zero());
         let x = self;
         let u2 = self.square();
         let x2 = &u2 * x;
@@ -220,6 +223,9 @@ impl Scalar {
     /// If the represented value overflow the field element size,
     /// then None is returned.
     pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+        use crate::mp::ct::CtLesser;
+        use crate::mp::limbs::LimbsLE;
+
         let mut buf = [0u8; Self::SIZE_BYTES];
         buf.copy_from_slice(bytes);
         swap_endian(&mut buf);
@@ -227,8 +233,14 @@ impl Scalar {
         let mut out = [0u64; GM_LIMBS_SIZE];
         let mut out_mont = [0u64; GM_LIMBS_SIZE];
         fiat_secp256k1_scalar_from_bytes(&mut out, &buf);
-        fiat_secp256k1_scalar_to_montgomery(&mut out_mont, &out);
-        Some(Scalar(out_mont))
+
+        let o = ORDER_LIMBS.iter().rev().copied().collect::<Vec<_>>();
+        if LimbsLE::ct_lt(LimbsLE(&out), LimbsLE(&o[..])).is_true() {
+            fiat_secp256k1_scalar_to_montgomery(&mut out_mont, &out);
+            Some(Scalar(out_mont))
+        } else {
+            None
+        }
     }
 
     /// Similar to from_bytes but take values from a slice.
@@ -240,11 +252,7 @@ impl Scalar {
         }
         let mut buf = [0u8; Self::SIZE_BYTES];
         buf.copy_from_slice(slice);
-        swap_endian(&mut buf);
-
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_from_bytes(&mut out, &buf);
-        Some(Scalar(out))
+        Self::from_bytes(&buf)
     }
 
     /// Output the scalar bytes representation
