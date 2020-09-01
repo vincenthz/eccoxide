@@ -284,9 +284,9 @@ impl Point {
         //    return X3 , Y3 , Z3 ;
         // end function ;
         // ```
-        let t0 = x * x;
-        let t1 = y * y;
-        let t2 = z * z;
+        let t0 = x.square();
+        let t1 = y.square();
+        let t2 = z.square();
         let t3 = x * y;
         let t3 = t3.double();
         let z3 = x * z;
@@ -346,13 +346,6 @@ impl Point {
         }
         q
     }
-
-    /*
-    fn xx() {
-        let x1 = self;
-        let x8 = x1.square_rep(8)
-    }
-    */
 }
 
 impl From<PointAffine> for Point {
@@ -456,6 +449,22 @@ impl std::ops::Add<Point> for Point {
 
     fn add(self, other: Point) -> Point {
         &self + &other
+    }
+}
+
+impl<'a, 'b> std::ops::Sub<&'b Point> for &'a Point {
+    type Output = Point;
+
+    fn sub(self, other: &'b Point) -> Point {
+        self + (-other)
+    }
+}
+
+impl std::ops::Sub<Point> for Point {
+    type Output = Point;
+
+    fn sub(self, other: Point) -> Point {
+        &self - &other
     }
 }
 
