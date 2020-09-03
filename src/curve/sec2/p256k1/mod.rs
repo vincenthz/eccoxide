@@ -35,6 +35,25 @@ lazy_static! {
     static ref B3: FieldElement = FieldElement::from_bytes(&B3_BYTES).unwrap();
     static ref GX: FieldElement = FieldElement::from_bytes(&GX_BYTES).unwrap();
     static ref GY: FieldElement = FieldElement::from_bytes(&GY_BYTES).unwrap();
+    static ref ORDER: FieldElement = FieldElement::from_bytes(&ORDER_BYTES).unwrap();
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Curve;
+
+impl Curve {
+    pub fn a(self) -> &'static FieldElement {
+        &A
+    }
+    pub fn b(self) -> &'static FieldElement {
+        &B
+    }
+    pub fn group_order(self) -> &'static FieldElement {
+        &ORDER
+    }
+    pub fn generator() -> (&'static FieldElement, &'static FieldElement) {
+        (&GX, &GY)
+    }
 }
 
 impl PointAffine {
