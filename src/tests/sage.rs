@@ -1308,7 +1308,14 @@ mod p256k1 {
         },
     ];
 
-    use crate::curve::sec2::p256k1::{Point, Scalar};
+    use crate::curve::sec2::p256k1::{FieldElement, Point, PointAffine, Scalar};
+
+    /*
+    macro_rules! assert_point_affine_eq {
+        assert_eq!(kat.x, x.to_bytes(), "x value mismatch");
+        assert_eq!(kat.y, y.to_bytes(), "y value mismatch");
+    }
+    */
 
     #[test]
     fn generator() {
@@ -1320,12 +1327,28 @@ mod p256k1 {
         assert_eq!(kat.y, y.to_bytes(), "y value mismatch");
     }
     #[test]
-    fn add() {
+    fn add_same() {
         let g = Point::generator();
         let p = &g + &g;
         let paffine = p.to_affine().unwrap();
         let (x, y) = paffine.to_coordinate();
         let kat = &KATS[1];
+        assert_eq!(kat.x, x.to_bytes(), "x value mismatch");
+        assert_eq!(kat.y, y.to_bytes(), "y value mismatch");
+    }
+
+    #[test]
+    fn add_different() {
+        let g = Point::generator();
+        let x2 = FieldElement::from_bytes(&KATS[1].x).expect("KAT has valid field element x");
+        let y2 = FieldElement::from_bytes(&KATS[1].y).expect("KAT has valid field element y");
+        let g2 = Point::from_affine(
+            &PointAffine::from_coordinate(&x2, &y2).expect("KAT has valid point element"),
+        );
+        let p = &g + &g2;
+        let paffine = p.to_affine().unwrap();
+        let (x, y) = paffine.to_coordinate();
+        let kat = &KATS[2];
         assert_eq!(kat.x, x.to_bytes(), "x value mismatch");
         assert_eq!(kat.y, y.to_bytes(), "y value mismatch");
     }

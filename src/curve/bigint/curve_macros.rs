@@ -1,5 +1,5 @@
 //!
-//! macros to generate various types (Scalar, PointAffine, Point) given different curve properties.
+//! macros to generate various types ($SCALAR, PointAffine, Point) given different curve properties.
 //!
 //! Reference reading:
 //!
@@ -9,310 +9,21 @@
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! bi_scalar_impl {
-    ($ty: ident, $p: expr, $sz: expr, $pmod4: expr, $pp1d4: expr) => {
-        #[derive(Clone)]
-        pub struct $ty(num_bigint::BigUint);
-
-        impl PartialEq for $ty {
-            fn eq(&self, other: &Self) -> bool {
-                &self.0 == &other.0
-            }
-        }
-
-        impl std::fmt::Debug for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let bs = self.0.to_bytes_be();
-                for b in bs.iter() {
-                    write!(f, "{:02x}", b)?
-                }
-                Ok(())
-            }
-        }
-
-        impl Eq for $ty {}
-
-        impl $ty {
-            pub const SIZE_BITS: usize = $sz;
-            pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
-
-            /// the zero constant (additive identity)
-            pub fn zero() -> Self {
-                use num_traits::identities::Zero;
-                Self(BigUint::zero())
-            }
-
-            /// The one constant (multiplicative identity)
-            pub fn one() -> Self {
-                use num_traits::identities::One;
-                Self(BigUint::one())
-            }
-
-            pub fn from_u64(n: u64) -> Self {
-                use num_traits::cast::FromPrimitive;
-                Self(BigUint::from_u64(n).unwrap())
-            }
-
-            pub fn is_zero(&self) -> bool {
-                use num_traits::identities::Zero;
-                self.0.is_zero()
-            }
-
-            // there's no really negative number in Fp, but if high bit is set ...
-            pub fn high_bit_set(&self) -> bool {
-                //use num_traits::identities::Zero;
-                use num_traits::cast::FromPrimitive;
-                self.0 > ($p / BigUint::from_u64(2).unwrap())
-            }
-
-            /// Self add another Scalar
-            pub fn add_assign(&mut self, other: &Self) {
-                self.0 += &other.0;
-                self.0 %= $p;
-            }
-
-            /// Get the multiplicative inverse
-            ///
-            /// Note that 0 doesn't have a multiplicative inverse
-            pub fn inverse(&self) -> Option<Self> {
-                /*
-                use num_traits::cast::FromPrimitive;
-                let pm2 = $p - BigUint::from_u64(2).unwrap();
-                Some(Self(self.0.modpow(&pm2, $p)))
-                */
-
-                use num_traits::identities::Zero;
-                if self.0.is_zero() {
-                    None
-                } else {
-                    Some(Self(mod_inverse(&self.0, $p)))
-                }
-            }
-
-            /// Double the field element, this is equivalent to 2*self or self+self, but can be implemented faster
-            pub fn double(&self) -> Self {
-                self + self
-            }
-
-            /// Compute the field element raised to a power of n, modulus p
-            pub fn power(&self, n: u64) -> Self {
-                Self(self.0.modpow(&n.into(), $p))
-            }
-
-            /// Compute the square root 'x' of the field element such that x*x = self
-            pub fn sqrt(&self) -> Option<Self> {
-                if *$pmod4 == 3 {
-                    // P mod 4 == 3, then we can compute sqrt with one exponentiation with (P+1)/4
-                    Some(Self(self.0.modpow(&*$pp1d4, $p)))
-                } else {
-                    tonelli_shanks(&self.0, $p).map(|n| Self(n))
-                }
-            }
-
-            /// Initialize a new scalar from its bytes representation
-            ///
-            /// If the represented value overflow the field element size,
-            /// then None is returned.
-            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
-                let n = BigUint::from_bytes_be(bytes);
-                if &n >= $p {
-                    None
-                } else {
-                    Some(Self(n))
-                }
-            }
-
-            /// Similar to from_bytes but take values from a slice.
-            ///
-            /// If the slice is not of the right size, then None is returned
-            pub fn from_slice(slice: &[u8]) -> Option<Self> {
-                if slice.len() != Self::SIZE_BYTES {
-                    return None;
-                }
-                let n = BigUint::from_bytes_be(slice);
-                if &n >= $p {
-                    None
-                } else {
-                    Some(Self(n))
-                }
-            }
-
-            /// Output the scalar bytes representation
-            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
-                let mut out = [0u8; Self::SIZE_BYTES];
-                let bs = self.0.to_bytes_be();
-                let start: usize = Self::SIZE_BYTES - bs.len();
-
-                // skip some bytes at the beginning if necessary, act as a 0-pad
-                out[start..].copy_from_slice(&bs);
-                out
-            }
-
-            /// Output the scalar bytes representation to the mutable slice
-            ///
-            /// the slice needs to be of the correct size
-            pub fn to_slice(&self, slice: &mut [u8]) {
-                assert_eq!(slice.len(), Self::SIZE_BYTES);
-
-                // TODO don't create temporary buffer
-                let bytes = self.to_bytes();
-                slice.copy_from_slice(&bytes[..]);
-            }
-
-            /// Initialize from a wide buffer of random data.
-            ///
-            /// The difference with 'from_bytes' or 'from_slice' is that it takes
-            /// a random initialized buffer and used modulo operation to initialize
-            /// as a field element, but due to inherent bias in modulo operation
-            /// we take a double sized buffer.
-            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
-                Self(BigUint::from_bytes_be(&random) % $p)
-            }
-        }
-
-        impl std::ops::Neg for $ty {
-            type Output = $ty;
-
-            fn neg(self) -> Self::Output {
-                $ty($p - self.0)
-            }
-        }
-
-        impl std::ops::Neg for &$ty {
-            type Output = $ty;
-
-            fn neg(self) -> Self::Output {
-                $ty($p - &self.0)
-            }
-        }
-
-        // ****************
-        // Scalar Addition
-        // ****************
-
-        impl<'a, 'b> std::ops::Add<&'b $ty> for &'a $ty {
-            type Output = $ty;
-
-            fn add(self, other: &'b $ty) -> $ty {
-                $ty((&self.0 + &other.0) % $p)
-            }
-        }
-
-        impl<'a> std::ops::Add<$ty> for &'a $ty {
-            type Output = $ty;
-
-            fn add(self, other: $ty) -> $ty {
-                $ty((&self.0 + &other.0) % $p)
-            }
-        }
-
-        impl<'b> std::ops::Add<&'b $ty> for $ty {
-            type Output = $ty;
-
-            fn add(self, other: &'b $ty) -> $ty {
-                $ty((&self.0 + &other.0) % $p)
-            }
-        }
-
-        impl std::ops::Add<$ty> for $ty {
-            type Output = $ty;
-
-            fn add(self, other: $ty) -> $ty {
-                $ty((&self.0 + &other.0) % $p)
-            }
-        }
-
-        // *******************
-        // Scalar Subtraction
-        // *******************
-
-        impl<'a, 'b> std::ops::Sub<&'b $ty> for &'a $ty {
-            type Output = $ty;
-
-            fn sub(self, other: &'b $ty) -> $ty {
-                $ty((&self.0 + (-other).0) % $p)
-            }
-        }
-
-        impl<'a> std::ops::Sub<$ty> for &'a $ty {
-            type Output = $ty;
-
-            fn sub(self, other: $ty) -> $ty {
-                self - &other
-            }
-        }
-
-        impl<'b> std::ops::Sub<&'b $ty> for $ty {
-            type Output = $ty;
-
-            fn sub(self, other: &'b $ty) -> $ty {
-                &self - other
-            }
-        }
-
-        impl std::ops::Sub<$ty> for $ty {
-            type Output = $ty;
-
-            fn sub(self, other: $ty) -> $ty {
-                &self - &other
-            }
-        }
-
-        // **********************
-        // Scalar Multiplication
-        // **********************
-
-        impl<'a, 'b> std::ops::Mul<&'b $ty> for &'a $ty {
-            type Output = $ty;
-
-            fn mul(self, other: &'b $ty) -> $ty {
-                $ty((&self.0 * &other.0) % $p)
-            }
-        }
-
-        impl<'b> std::ops::Mul<&'b $ty> for $ty {
-            type Output = $ty;
-
-            fn mul(self, other: &'b $ty) -> $ty {
-                $ty((&self.0 * &other.0) % $p)
-            }
-        }
-
-        impl<'a, 'b> std::ops::Mul<$ty> for &'a $ty {
-            type Output = $ty;
-
-            fn mul(self, other: $ty) -> $ty {
-                $ty((&self.0 * &other.0) % $p)
-            }
-        }
-
-        impl std::ops::Mul<$ty> for $ty {
-            type Output = $ty;
-
-            fn mul(self, other: $ty) -> $ty {
-                $ty((&self.0 * &other.0) % $p)
-            }
-        }
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
 macro_rules! point_impl {
-    ($gx: expr, $gy: expr) => {
+    ($FE:ident, $SCALAR:ident, $gx:expr, $gy:expr) => {
         /// Affine Point on the curve
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct PointAffine {
-            x: FieldElement,
-            y: FieldElement,
+            x: $FE,
+            y: $FE,
         }
 
         /// Point on the curve
         #[derive(Clone, Debug)]
         pub struct Point {
-            x: FieldElement,
-            y: FieldElement,
-            z: FieldElement,
+            x: $FE,
+            y: $FE,
+            z: $FE,
         }
 
         impl PartialEq for Point {
@@ -324,12 +35,12 @@ macro_rules! point_impl {
         impl Eq for Point {}
 
         lazy_static! {
-            static ref A: FieldElement = FieldElement(BigUint::from_bytes_be(&A_BYTES));
-            static ref B: FieldElement = FieldElement(BigUint::from_bytes_be(&B_BYTES));
-            static ref B3: FieldElement =
-                FieldElement(BigUint::from_bytes_be(&B_BYTES) * BigUint::from_bytes_be(&[3]));
-            static ref GX: FieldElement = FieldElement(BigUint::from_bytes_be(&GX_BYTES));
-            static ref GY: FieldElement = FieldElement(BigUint::from_bytes_be(&GY_BYTES));
+            static ref A: $FE = $FE(BigUint::from_bytes_be(&A_BYTES));
+            static ref B: $FE = $FE(BigUint::from_bytes_be(&B_BYTES));
+            static ref B3: $FE =
+                $FE(BigUint::from_bytes_be(&B_BYTES) * BigUint::from_bytes_be(&[3]));
+            static ref GX: $FE = $FE(BigUint::from_bytes_be(&GX_BYTES));
+            static ref GY: $FE = $FE(BigUint::from_bytes_be(&GY_BYTES));
         }
 
         impl PointAffine {
@@ -342,7 +53,7 @@ macro_rules! point_impl {
             }
 
             // check if y^2 = x^3 + a*x + b (mod p) holds
-            pub fn from_coordinate(x: &FieldElement, y: &FieldElement) -> Option<Self> {
+            pub fn from_coordinate(x: &$FE, y: &$FE) -> Option<Self> {
                 let y2 = y * y;
                 let x3 = x.power(3);
                 let ax = &*A * x;
@@ -357,7 +68,7 @@ macro_rules! point_impl {
                 }
             }
 
-            pub fn to_coordinate(&self) -> (&FieldElement, &FieldElement) {
+            pub fn to_coordinate(&self) -> (&$FE, &$FE) {
                 (&self.x, &self.y)
             }
 
@@ -366,19 +77,19 @@ macro_rules! point_impl {
                     x: ref x1,
                     y: ref y1,
                 } = self;
-                let l = (FieldElement::from_u64(3) * (x1 * x1) + &*A)
-                    * (FieldElement::from_u64(2) * y1).inverse().unwrap();
+                let l = ($FE::from_u64(3) * (x1 * x1) + &*A)
+                    * ($FE::from_u64(2) * y1).inverse().unwrap();
                 let l2 = &l * &l;
-                let x3 = l2 - FieldElement::from_u64(2) * x1;
+                let x3 = l2 - $FE::from_u64(2) * x1;
                 let y3 = l * (x1 - &x3) - y1;
                 PointAffine { x: x3, y: y3 }
             }
 
-            pub fn compress(&self) -> (&FieldElement, bool) {
+            pub fn compress(&self) -> (&$FE, bool) {
                 (&self.x, self.y.high_bit_set())
             }
 
-            pub fn decompress(x: &FieldElement, bit: bool) -> Option<Self> {
+            pub fn decompress(x: &$FE, bit: bool) -> Option<Self> {
                 // Y^2 = X^3 - A*X + b
                 let yy = x.power(3) + (&*A * x) + &*B;
                 let y = yy.sqrt()?;
@@ -416,16 +127,16 @@ macro_rules! point_impl {
                 Point {
                     x: GX.clone(),
                     y: GY.clone(),
-                    z: FieldElement::one(),
+                    z: $FE::one(),
                 }
             }
 
             /// Point at infinity
             pub fn infinity() -> Self {
                 Point {
-                    x: FieldElement::zero(),
-                    y: FieldElement::one(),
-                    z: FieldElement::zero(),
+                    x: $FE::zero(),
+                    y: $FE::one(),
+                    z: $FE::zero(),
                 }
             }
 
@@ -433,7 +144,7 @@ macro_rules! point_impl {
                 Point {
                     x: p.x.clone(),
                     y: p.y.clone(),
-                    z: FieldElement::one(),
+                    z: $FE::one(),
                 }
             }
 
@@ -452,7 +163,7 @@ macro_rules! point_impl {
 
                 self.x = &self.x * &zinv;
                 self.y = &self.y * &zinv;
-                self.z = FieldElement::one()
+                self.z = $FE::one()
             }
 
             fn add_different<'b>(&self, other: &'b Point) -> Point {
@@ -632,7 +343,7 @@ macro_rules! point_impl {
                 Point {
                     x: p.x,
                     y: p.y,
-                    z: FieldElement::one(),
+                    z: $FE::one(),
                 }
             }
         }
@@ -679,15 +390,15 @@ macro_rules! point_impl {
         // (of any size), not just the *field element* scalar defined in F(p).
         // this semantic abuse makes it easier to use.
 
-        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Point {
+        impl<'a, 'b> std::ops::Mul<&'b $SCALAR> for &'a Point {
             type Output = Point;
 
-            fn mul(self, other: &'b Scalar) -> Point {
+            fn mul(self, other: &'b $SCALAR) -> Point {
                 self.scalar_mul_daa_limbs8(&other.to_bytes())
             }
         }
 
-        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a Scalar {
+        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a $SCALAR {
             type Output = Point;
 
             fn mul(self, other: &'b Point) -> Point {
@@ -782,10 +493,10 @@ macro_rules! test_scalar_arithmetic {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! test_point_arithmetic {
-    () => {
+    ($SCALAR:ident) => {
         #[test]
         fn point_add_infinity() {
-            let p = &Point::generator() * &Scalar::from_u64(1245);
+            let p = &Point::generator() * &$SCALAR::from_u64(1245);
             assert_eq!(Point::generator() + Point::infinity(), Point::generator());
             assert_eq!(&p + Point::infinity(), p);
             assert_eq!(Point::infinity() + &p, p);
@@ -801,10 +512,10 @@ macro_rules! test_point_arithmetic {
 
         #[test]
         fn point_mul_and_inv() {
-            let mut scalar = [0u8; Scalar::SIZE_BYTES];
-            scalar[Scalar::SIZE_BYTES - 1] = 0x2;
-            scalar[Scalar::SIZE_BYTES - 10] = 0xd6;
-            let s = Scalar::from_bytes(&scalar).unwrap();
+            let mut scalar = [0u8; $SCALAR::SIZE_BYTES];
+            scalar[$SCALAR::SIZE_BYTES - 1] = 0x2;
+            scalar[$SCALAR::SIZE_BYTES - 10] = 0xd6;
+            let s = $SCALAR::from_bytes(&scalar).unwrap();
             let sinv = s.inverse().unwrap();
             let p = &Point::generator() * &s;
             let p2 = &p * &sinv;
@@ -819,27 +530,27 @@ macro_rules! test_point_arithmetic {
             let p4 = p2.double();
             let p6 = &p2 + &p4;
             let p8 = p4.double();
-            let p2got = &p1 * &Scalar::from_u64(2);
-            let p4got = &p1 * &Scalar::from_u64(4);
+            let p2got = &p1 * &$SCALAR::from_u64(2);
+            let p4got = &p1 * &$SCALAR::from_u64(4);
 
-            let p6got = &p1 * &Scalar::from_u64(6);
-            let p8got = &p1 * &Scalar::from_u64(8);
+            let p6got = &p1 * &$SCALAR::from_u64(6);
+            let p8got = &p1 * &$SCALAR::from_u64(8);
 
             assert_eq!(p2, p2got);
             assert_eq!(p4, p4got);
             assert_eq!(p6, p6got);
             assert_eq!(p8, p8got);
-            assert_eq!(&p2got * &Scalar::from_u64(4), p8got);
+            assert_eq!(&p2got * &$SCALAR::from_u64(4), p8got);
 
             for b in &[4u64, 8, 10, 11, 39] {
-                let g = &Point::generator() * &Scalar::from_u64(*b);
+                let g = &Point::generator() * &$SCALAR::from_u64(*b);
                 for p in &[34u64, 56, 791, 12492124] {
                     let p1: u64 = p / 2;
                     let p2: u64 = p - p1;
 
-                    let r = &g * &Scalar::from_u64(*p);
-                    let r1 = &g * &Scalar::from_u64(p1);
-                    let r2 = &g * &Scalar::from_u64(p2);
+                    let r = &g * &$SCALAR::from_u64(*p);
+                    let r1 = &g * &$SCALAR::from_u64(p1);
+                    let r2 = &g * &$SCALAR::from_u64(p2);
                     let rprim = r1 + r2;
 
                     assert_eq!(r, rprim, "(p1 + p2) X == p1 X + p2 X");
@@ -852,6 +563,64 @@ macro_rules! test_point_arithmetic {
             let p = PointAffine::generator();
             let (x, ysign) = p.compress();
             assert_eq!(p, PointAffine::decompress(x, ysign).unwrap());
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! bigint_prime_curve {
+    ($m: ident, $szfe: expr) => {
+        pub mod $m {
+            use crate::curve::bigint::maths::{mod_inverse, tonelli_shanks};
+            use crate::params::sec2::$m::*;
+            use crate::{bigint_scalar_impl, point_impl};
+            use lazy_static;
+            use num_bigint::BigUint;
+            use num_traits::{cast::ToPrimitive, identities::One};
+
+            lazy_static! {
+                static ref P: BigUint = BigUint::from_bytes_be(&P_BYTES);
+                static ref PMOD4: u32 = {
+                    let pmodded = &*P & BigUint::from(0b11u32);
+                    pmodded.to_u32().unwrap()
+                };
+
+                // "constant" (P + 1) / 4
+                static ref PP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
+
+                static ref ORDER: BigUint = BigUint::from_bytes_be(&ORDER_BYTES);
+                static ref OMOD4: u32 = {
+                    let pmodded = &*ORDER & BigUint::from(0b11u32);
+                    pmodded.to_u32().unwrap()
+                };
+
+                // "constant" (ORDER + 1) / 4
+                static ref OP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
+            }
+            bigint_scalar_impl!(FieldElement, &*P, $szfe, PMOD4, PP1D4);
+            bigint_scalar_impl!(Scalar, &*ORDER, $szfe, OMOD4, OP1D4);
+            point_impl!(FieldElement, Scalar, &*GX, &*GY);
+
+            #[cfg(test)]
+            mod tests {
+                use super::*;
+                use crate::{test_point_arithmetic, test_scalar_arithmetic};
+
+                mod scalar {
+                    use super::*;
+                    test_scalar_arithmetic!(Scalar);
+                }
+                mod field_element {
+                    use super::*;
+                    test_scalar_arithmetic!(FieldElement);
+                }
+                test_point_arithmetic!(Scalar);
+            }
+            #[cfg(test)]
+            mod bench {
+                // placeholder
+            }
         }
     };
 }

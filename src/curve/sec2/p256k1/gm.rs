@@ -1,122 +1,33 @@
 use crate::curve::fiat::secp256k1_scalar_64::*;
+use crate::curve::field::{Field, Sign};
+use crate::fiat_field_ops_impl;
 use crate::mp::ct::{Choice, CtEqual, CtZero};
 use crate::params::sec2::p256k1::ORDER_LIMBS;
 
 const GM_LIMBS_SIZE: usize = 4;
 
-fn swap_endian(buf: &mut [u8; 32]) {
-    for i in 0..16 {
-        let v = buf[i];
-        buf[i] = buf[31 - i];
-        buf[31 - i] = v
-    }
-}
-
-#[derive(Clone)]
-pub struct Scalar([u64; GM_LIMBS_SIZE]);
-
-impl PartialEq for Scalar {
-    fn eq(&self, other: &Self) -> bool {
-        &self.0 == &other.0
-    }
-}
-
-impl std::fmt::Debug for Scalar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for b in &self.to_bytes() {
-            write!(f, "{:02x}", b)?
-        }
-        Ok(())
-    }
-}
-
-impl CtZero for &Scalar {
-    fn ct_zero(f: &Scalar) -> Choice {
-        let mut out = 0;
-        fiat_secp256k1_scalar_nonzero(&mut out, &f.0);
-        CtZero::ct_zero(out)
-    }
-    fn ct_nonzero(f: &Scalar) -> Choice {
-        let mut out = 0;
-        fiat_secp256k1_scalar_nonzero(&mut out, &f.0);
-        CtZero::ct_nonzero(out)
-    }
-}
-impl CtEqual for &Scalar {
-    fn ct_eq(f1: &Scalar, f2: &Scalar) -> Choice {
-        let r = f1 - f2;
-        CtZero::ct_zero(&r)
-    }
-}
-impl Eq for Scalar {}
+fiat_field_ops_impl!(
+    Scalar,
+    256,
+    ORDER_LIMBS,
+    GM_LIMBS_SIZE,
+    fiat_secp256k1_scalar_nonzero,
+    fiat_secp256k1_scalar_to_montgomery,
+    fiat_secp256k1_scalar_from_montgomery,
+    fiat_secp256k1_scalar_add,
+    fiat_secp256k1_scalar_sub,
+    fiat_secp256k1_scalar_mul,
+    fiat_secp256k1_scalar_square,
+    fiat_secp256k1_scalar_opp,
+    fiat_secp256k1_scalar_to_bytes,
+    fiat_secp256k1_scalar_from_bytes
+);
 
 impl Scalar {
-    pub const SIZE_BITS: usize = 256;
-    pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
-
-    /// init from LE-limbs to internal representation (montgomery)
-    fn init(current: &[u64; GM_LIMBS_SIZE]) -> Self {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_to_montgomery(&mut out, &current);
-        Self(out)
-    }
-
-    /// the zero constant (additive identity)
-    pub fn zero() -> Self {
-        Self::init(&[0, 0, 0, 0])
-    }
-
-    /// The one constant (multiplicative identity)
-    pub fn one() -> Self {
-        Self::init(&[1, 0, 0, 0])
-    }
-
-    pub fn from_u64(n: u64) -> Self {
-        Self::init(&[n, 0, 0, 0])
-    }
-
-    pub fn is_zero(&self) -> bool {
-        let mut cond = 0;
-        fiat_secp256k1_scalar_nonzero(&mut cond, &self.0);
-        cond == 0
-    }
-
-    // there's no really negative number in Fp, but if high bit is set ...
-    pub fn high_bit_set(&self) -> bool {
-        todo!()
-    }
-
-    /// Self add another Scalar
-    pub fn add_assign(&mut self, _other: &Self) {
-        todo!()
-    }
-
-    pub fn to_string(&self) -> String {
-        let mut s = String::new();
-        let bytes = self.to_bytes();
-        for b in bytes.iter() {
-            s.push_str(&format!("{:02x}", b));
-        }
-        s
-    }
-
-    pub fn square(&self) -> Self {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_square(&mut out, &self.0);
-        Self(out)
-    }
-
-    fn square_rep(&self, count: usize) -> Self {
-        let mut x = self.square();
-        for _ in 1..count {
-            x = x.square();
-        }
-        x
-    }
-
     /// Get the multiplicative inverse
     ///
-    /// Note that 0 doesn't have a multiplicative inverse
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    /// TODO this will change to being a method of NonZeroScalar
     pub fn inverse(&self) -> Self {
         assert!(!self.is_zero());
         let x = self;
@@ -165,260 +76,6 @@ impl Scalar {
 
         t
     }
-
-    /// Double the field element, this is equivalent to 2*self or self+self, but can be implemented faster
-    pub fn double(&self) -> Self {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_add(&mut out, &self.0, &self.0);
-        Scalar(out)
-    }
-
-    pub fn triple(&self) -> Self {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        let mut out2 = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_add(&mut out, &self.0, &self.0);
-        fiat_secp256k1_scalar_add(&mut out2, &out, &self.0);
-        Scalar(out2)
-    }
-
-    pub fn power_(&self, limbs: &[u8]) -> Self {
-        let mut a = self.clone();
-        let mut q = Self::one();
-
-        for limb in limbs.iter().rev() {
-            for i in 0..8 {
-                if limb & (1 << i) != 0 {
-                    q = q * &a;
-                }
-                a = a.square();
-            }
-        }
-        q
-    }
-
-    /// Compute the field element raised to a power of n, modulus p
-    pub fn power(&self, n: u64) -> Self {
-        if n == 0 {
-            Self::one()
-        } else if n == 1 {
-            self.clone()
-        } else if n == 2 {
-            self.square()
-        } else {
-            let mut a = self.clone();
-            let mut q = Self::one();
-
-            for i in 0..64 {
-                if n & (1 << i) != 0 {
-                    q = q * &a;
-                }
-                a = a.square();
-            }
-            q
-        }
-    }
-
-    /// Initialize a new scalar from its bytes representation
-    ///
-    /// If the represented value overflow the field element size,
-    /// then None is returned.
-    pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
-        use crate::mp::ct::CtLesser;
-        use crate::mp::limbs::LimbsLE;
-
-        let mut buf = [0u8; Self::SIZE_BYTES];
-        buf.copy_from_slice(bytes);
-        swap_endian(&mut buf);
-
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        let mut out_mont = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_from_bytes(&mut out, &buf);
-
-        let o = ORDER_LIMBS.iter().rev().copied().collect::<Vec<_>>();
-        if LimbsLE::ct_lt(LimbsLE(&out), LimbsLE(&o[..])).is_true() {
-            fiat_secp256k1_scalar_to_montgomery(&mut out_mont, &out);
-            Some(Scalar(out_mont))
-        } else {
-            None
-        }
-    }
-
-    /// Similar to from_bytes but take values from a slice.
-    ///
-    /// If the slice is not of the right size, then None is returned
-    pub fn from_slice(slice: &[u8]) -> Option<Self> {
-        if slice.len() != Self::SIZE_BYTES {
-            return None;
-        }
-        let mut buf = [0u8; Self::SIZE_BYTES];
-        buf.copy_from_slice(slice);
-        Self::from_bytes(&buf)
-    }
-
-    /// Output the scalar bytes representation
-    pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
-        let mut out_normal = [0u64; GM_LIMBS_SIZE];
-        let mut out = [0u8; Self::SIZE_BYTES];
-        fiat_secp256k1_scalar_from_montgomery(&mut out_normal, &self.0);
-        fiat_secp256k1_scalar_to_bytes(&mut out, &out_normal);
-        swap_endian(&mut out);
-        out
-    }
-
-    /// Output the scalar bytes representation to the mutable slice
-    ///
-    /// the slice needs to be of the correct size
-    pub fn to_slice(&self, slice: &mut [u8]) {
-        assert_eq!(slice.len(), Self::SIZE_BYTES);
-
-        // TODO don't create temporary buffer
-        let bytes = self.to_bytes();
-        slice.copy_from_slice(&bytes[..]);
-    }
-
-    /// Initialize from a wide buffer of random data.
-    ///
-    /// The difference with 'from_bytes' or 'from_slice' is that it takes
-    /// a random initialized buffer and used modulo operation to initialize
-    /// as a field element, but due to inherent bias in modulo operation
-    /// we take a double sized buffer.
-    pub fn init_from_wide_bytes(_random: [u8; Self::SIZE_BYTES * 2]) -> Self {
-        todo!()
-    }
-}
-
-impl std::ops::Neg for Scalar {
-    type Output = Scalar;
-
-    fn neg(self) -> Self::Output {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_opp(&mut out, &self.0);
-        Scalar(out)
-    }
-}
-
-impl std::ops::Neg for &Scalar {
-    type Output = Scalar;
-
-    fn neg(self) -> Self::Output {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_opp(&mut out, &self.0);
-        Scalar(out)
-    }
-}
-
-// ****************
-// Scalar Addition
-// ****************
-
-impl<'a, 'b> std::ops::Add<&'b Scalar> for &'a Scalar {
-    type Output = Scalar;
-
-    fn add(self, other: &'b Scalar) -> Scalar {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_add(&mut out, &self.0, &other.0);
-        Scalar(out)
-    }
-}
-
-impl<'a> std::ops::Add<Scalar> for &'a Scalar {
-    type Output = Scalar;
-
-    fn add(self, other: Scalar) -> Scalar {
-        self + &other
-    }
-}
-
-impl<'b> std::ops::Add<&'b Scalar> for Scalar {
-    type Output = Scalar;
-
-    fn add(self, other: &'b Scalar) -> Scalar {
-        &self + other
-    }
-}
-
-impl std::ops::Add<Scalar> for Scalar {
-    type Output = Scalar;
-
-    fn add(self, other: Scalar) -> Scalar {
-        &self + &other
-    }
-}
-
-// *******************
-// Scalar Subtraction
-// *******************
-
-impl<'a, 'b> std::ops::Sub<&'b Scalar> for &'a Scalar {
-    type Output = Scalar;
-
-    fn sub(self, other: &'b Scalar) -> Scalar {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_sub(&mut out, &self.0, &other.0);
-        Scalar(out)
-    }
-}
-
-impl<'a> std::ops::Sub<Scalar> for &'a Scalar {
-    type Output = Scalar;
-
-    fn sub(self, other: Scalar) -> Scalar {
-        self - &other
-    }
-}
-
-impl<'b> std::ops::Sub<&'b Scalar> for Scalar {
-    type Output = Scalar;
-
-    fn sub(self, other: &'b Scalar) -> Scalar {
-        &self - other
-    }
-}
-
-impl std::ops::Sub<Scalar> for Scalar {
-    type Output = Scalar;
-
-    fn sub(self, other: Scalar) -> Scalar {
-        &self - &other
-    }
-}
-
-// **********************
-// Scalar Multiplication
-// **********************
-
-impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Scalar {
-    type Output = Scalar;
-
-    fn mul(self, other: &'b Scalar) -> Scalar {
-        let mut out = [0u64; GM_LIMBS_SIZE];
-        fiat_secp256k1_scalar_mul(&mut out, &self.0, &other.0);
-        Scalar(out)
-    }
-}
-
-impl<'b> std::ops::Mul<&'b Scalar> for Scalar {
-    type Output = Scalar;
-
-    fn mul(self, other: &'b Scalar) -> Scalar {
-        &self * other
-    }
-}
-
-impl<'a, 'b> std::ops::Mul<Scalar> for &'a Scalar {
-    type Output = Scalar;
-
-    fn mul(self, other: Scalar) -> Scalar {
-        self * &other
-    }
-}
-
-impl std::ops::Mul<Scalar> for Scalar {
-    type Output = Scalar;
-
-    fn mul(self, other: Scalar) -> Scalar {
-        &self * &other
-    }
 }
 
 #[cfg(test)]
@@ -448,7 +105,7 @@ mod tests {
     fn power_small(v1: u64, v2: u32) {
         let f1 = Scalar::from_u64(v1);
         let fr = Scalar::from_u64(v1.pow(v2));
-        assert_eq!(f1.power(v2 as u64), fr)
+        assert_eq!(f1.power_u64(v2 as u64), fr)
     }
 
     #[test]

@@ -1,76 +1,22 @@
-//! macros to generate curve definition using biguint
+//! macros to generate curve definition using num_trait/num_bigint dependencies
 
-macro_rules! prime_curve {
-    ($m: ident, $szfe: expr) => {
-        pub mod $m {
-            use super::super::bifct::{mod_inverse, tonelli_shanks};
-            use crate::params::sec2::$m::*;
-            use crate::{bi_scalar_impl, point_impl};
-            use lazy_static;
-            use num_bigint::BigUint;
-            use num_traits::{cast::ToPrimitive, identities::One};
+use crate::bigint_prime_curve;
 
-            lazy_static! {
-                static ref P: BigUint = BigUint::from_bytes_be(&P_BYTES);
-                static ref PMOD4: u32 = {
-                    let pmodded = &*P & BigUint::from(0b11u32);
-                    pmodded.to_u32().unwrap()
-                };
-
-                // "constant" (P + 1) / 4
-                static ref PP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
-
-                static ref ORDER: BigUint = BigUint::from_bytes_be(&ORDER_BYTES);
-                static ref OMOD4: u32 = {
-                    let pmodded = &*ORDER & BigUint::from(0b11u32);
-                    pmodded.to_u32().unwrap()
-                };
-
-                // "constant" (ORDER + 1) / 4
-                static ref OP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
-            }
-            bi_scalar_impl!(FieldElement, &*P, $szfe, PMOD4, PP1D4);
-            bi_scalar_impl!(Scalar, &*ORDER, $szfe, OMOD4, OP1D4);
-            point_impl!(&*GX, &*GY);
-
-            #[cfg(test)]
-            mod tests {
-                use super::*;
-                use crate::{test_point_arithmetic, test_scalar_arithmetic};
-
-                mod scalar {
-                    use super::*;
-                    test_scalar_arithmetic!(Scalar);
-                }
-                mod field_element {
-                    use super::*;
-                    test_scalar_arithmetic!(FieldElement);
-                }
-                test_point_arithmetic!();
-            }
-            #[cfg(test)]
-            mod bench {
-                // placeholder
-            }
-        }
-    };
-}
-
-prime_curve!(p112r1, 112);
-prime_curve!(p112r2, 112);
-prime_curve!(p128r1, 128);
-prime_curve!(p128r2, 128);
-prime_curve!(p160k1, 160);
-prime_curve!(p160r1, 160);
-prime_curve!(p160r2, 160);
-prime_curve!(p192k1, 192);
-prime_curve!(p192r1, 192);
-prime_curve!(p224k1, 224);
-prime_curve!(p224r1, 224);
-//prime_curve!(p256k1, 256);
-prime_curve!(p256r1, 256);
-prime_curve!(p384r1, 384);
-prime_curve!(p521r1, 521);
+bigint_prime_curve!(p112r1, 112);
+bigint_prime_curve!(p112r2, 112);
+bigint_prime_curve!(p128r1, 128);
+bigint_prime_curve!(p128r2, 128);
+bigint_prime_curve!(p160k1, 160);
+bigint_prime_curve!(p160r1, 160);
+bigint_prime_curve!(p160r2, 160);
+bigint_prime_curve!(p192k1, 192);
+bigint_prime_curve!(p192r1, 192);
+bigint_prime_curve!(p224k1, 224);
+bigint_prime_curve!(p224r1, 224);
+//bigint_prime_curve!(p256k1, 256);
+bigint_prime_curve!(p256r1, 256);
+bigint_prime_curve!(p384r1, 384);
+bigint_prime_curve!(p521r1, 521);
 
 #[cfg(test)]
 mod tests {

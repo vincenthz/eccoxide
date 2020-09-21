@@ -95,14 +95,14 @@ pub fn limbsle_lt<'a, 'b>(a: LimbsLE<'a>, b: LimbsLE<'b>) -> Choice {
 }
 
 impl<'a> CtEqual for LimbsLE<'a> {
-    fn ct_eq(a: Self, b: Self) -> Choice {
-        CtEqual::ct_eq(a.0, b.0)
+    fn ct_eq(&self, b: &Self) -> Choice {
+        self.0.ct_eq(b.0)
     }
 }
 
 impl<'a> CtEqual for LimbsBE<'a> {
-    fn ct_eq(a: Self, b: Self) -> Choice {
-        CtEqual::ct_eq(a.0, b.0)
+    fn ct_eq(&self, b: &Self) -> Choice {
+        self.0.ct_eq(b.0)
     }
 }
 

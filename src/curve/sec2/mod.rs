@@ -1,5 +1,4 @@
-mod bi;
-mod bifct;
+mod bigint;
 pub mod p256k1;
 
-pub use bi::*;
+pub use bigint::*;

@@ -28,6 +28,13 @@ impl From<Choice> for bool {
     }
 }
 
+impl core::ops::BitAnd for Choice {
+    type Output = Choice;
+    fn bitand(self, b: Choice) -> Choice {
+        Choice(self.0 & b.0)
+    }
+}
+
 impl<T> From<(Choice, T)> for CtOption<T> {
     fn from(c: (Choice, T)) -> CtOption<T> {
         CtOption {
@@ -65,10 +72,10 @@ pub trait CtLesser: Sized {
     }
 }
 
-pub trait CtEqual: Sized {
-    fn ct_eq(a: Self, b: Self) -> Choice;
-    fn ct_ne(a: Self, b: Self) -> Choice {
-        Self::ct_eq(a, b).negate()
+pub trait CtEqual<Rhs: ?Sized = Self> {
+    fn ct_eq(&self, b: &Rhs) -> Choice;
+    fn ct_ne(&self, b: &Rhs) -> Choice {
+        self.ct_eq(b).negate()
     }
 }
 
@@ -82,11 +89,11 @@ impl CtZero for u64 {
 }
 
 impl CtEqual for u64 {
-    fn ct_eq(a: Self, b: Self) -> Choice {
-        Self::ct_zero(a ^ b)
+    fn ct_eq(&self, b: &Self) -> Choice {
+        Self::ct_zero(self ^ b)
     }
-    fn ct_ne(a: Self, b: Self) -> Choice {
-        Self::ct_nonzero(a ^ b)
+    fn ct_ne(&self, b: &Self) -> Choice {
+        Self::ct_nonzero(self ^ b)
     }
 }
 
@@ -119,11 +126,11 @@ impl CtZero for &[u64] {
     }
 }
 
-impl CtEqual for &[u64] {
-    fn ct_eq(a: &[u64], b: &[u64]) -> Choice {
-        assert_eq!(a.len(), b.len());
+impl CtEqual for [u64] {
+    fn ct_eq(&self, b: &[u64]) -> Choice {
+        assert_eq!(self.len(), b.len());
         let mut acc = 0;
-        for (x, y) in a.iter().zip(b.iter()) {
+        for (x, y) in self.iter().zip(b.iter()) {
             acc |= x ^ y;
         }
         u64::ct_zero(acc)
