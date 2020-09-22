@@ -1,3 +1,4 @@
+#[cfg(feature = "p256k1")]
 mod p256k1 {
 
     struct KAT {

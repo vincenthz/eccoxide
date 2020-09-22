@@ -3,6 +3,12 @@ name = "eccoxide"
 version = "0.1.0"
 authors = ["Vincent Hanquez <vincent@typed.io>"]
 edition = "2018"
+keywords = [ "Crypto", "Cryptography", "ECC", "Elliptic", "Curve", "SEC2" ]
+categories = [ "cryptography" ]
+license = "MIT/Apache-2.0"
+description = "elliptic curve cryptography (ECC) framework"
+homepage = "https://github.com/vincenthz/eccoxide/"
+repository = "https://github.com/vincenthz/eccoxide/"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,3 +16,27 @@ edition = "2018"
 num-bigint = "0.3"
 num-traits = "0.2"
 lazy_static = "1.4"
+
+[features]
+default = ["sec2"]
+
+# SEC2 curves enabled by default (192, 224 are probably too small in 2020)
+sec2 = ["p192k1", "p192r1", "p224k1", "p224r1", "p256k1", "p256r1", "p384r1", "p521r1"]
+
+# This is not recommended to enable as the size is too small for cryptographic needs
+sec2-small = ["p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r2"]
+
+p112r2 = []
+p128r1 = []
+p128r2 = []
+p160k1 = []
+p160r1 = []
+p160r2 = []
+p192k1 = []
+p192r1 = []
+p224k1 = []
+p224r1 = []
+p256k1 = []
+p256r1 = []
+p384r1 = []
+p521r1 = []

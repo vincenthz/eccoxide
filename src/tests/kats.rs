@@ -28,8 +28,13 @@ macro_rules! test_kats_mul {
     };
 }
 
+#[cfg(feature = "p192r1")]
 test_kats_mul!(p192r1, 0, 52);
+#[cfg(feature = "p224r1")]
 test_kats_mul!(p224r1, 52, 104);
+#[cfg(feature = "p256r1")]
 test_kats_mul!(p256r1, 104, 156);
+#[cfg(feature = "p384r1")]
 test_kats_mul!(p384r1, 156, 208);
+#[cfg(feature = "p521r1")]
 test_kats_mul!(p521r1, 208, 260);
