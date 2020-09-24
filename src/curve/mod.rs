@@ -6,5 +6,7 @@ pub(crate) mod field;
 pub(crate) mod projective;
 pub(crate) mod weierstrass;
 
+pub use field::Sign;
+
 // exports the SEC2 curves
 pub mod sec2;
