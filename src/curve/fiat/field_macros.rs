@@ -427,3 +427,103 @@ macro_rules! fiat_field_sqrt_define {
         }
     };
 }
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_field_unittest {
+    ($FE:ident) => {
+        fn add_small(v1: u64, v2: u64) {
+            let f1 = $FE::from_u64(v1);
+            let f2 = $FE::from_u64(v2);
+            let fr = $FE::from_u64(v1 + v2);
+            assert_eq!(f1 + f2, fr)
+        }
+
+        fn square_small(v1: u64) {
+            let f1 = $FE::from_u64(v1);
+            let fr = $FE::from_u64(v1 * v1);
+            assert_eq!(f1.square(), fr)
+        }
+
+        fn mul_small(v1: u64, v2: u64) {
+            let f1 = $FE::from_u64(v1);
+            let f2 = $FE::from_u64(v2);
+            let fr = $FE::from_u64(v1 * v2);
+            assert_eq!(f1 * f2, fr)
+        }
+
+        fn power_small(v1: u64, v2: u32) {
+            let f1 = $FE::from_u64(v1);
+            let fr = $FE::from_u64(v1.pow(v2));
+            assert_eq!(f1.power_u64(v2 as u64), fr)
+        }
+
+        #[test]
+        fn add() {
+            add_small(3, 24);
+            add_small(0xff01, 1);
+            add_small(0x10001, 0x100);
+        }
+
+        #[test]
+        fn square() {
+            square_small(3);
+            square_small(0xff01);
+            square_small(0x10001);
+        }
+
+        #[test]
+        fn mul() {
+            mul_small(3, 24);
+            mul_small(0x0, 1);
+            mul_small(0xff01, 1);
+            mul_small(0x10001, 0x100);
+        }
+
+        #[test]
+        fn power() {
+            power_small(3, 24);
+            power_small(0x2, 9);
+            power_small(0xff01, 4);
+            power_small(0x13, 13);
+        }
+
+        #[test]
+        fn sub() {
+            let f1 = $FE::from_u64(49);
+            let f2 = $FE::from_u64(24);
+            let fr = $FE::from_u64(25);
+
+            assert_eq!(f1 - f2, fr)
+        }
+
+        #[test]
+        fn inverse() {
+            for i in 1..124 {
+                println!("{}", i);
+                let fe = $FE::from_u64(i);
+                let r = &fe * fe.inverse();
+                assert_eq!($FE::one(), r);
+            }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_field_sqrt_unittest {
+    ($FE:ident) => {
+        #[test]
+        fn sqrt() {
+            for i in 2..34 {
+                let f = $FE::from_u64(i);
+                match f.sqrt().into_option() {
+                    None => (),
+                    Some(r) => {
+                        assert_eq!(&r * &r, f, "$FE returns a sqrt for {} that is not valid", i)
+                    }
+                }
+            }
+        }
+    };
+}

@@ -26,8 +26,8 @@ bigint_prime_curve!(p224k1, 224);
 bigint_prime_curve!(p224r1, 224);
 //#[cfg(feature = "p256k1")]
 //bigint_prime_curve!(p256k1, 256);
-#[cfg(feature = "p256r1")]
-bigint_prime_curve!(p256r1, 256);
+//#[cfg(feature = "p256r1")]
+//bigint_prime_curve!(p256r1, 256);
 #[cfg(feature = "p384r1")]
 bigint_prime_curve!(p384r1, 384);
 #[cfg(feature = "p521r1")]
@@ -35,6 +35,7 @@ bigint_prime_curve!(p521r1, 521);
 
 #[cfg(test)]
 mod tests {
+    /*
     #[cfg(feature = "p256r1")]
     mod p256r1 {
         use super::super::p256r1::*;
@@ -53,6 +54,7 @@ mod tests {
             assert_eq!(p_expected, p_got_affine);
         }
     }
+    */
 
     #[cfg(feature = "p192r1")]
     mod p192r1 {
