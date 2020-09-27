@@ -518,7 +518,7 @@ macro_rules! fiat_field_sqrt_unittest {
             for i in 2..34 {
                 let f = $FE::from_u64(i);
                 match f.sqrt().into_option() {
-                    None => (),
+                    None => println!("{} no sqrt", i),
                     Some(r) => {
                         assert_eq!(&r * &r, f, "$FE returns a sqrt for {} that is not valid", i)
                     }
