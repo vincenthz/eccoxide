@@ -34,12 +34,40 @@ impl FieldElement {
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
     pub fn inverse(&self) -> Self {
         assert!(!self.is_zero());
-        todo!()
+        let x2 = self.square() * self;
+        let x3 = x2.square() * self;
+        let x6 = x3.square_rep(3) * &x3;
+        let x12 = x6.square_rep(6) * &x6;
+        let x15 = x12.square_rep(3) * &x3;
+        let x30 = x15.square_rep(15) * &x15;
+        let x32 = x30.square_rep(2) * &x2;
+
+        let mut t1 = x32.square_rep(32) * self;
+        t1 = t1.square_rep(96 + 32) * &x32;
+        t1 = t1.square_rep(32) * &x32;
+        t1 = t1.square_rep(30) * &x30;
+        t1 = t1.square_rep(2);
+        t1 * self
     }
 
     /// Compute the square root 'x' of the field element such that x*x = self
     pub fn sqrt(&self) -> CtOption<Self> {
-        todo!()
+        // (p+1)/4 = 1*32,0*31,1*1,0*95,1*1,0*94
+
+        let x2 = self.square() * self;
+        let x3 = x2.square() * self;
+        let x6 = x3.square_rep(3) * &x3;
+        let x12 = x6.square_rep(6) * &x6;
+        let x15 = x12.square_rep(3) * &x3;
+        let x30 = x15.square_rep(15) * &x15;
+        let x32 = x30.square_rep(2) * &x2;
+
+        let mut t1 = x32.square_rep(32) * self;
+        t1 = t1.square_rep(96) * self;
+        let r = t1.square_rep(94);
+
+        let r2 = &r * &r;
+        CtOption::from((CtEqual::ct_eq(&r2, self), r))
     }
 }
 
@@ -67,7 +95,59 @@ impl Scalar {
     /// TODO this will change to being a method of NonZeroScalar
     pub fn inverse(&self) -> Self {
         assert!(!self.is_zero());
-        todo!()
+        let b10 = self.square();
+        let b11 = &b10 * self; // x2
+        let b101 = &b10 * &b11;
+        let b111 = &b101 * &b10; // x3
+
+        let b1010 = b101.square();
+        let b1111 = &b1010 * &b101; // x4
+        let b10101 = b1010.square() * self;
+        let b101010 = b10101.square();
+
+        let b101111 = &b101010 * &b101;
+
+        let x6 = &b101010 * &b10101;
+        let x8 = x6.square_rep(2) * &b11;
+        let x16 = x8.square_rep(8) * &x8;
+        let x32 = x16.square_rep(16) * &x16;
+
+        let mut t1 = x32.square_rep(64) * &x32;
+        t1 = t1.square_rep(32) * &x32;
+        t1 = t1.square_rep(6) * &b101111;
+        t1 = t1.square_rep(5) * &b111;
+
+        t1 = t1.square_rep(4) * &b11;
+        t1 = t1.square_rep(5) * &b1111;
+        t1 = t1.square_rep(5) * &b10101;
+        t1 = t1.square_rep(4) * &b101;
+
+        t1 = t1.square_rep(3) * &b101;
+        t1 = t1.square_rep(3) * &b101;
+        t1 = t1.square_rep(5) * &b111;
+        t1 = t1.square_rep(9) * &b101111;
+
+        t1 = t1.square_rep(6) * &b1111;
+        t1 = t1.square_rep(2) * self;
+        t1 = t1.square_rep(5) * self;
+        t1 = t1.square_rep(6) * &b1111;
+
+        t1 = t1.square_rep(5) * &b111;
+        t1 = t1.square_rep(4) * &b111;
+        t1 = t1.square_rep(5) * &b111;
+        t1 = t1.square_rep(5) * &b101;
+
+        t1 = t1.square_rep(3) * &b11;
+        t1 = t1.square_rep(10) * &b101111;
+        t1 = t1.square_rep(2) * &b11;
+        t1 = t1.square_rep(5) * &b11;
+
+        t1 = t1.square_rep(5) * &b11;
+        t1 = t1.square_rep(3) * self;
+        t1 = t1.square_rep(7) * &b10101;
+        t1 = t1.square_rep(6) * &b1111;
+
+        t1
     }
 }
 
