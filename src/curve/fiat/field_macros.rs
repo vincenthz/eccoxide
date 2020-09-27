@@ -13,7 +13,7 @@ macro_rules! fiat_field_ops_impl {
 
         impl std::fmt::Debug for $FE {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                for b in &self.to_bytes() {
+                for b in &self.to_bytes()[..] {
                     write!(f, "{:02x}", b)?
                 }
                 Ok(())
@@ -22,7 +22,7 @@ macro_rules! fiat_field_ops_impl {
 
         impl std::fmt::Display for $FE {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                for b in &self.to_bytes() {
+                for b in &self.to_bytes()[..] {
                     write!(f, "{:02x}", b)?
                 }
                 Ok(())
@@ -500,9 +500,9 @@ macro_rules! fiat_field_unittest {
         #[test]
         fn inverse() {
             for i in 1..124 {
-                println!("{}", i);
                 let fe = $FE::from_u64(i);
                 let r = &fe * fe.inverse();
+                println!("{} * {} = {}", fe, fe.inverse(), r);
                 assert_eq!($FE::one(), r);
             }
         }

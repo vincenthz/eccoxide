@@ -28,8 +28,8 @@ bigint_prime_curve!(p224r1, 224);
 //bigint_prime_curve!(p256k1, 256);
 //#[cfg(feature = "p256r1")]
 //bigint_prime_curve!(p256r1, 256);
-#[cfg(feature = "p384r1")]
-bigint_prime_curve!(p384r1, 384);
+//#[cfg(feature = "p384r1")]
+//bigint_prime_curve!(p384r1, 384);
 #[cfg(feature = "p521r1")]
 bigint_prime_curve!(p521r1, 521);
 
