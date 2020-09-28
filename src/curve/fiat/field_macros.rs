@@ -1,7 +1,7 @@
 #[doc(hidden)]
 #[macro_export]
-macro_rules! fiat_field_ops_impl {
-    ($FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident) => {
+macro_rules! fiat_field_common_impl {
+    ($FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident) => {
         #[derive(Clone)]
         pub struct $FE([u64; $FE_LIMBS_SIZE]);
 
@@ -10,6 +10,7 @@ macro_rules! fiat_field_ops_impl {
                 &self.0 == &other.0
             }
         }
+        impl Eq for $FE {}
 
         impl std::fmt::Debug for $FE {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -28,37 +29,9 @@ macro_rules! fiat_field_ops_impl {
                 Ok(())
             }
         }
-
-        impl CtZero for &$FE {
-            fn ct_zero(f: &$FE) -> Choice {
-                let mut out = 0;
-                $fiat_nonzero(&mut out, &f.0);
-                CtZero::ct_zero(out)
-            }
-            fn ct_nonzero(f: &$FE) -> Choice {
-                let mut out = 0;
-                $fiat_nonzero(&mut out, &f.0);
-                CtZero::ct_nonzero(out)
-            }
-        }
-
-        impl CtEqual<$FE> for $FE {
-            fn ct_eq(&self, other: &$FE) -> Choice {
-                let r = self - other;
-                CtZero::ct_zero(&r)
-            }
-        }
-        impl Eq for $FE {}
-
         impl $FE {
             pub const SIZE_BITS: usize = $SIZE_BITS;
             pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
-
-            fn init(current: &[u64; $FE_LIMBS_SIZE]) -> Self {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                $fiat_to_montgomery(&mut out, &current);
-                Self(out)
-            }
 
             /// the zero constant (additive identity)
             pub fn zero() -> Self {
@@ -76,30 +49,6 @@ macro_rules! fiat_field_ops_impl {
                 let mut limbs = [0u64; $FE_LIMBS_SIZE];
                 limbs[0] = n;
                 Self::init(&limbs)
-            }
-
-            pub fn is_zero(&self) -> bool {
-                let mut cond = 0;
-                $fiat_nonzero(&mut cond, &self.0);
-                cond == 0
-            }
-
-            /// Get the sign of the field element
-            pub fn sign(&self) -> Sign {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                $fiat_from_montgomery(&mut out, &self.0);
-                if out[0] & 1 == 1 {
-                    Sign::Negative
-                } else {
-                    Sign::Positive
-                }
-            }
-
-            // there's no really negative number in Fp, but if high bit is set ...
-            pub fn is_negative(&self) -> bool {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                $fiat_from_montgomery(&mut out, &self.0);
-                (out[0] & 1) != 0
             }
 
             pub fn to_string(&self) -> String {
@@ -176,33 +125,6 @@ macro_rules! fiat_field_ops_impl {
                 q
             }
 
-            /// Initialize a new scalar from its bytes representation (BE)
-            ///
-            /// If the represented value overflow the field element size,
-            /// then None is returned.
-            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
-                use crate::mp::ct::CtLesser;
-                use crate::mp::limbs::LimbsLE;
-
-                let mut buf = [0u8; Self::SIZE_BYTES];
-                buf.copy_from_slice(bytes);
-                buf.reverse(); // swap endianness
-
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                let mut out_mont = [0u64; $FE_LIMBS_SIZE];
-                $fiat_from_bytes(&mut out, &buf);
-
-                let p = $FIELD_P_LIMBS.iter().rev().copied().collect::<Vec<_>>();
-
-                // TODO: non constant
-                if LimbsLE::ct_lt(LimbsLE(&out), LimbsLE(&p[..])).is_true() {
-                    $fiat_to_montgomery(&mut out_mont, &out);
-                    Some($FE(out_mont))
-                } else {
-                    None
-                }
-            }
-
             /// Similar to from_bytes but take values from a slice.
             ///
             /// If the slice is not of the right size, then None is returned
@@ -213,16 +135,6 @@ macro_rules! fiat_field_ops_impl {
                 let mut buf = [0u8; Self::SIZE_BYTES];
                 buf.copy_from_slice(slice);
                 Self::from_bytes(&buf)
-            }
-
-            /// Output the scalar bytes representation (BE)
-            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
-                let mut out_normal = [0u64; $FE_LIMBS_SIZE];
-                let mut out = [0u8; Self::SIZE_BYTES];
-                $fiat_from_montgomery(&mut out_normal, &self.0);
-                $fiat_to_bytes(&mut out, &out_normal);
-                out.reverse(); // swap endianness
-                out
             }
 
             /// Output the scalar bytes representation to the mutable slice
@@ -411,6 +323,112 @@ macro_rules! fiat_field_ops_impl {
             }
             fn cube(&self) -> $FE {
                 self.square() * self
+            }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_field_ops_impl {
+    ($FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident) => {
+        crate::fiat_field_common_impl!(
+            $FE,
+            $SIZE_BITS,
+            $FE_LIMBS_SIZE,
+            $fiat_add,
+            $fiat_sub,
+            $fiat_mul,
+            $fiat_square,
+            $fiat_opp
+        );
+
+        impl CtZero for &$FE {
+            fn ct_zero(f: &$FE) -> Choice {
+                let mut out = 0;
+                $fiat_nonzero(&mut out, &f.0);
+                CtZero::ct_zero(out)
+            }
+            fn ct_nonzero(f: &$FE) -> Choice {
+                let mut out = 0;
+                $fiat_nonzero(&mut out, &f.0);
+                CtZero::ct_nonzero(out)
+            }
+        }
+
+        impl CtEqual<$FE> for $FE {
+            fn ct_eq(&self, other: &$FE) -> Choice {
+                let r = self - other;
+                CtZero::ct_zero(&r)
+            }
+        }
+
+        impl $FE {
+            fn init(current: &[u64; $FE_LIMBS_SIZE]) -> Self {
+                let mut out = [0u64; $FE_LIMBS_SIZE];
+                $fiat_to_montgomery(&mut out, &current);
+                Self(out)
+            }
+
+            pub fn is_zero(&self) -> bool {
+                let mut cond = 0;
+                $fiat_nonzero(&mut cond, &self.0);
+                cond == 0
+            }
+
+            /// Get the sign of the field element
+            pub fn sign(&self) -> Sign {
+                let mut out = [0u64; $FE_LIMBS_SIZE];
+                $fiat_from_montgomery(&mut out, &self.0);
+                if out[0] & 1 == 1 {
+                    Sign::Negative
+                } else {
+                    Sign::Positive
+                }
+            }
+
+            // there's no really negative number in Fp, but if high bit is set ...
+            pub fn is_negative(&self) -> bool {
+                let mut out = [0u64; $FE_LIMBS_SIZE];
+                $fiat_from_montgomery(&mut out, &self.0);
+                (out[0] & 1) != 0
+            }
+
+            /// Initialize a new scalar from its bytes representation (BE)
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                use crate::mp::ct::CtLesser;
+                use crate::mp::limbs::LimbsLE;
+
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness
+
+                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out_mont = [0u64; $FE_LIMBS_SIZE];
+                $fiat_from_bytes(&mut out, &buf);
+
+                let p = $FIELD_P_LIMBS.iter().rev().copied().collect::<Vec<_>>();
+
+                // TODO: non constant
+                if LimbsLE::ct_lt(LimbsLE(&out), LimbsLE(&p[..])).is_true() {
+                    $fiat_to_montgomery(&mut out_mont, &out);
+                    Some($FE(out_mont))
+                } else {
+                    None
+                }
+            }
+
+            /// Output the scalar bytes representation (BE)
+            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+                let mut out_normal = [0u64; $FE_LIMBS_SIZE];
+                let mut out = [0u8; Self::SIZE_BYTES];
+                $fiat_from_montgomery(&mut out_normal, &self.0);
+                $fiat_to_bytes(&mut out, &out_normal);
+                out.reverse(); // swap endianness
+                out
             }
         }
     };

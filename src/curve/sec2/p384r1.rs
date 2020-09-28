@@ -16,15 +16,15 @@ fiat_field_ops_impl!(
     P_LIMBS,
     FE_LIMBS_SIZE,
     fiat_p384_nonzero,
-    fiat_p384_to_montgomery,
-    fiat_p384_from_montgomery,
     fiat_p384_add,
     fiat_p384_sub,
     fiat_p384_mul,
     fiat_p384_square,
     fiat_p384_opp,
     fiat_p384_to_bytes,
-    fiat_p384_from_bytes
+    fiat_p384_from_bytes,
+    fiat_p384_to_montgomery,
+    fiat_p384_from_montgomery
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -82,15 +82,15 @@ fiat_field_ops_impl!(
     ORDER_LIMBS,
     GM_LIMBS_SIZE,
     fiat_p384_scalar_nonzero,
-    fiat_p384_scalar_to_montgomery,
-    fiat_p384_scalar_from_montgomery,
     fiat_p384_scalar_add,
     fiat_p384_scalar_sub,
     fiat_p384_scalar_mul,
     fiat_p384_scalar_square,
     fiat_p384_scalar_opp,
     fiat_p384_scalar_to_bytes,
-    fiat_p384_scalar_from_bytes
+    fiat_p384_scalar_from_bytes,
+    fiat_p384_scalar_to_montgomery,
+    fiat_p384_scalar_from_montgomery
 );
 
 impl Scalar {
