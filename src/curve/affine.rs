@@ -1,3 +1,8 @@
+//! Affine Elliptic Curve Point defined over Field element as (X,Y)
+//!
+//! This only defined addition and multiplication operation, and coordinates decomposition
+//!
+//! Some other operations (negation, sub, etc) are also possible but this is not exhaustive
 use super::weierstrass::WeierstrassCurve;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use core::ops::{Add, Mul, Sub};

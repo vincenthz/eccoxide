@@ -1,3 +1,5 @@
+//! Curve p521r1 as defined over the prime field of order 2^521 - 1
+
 use crate::curve::fiat::p521_64::*;
 use crate::curve::fiat::p521_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
@@ -11,6 +13,7 @@ const GM_LIMBS_SIZE: usize = 9;
 const FE_LIMBS_SIZE: usize = 9;
 
 fiat_field_ops_impl!(
+    #[doc = "Element of the prime field Fp where p = 2^521-1"]
     FieldElement,
     521,
     P_LIMBS,
@@ -64,6 +67,7 @@ impl FieldElement {
 }
 
 fiat_field_ops_impl!(
+    #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP521R1 curve"]
     Scalar,
     521,
     ORDER_LIMBS,

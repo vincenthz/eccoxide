@@ -1,3 +1,4 @@
+//! Curve p256r1 as defined over the prime field of order 2^256 - 2^224 + 2^192 + 2^96 - 1
 use crate::curve::fiat::p256_64::*;
 use crate::curve::fiat::p256_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
@@ -11,6 +12,7 @@ const GM_LIMBS_SIZE: usize = 4;
 const FE_LIMBS_SIZE: usize = 4;
 
 fiat_field_ops_impl!(
+    #[doc = "Element of the prime field Fp where p = 2^256 - 2^224 + 2^192 + 2^96 - 1"]
     FieldElement,
     256,
     P_LIMBS,
@@ -74,6 +76,7 @@ impl FieldElement {
 }
 
 fiat_field_ops_impl!(
+    #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP256R1 curve"]
     Scalar,
     256,
     ORDER_LIMBS,

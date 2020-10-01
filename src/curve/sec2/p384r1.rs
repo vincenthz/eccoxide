@@ -1,3 +1,5 @@
+//! Curve p384r1 as defined over the prime field of order 2^384 - 2^128 - 2^96 + 2^32 - 1
+
 use crate::curve::fiat::p384_64::*;
 use crate::curve::fiat::p384_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
@@ -11,6 +13,7 @@ const GM_LIMBS_SIZE: usize = 6;
 const FE_LIMBS_SIZE: usize = 6;
 
 fiat_field_ops_impl!(
+    #[doc = "Element of the prime field Fp where p = 2^384 - 2^128 - 2^96 + 2^32 - 1"]
     FieldElement,
     384,
     P_LIMBS,
@@ -79,6 +82,7 @@ impl FieldElement {
 }
 
 fiat_field_ops_impl!(
+    #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP384R1 curve"]
     Scalar,
     384,
     ORDER_LIMBS,

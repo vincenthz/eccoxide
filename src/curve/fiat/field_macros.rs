@@ -1,7 +1,8 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_common_impl {
-    ($FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident) => {
+        $(#[$outer])*
         #[derive(Clone)]
         pub struct $FE([u64; $FE_LIMBS_SIZE]);
 
@@ -51,7 +52,10 @@ macro_rules! fiat_field_common_impl {
         }
 
         impl $FE {
+            /// Size in bits of this element of the field
             pub const SIZE_BITS: usize = $SIZE_BITS;
+
+            /// Size in bytes of this element of the field
             pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
 
             /// the zero constant (additive identity)
@@ -88,6 +92,8 @@ macro_rules! fiat_field_common_impl {
             }
 
             /// Return a new element that is the square of this one
+            ///
+            /// Always true: `self.square() == self * self`
             pub fn square(&self) -> Self {
                 let mut out = [0u64; $FE_LIMBS_SIZE];
                 $fiat_square(&mut out, &self.0);
@@ -108,10 +114,6 @@ macro_rules! fiat_field_common_impl {
                 let mut out = [0u64; $FE_LIMBS_SIZE];
                 $fiat_add(&mut out, &self.0, &self.0);
                 $FE(out)
-            }
-
-            pub fn triple(&self) -> Self {
-                self + self + self
             }
 
             /// Compute the field element raised to a power of n, modulus p
@@ -152,7 +154,7 @@ macro_rules! fiat_field_common_impl {
                 q
             }
 
-            /// Similar to from_bytes but take values from a slice.
+            /// Similar to 'from_bytes' but take values from a slice.
             ///
             /// If the slice is not of the right size, then None is returned
             pub fn from_slice(slice: &[u8]) -> Option<Self> {
@@ -358,8 +360,9 @@ macro_rules! fiat_field_common_impl {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_ops_impl {
-    ($FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, montgomery { $fiat_to_montgomery:ident, $fiat_from_montgomery:ident }) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, montgomery { $fiat_to_montgomery:ident, $fiat_from_montgomery:ident }) => {
         crate::fiat_field_common_impl!(
+            $(#[$outer])*
             $FE,
             $SIZE_BITS,
             $FE_LIMBS_SIZE,

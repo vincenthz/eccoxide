@@ -1,3 +1,16 @@
+//! Field abstraction for abstracting basic field operations 0/1/+/*
+//!
+//! Also define some extended operations related like double (addition of self),
+//! square (multiplication of self), and multiplicative inverse.
+//!
+//! We also expect a way to define a sign in the field, additive inverse (opposite), and the
+//! overall subtraction operations so that the math checks out.
+//!
+//! For now the the field abstracted is expected to be a prime field (expected multiplicative inverse).
+//! In the future, this will change to make the distinction
+//! between field and prime field.
+//!
+
 use crate::mp::ct::{CtEqual, CtOption};
 use std::fmt;
 use std::ops::{Add, Mul, Neg, Sub};
