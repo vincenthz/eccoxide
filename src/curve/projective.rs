@@ -1,4 +1,9 @@
-//! Reference reading:
+//! Projective Elliptic Curve Point defined over Field element as (X,Y,Z)
+//!
+//! This module implements the point addition formulas defined in
+//! [Complete addition formulas for prime order elliptic curves](https://eprint.iacr.org/2015/1060.pdf)
+//!
+//! For more complete reading:
 //!
 //! * [Complete addition formulas for prime order elliptic curves](https://eprint.iacr.org/2015/1060.pdf) (1)
 //! * Handbook of Elliptic and Hyperelliptic Curve Cryptography - Chapter 13
@@ -46,6 +51,7 @@ where
     }
 }
 
+/// This is the result return when trying to convert a projective point at infinity to its affine point
 #[derive(Debug, Clone, Copy)]
 pub struct AffineAtInfinity;
 

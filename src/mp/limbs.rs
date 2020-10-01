@@ -107,11 +107,11 @@ impl<'a> CtEqual for LimbsBE<'a> {
 }
 
 impl<'a> CtZero for LimbsLE<'a> {
-    fn ct_zero(a: Self) -> Choice {
-        CtZero::ct_zero(a.0)
+    fn ct_zero(&self) -> Choice {
+        self.0.ct_zero()
     }
-    fn ct_nonzero(a: Self) -> Choice {
-        CtZero::ct_nonzero(a.0)
+    fn ct_nonzero(&self) -> Choice {
+        self.0.ct_nonzero()
     }
 }
 

@@ -1,4 +1,6 @@
-//! short ℘ curves
+//! Short Weierstrass ℘ curves
+//!
+//! All short weierstrass curve are defined as as y^{2} = x^{3} + Ax + B
 
 /// Weierstrass curve are defined as y^{2} = x^{3} + Ax + B
 pub trait WeierstrassCurve: Copy + Clone {
