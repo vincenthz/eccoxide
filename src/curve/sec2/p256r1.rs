@@ -23,8 +23,10 @@ fiat_field_ops_impl!(
     fiat_p256_opp,
     fiat_p256_to_bytes,
     fiat_p256_from_bytes,
-    fiat_p256_to_montgomery,
-    fiat_p256_from_montgomery
+    montgomery {
+        fiat_p256_to_montgomery,
+        fiat_p256_from_montgomery
+    }
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -84,8 +86,10 @@ fiat_field_ops_impl!(
     fiat_p256_scalar_opp,
     fiat_p256_scalar_to_bytes,
     fiat_p256_scalar_from_bytes,
-    fiat_p256_scalar_to_montgomery,
-    fiat_p256_scalar_from_montgomery
+    montgomery {
+        fiat_p256_scalar_to_montgomery,
+        fiat_p256_scalar_from_montgomery
+    }
 );
 
 impl Scalar {
