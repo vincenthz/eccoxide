@@ -11,6 +11,7 @@ macro_rules! fiat_define_weierstrass_curve {
             static ref ORDER: $FE = $FE::from_bytes(&ORDER_BYTES).unwrap();
         }
 
+        /// The Weierstrass elliptic curve object itself
         #[derive(Debug, Clone, Copy)]
         pub struct Curve;
 

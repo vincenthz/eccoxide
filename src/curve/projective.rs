@@ -51,6 +51,7 @@ where
     }
 }
 
+/// This is the result return when trying to convert a projective point at infinity to its affine point
 #[derive(Debug, Clone, Copy)]
 pub struct AffineAtInfinity;
 

@@ -15,13 +15,14 @@ use crate::mp::ct::{CtEqual, CtOption};
 use std::fmt;
 use std::ops::{Add, Mul, Neg, Sub};
 
+/// Sign of a field element
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Sign {
     Positive,
     Negative,
 }
 
-// support trait for prime field
+/// abstract trait for prime field support
 pub trait Field<Output = Self>:
     Sized
     + 'static
