@@ -450,6 +450,18 @@ macro_rules! fiat_field_sqrt_define {
 #[macro_export]
 macro_rules! fiat_field_unittest {
     ($FE:ident) => {
+        fn eq_small(v1: u64, v2: u64) {
+            let f1 = $FE::from_u64(v1);
+            let f2 = $FE::from_u64(v2);
+            assert_eq!(f1 == f2, v1 == v2, "{} == {}", v1, v2)
+        }
+
+        fn ne_small(v1: u64, v2: u64) {
+            let f1 = $FE::from_u64(v1);
+            let f2 = $FE::from_u64(v2);
+            assert_eq!(f1 != f2, v1 != v2, "{} != {}", v1, v2)
+        }
+
         fn add_small(v1: u64, v2: u64) {
             let f1 = $FE::from_u64(v1);
             let f2 = $FE::from_u64(v2);
@@ -474,6 +486,18 @@ macro_rules! fiat_field_unittest {
             let f1 = $FE::from_u64(v1);
             let fr = $FE::from_u64(v1.pow(v2));
             assert_eq!(f1.power_u64(v2 as u64), fr)
+        }
+
+        #[test]
+        fn eq() {
+            for i in 1..56 {
+                eq_small(i, i);
+                eq_small(i, i + 1);
+                eq_small(i - 1, i);
+                ne_small(i, i);
+                ne_small(i, i + 1);
+                ne_small(i - 1, i);
+            }
         }
 
         #[test]
