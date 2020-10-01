@@ -29,6 +29,27 @@ macro_rules! fiat_field_common_impl {
                 Ok(())
             }
         }
+
+        impl CtZero for $FE {
+            fn ct_zero(&self) -> Choice {
+                let mut out = 0u64;
+                $fiat_nonzero(&mut out, &self.0);
+                out.ct_zero()
+            }
+            fn ct_nonzero(&self) -> Choice {
+                let mut out = 0u64;
+                $fiat_nonzero(&mut out, &self.0);
+                out.ct_nonzero()
+            }
+        }
+
+        impl CtEqual<$FE> for $FE {
+            fn ct_eq(&self, other: &$FE) -> Choice {
+                let r = self - other;
+                r.ct_zero()
+            }
+        }
+
         impl $FE {
             pub const SIZE_BITS: usize = $SIZE_BITS;
             pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
@@ -342,26 +363,6 @@ macro_rules! fiat_field_ops_impl {
             $fiat_square,
             $fiat_opp
         );
-
-        impl CtZero for &$FE {
-            fn ct_zero(f: &$FE) -> Choice {
-                let mut out = 0;
-                $fiat_nonzero(&mut out, &f.0);
-                CtZero::ct_zero(out)
-            }
-            fn ct_nonzero(f: &$FE) -> Choice {
-                let mut out = 0;
-                $fiat_nonzero(&mut out, &f.0);
-                CtZero::ct_nonzero(out)
-            }
-        }
-
-        impl CtEqual<$FE> for $FE {
-            fn ct_eq(&self, other: &$FE) -> Choice {
-                let r = self - other;
-                CtZero::ct_zero(&r)
-            }
-        }
 
         impl $FE {
             fn init(current: &[u64; $FE_LIMBS_SIZE]) -> Self {

@@ -54,9 +54,9 @@ impl<T> CtOption<T> {
     }
 }
 
-pub trait CtZero: Sized {
-    fn ct_zero(a: Self) -> Choice;
-    fn ct_nonzero(a: Self) -> Choice;
+pub trait CtZero {
+    fn ct_zero(&self) -> Choice;
+    fn ct_nonzero(&self) -> Choice;
 }
 
 pub trait CtGreater: Sized {
@@ -80,20 +80,20 @@ pub trait CtEqual<Rhs: ?Sized = Self> {
 }
 
 impl CtZero for u64 {
-    fn ct_zero(a: Self) -> Choice {
-        Choice(1 ^ ((a | a.wrapping_neg()) >> 63))
+    fn ct_zero(&self) -> Choice {
+        Choice(1 ^ ((self | self.wrapping_neg()) >> 63))
     }
-    fn ct_nonzero(a: Self) -> Choice {
-        Choice((a | a.wrapping_neg()) >> 63)
+    fn ct_nonzero(&self) -> Choice {
+        Choice((self | self.wrapping_neg()) >> 63)
     }
 }
 
 impl CtEqual for u64 {
     fn ct_eq(&self, b: &Self) -> Choice {
-        Self::ct_zero(self ^ b)
+        Self::ct_zero(&(self ^ b))
     }
     fn ct_ne(&self, b: &Self) -> Choice {
-        Self::ct_nonzero(self ^ b)
+        Self::ct_nonzero(&(self ^ b))
     }
 }
 
@@ -109,30 +109,41 @@ impl CtGreater for u64 {
     }
 }
 
-impl CtZero for &[u64] {
-    fn ct_zero(a: &[u64]) -> Choice {
-        let mut acc = 0;
-        for b in a.iter() {
+impl CtZero for [u64] {
+    fn ct_zero(&self) -> Choice {
+        let mut acc = 0u64;
+        for b in self.iter() {
             acc |= b
         }
-        u64::ct_zero(acc)
+        acc.ct_zero()
     }
-    fn ct_nonzero(a: Self) -> Choice {
-        let mut acc = 0;
-        for b in a.iter() {
+    fn ct_nonzero(&self) -> Choice {
+        let mut acc = 0u64;
+        for b in self.iter() {
             acc |= b
         }
-        u64::ct_nonzero(acc)
+        acc.ct_nonzero()
     }
 }
 
 impl CtEqual for [u64] {
     fn ct_eq(&self, b: &[u64]) -> Choice {
         assert_eq!(self.len(), b.len());
-        let mut acc = 0;
+        let mut acc = 0u64;
         for (x, y) in self.iter().zip(b.iter()) {
             acc |= x ^ y;
         }
-        u64::ct_zero(acc)
+        acc.ct_zero()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ct_zero() {
+        assert_eq!(0u64.ct_zero().is_true(), true);
+        assert_eq!(1u64.ct_zero().is_false(), true);
     }
 }
