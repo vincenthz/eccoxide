@@ -1,12 +1,3 @@
-/*
-use crate::curve::{
-    affine,
-    field::Sign,
-    projective,
-    weierstrass::{WeierstrassCurve, WeierstrassCurveA0},
-};
-*/
-
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_define_weierstrass_curve {
