@@ -10,6 +10,33 @@ def sec(name, p, ps, a, b, gx, gy, size):
     #S = FiniteField(order)
     return { 'name': name, 'p' : p, 'ps': ps, 'E': E, 'G': G, 'size': size }
 
+def secp192r1():
+    p = 2^192 - 2^64 - 1
+    ps = "2^192 - 2^64 - 1"
+    a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFC
+    b = 0x64210519E59C80E70FA7E9AB72243049FEB8DEECC146B9B1
+    gx = 0x188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012
+    gy = 0x07192B95FFC8DA78631011ED6B24CDD573F977A11E794811
+    return sec("p192r1", p, ps, a, b, gx, gy, 24)
+
+def secp224k1():
+    p = 2^224 - 2^32 - 2^12 - 2^11 - 2^9 - 2^7 - 2^4 - 2 - 1
+    ps = "2^224 - 2^32 - 2^12 - 2^11 - 2^9 - 2^7 - 2^4 - 2 - 1"
+    a = 0
+    b = 5
+    gx = 0xA1455B334DF099DF30FC28A169A467E9E47075A90F7E650EB6B7A45C
+    gy = 0x7E089FED7FBA344282CAFBD6F7E319F7C0B0BD59E2CA4BDB556D61A5
+    return sec("p224k1", p, ps, a, b, gx, gy, 28)
+
+def secp224r1():
+    p = 2^224 - 2^96 + 1
+    ps = "2^224 - 2^96 + 1"
+    a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFE
+    b = 0xB4050A850C04B3ABF54132565044B0B7D7BFD8BA270B39432355FFB4
+    gx = 0xB70E0CBD6BB4BF7F321390B94A03C1D356C21122343280D6115C1D21
+    gy = 0xBD376388B5F723FB4C22DFE6CD4375A05A07476444D5819985007E34
+    return sec("p224r1", p, ps, a, b, gx, gy, 28)
+
 def secp256k1():
     p = 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1
     ps = "2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1"

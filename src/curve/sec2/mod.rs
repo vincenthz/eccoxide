@@ -1,4 +1,4 @@
-//! Prime Elliptic Curve defined in [SEC2](https://www.secg.org/SEC2-Ver-1.0.pdf)
+//! Prime Elliptic Curve defined in [SEC2](https://www.secg.org/sec2-v2.pdf)
 mod bigint;
 
 #[cfg(feature = "p256k1")]
