@@ -16,10 +16,10 @@ bigint_prime_curve!(p160k1, 160);
 bigint_prime_curve!(p160r1, 160);
 #[cfg(feature = "p160r2")]
 bigint_prime_curve!(p160r2, 160);
-#[cfg(feature = "p192k1")]
-bigint_prime_curve!(p192k1, 192);
-#[cfg(feature = "p192r1")]
-bigint_prime_curve!(p192r1, 192);
+//#[cfg(feature = "p192k1")]
+//bigint_prime_curve!(p192k1, 192);
+//#[cfg(feature = "p192r1")]
+//bigint_prime_curve!(p192r1, 192);
 #[cfg(feature = "p224k1")]
 bigint_prime_curve!(p224k1, 224);
 #[cfg(feature = "p224r1")]
@@ -56,6 +56,7 @@ mod tests {
     }
     */
 
+    /*
     #[cfg(feature = "p192r1")]
     mod p192r1 {
         use super::super::p192r1::*;
@@ -122,4 +123,5 @@ mod tests {
             //assert_eq!(p.to_affine().unwrap(), points[1]);
         }
     }
+    */
 }
