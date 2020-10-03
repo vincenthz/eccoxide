@@ -8,7 +8,7 @@ macro_rules! fiat_define_weierstrass_curve {
             static ref B3: $FE = $FE::from_bytes(&B3_BYTES).unwrap();
             static ref GX: $FE = $FE::from_bytes(&GX_BYTES).unwrap();
             static ref GY: $FE = $FE::from_bytes(&GY_BYTES).unwrap();
-            static ref ORDER: $FE = $FE::from_bytes(&ORDER_BYTES).unwrap();
+            static ref ORDER: &'static [u8] = &ORDER_BYTES;
         }
 
         /// The Weierstrass elliptic curve object itself
@@ -16,7 +16,7 @@ macro_rules! fiat_define_weierstrass_curve {
         pub struct Curve;
 
         impl Curve {
-            pub fn group_order(self) -> &'static $FE {
+            pub fn group_order(self) -> &'static [u8] {
                 &ORDER
             }
             pub fn generator() -> (&'static $FE, &'static $FE) {
