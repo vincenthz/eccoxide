@@ -20,10 +20,8 @@ bigint_prime_curve!(p160r2, 160);
 //bigint_prime_curve!(p192k1, 192);
 //#[cfg(feature = "p192r1")]
 //bigint_prime_curve!(p192r1, 192);
-#[cfg(feature = "p224k1")]
-bigint_prime_curve!(p224k1, 224);
-#[cfg(feature = "p224r1")]
-bigint_prime_curve!(p224r1, 224);
+//#[cfg(feature = "p224k1")]
+//bigint_prime_curve!(p224k1, 224);
 //#[cfg(feature = "p256k1")]
 //bigint_prime_curve!(p256k1, 256);
 //#[cfg(feature = "p256r1")]

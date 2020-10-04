@@ -69,13 +69,42 @@ impl FieldElement {
 
     /// Compute the square root 'x' of the field element such that x*x = self
     pub fn sqrt(&self) -> CtOption<Self> {
-        // P mod 4 == 1, need to use TonelliShanks
-        todo!()
-        /*
-        let r = &t1 * &t1;
+        // this is using the P == 5 mod 8 method
+
+        // raise 2*self == x to power of (p-5)/8
+        let x = self.double();
+        let gamma = {
+            let x2 = x.square() * &x;
+            let x3 = x2.square() * &x;
+            let x4 = x3.square() * &x;
+            let x6 = x3.square_rep(3) * &x3;
+            let x9 = x6.square_rep(3) * &x3;
+            let x11 = x9.square_rep(2) * &x2;
+            let x17 = x11.square_rep(6) * &x6;
+            let x19 = x17.square_rep(2) * &x2;
+            let x22 = x11.square_rep(11) * &x11;
+            let x44 = x22.square_rep(22) * &x22;
+            let x88 = x44.square_rep(44) * &x44;
+            let x176 = x88.square_rep(88) * &x88;
+            let x187 = x176.square_rep(11) * &x11;
+            let x191 = x187.square_rep(4) * &x4;
+
+            // 1*191,0*1,1*19,0*2,1*1,0*1,1*1,0*1,1*2,0*1,1*1
+            let mut t1 = x191.square_rep(20) * &x19; // 1*191 0*1 1*19
+            t1 = t1.square_rep(3) * &x; // 0*2 1*1
+            t1 = t1.square_rep(2) * &x; // 0*1 1*1
+            t1 = t1.square_rep(3) * &x2; // 0*1 1*2
+            t1 = t1.square_rep(2) * &x; // 0*1 1*1
+            t1
+        };
+
+        let ggamma = self * &gamma;
+        let i = (&ggamma * &gamma).double();
+        let im1 = i - Self::one();
+        let r = ggamma * im1;
+
         let r2 = &r * &r;
         CtOption::from((CtEqual::ct_eq(&r2, self), r))
-        */
     }
 }
 
