@@ -22,6 +22,26 @@ The package rely on the following priorities list:
 Finally we rely on other arithmetic tools (e.g. sage and magma) to provides some further guarantees
 on the values expected.
 
+## Curves
+
+For now, most SEC2 curves are supported through fiat-crypto:
+
+* p256r1, p256k1, p384r1, p521r1
+* p190r1, p190k1: not particularly recommended due to size
+
+Special cases:
+
+* p224k1: p=5 mod 8, using alternative approach for sqrt calculation
+* p224r1: p=1 mod 8, using tonelli shanks algorithm for sqrt calculation
+
+Optionally someone can enable all SEC2 curves less than 190bits (112 to 160 bits)
+using sec2-small features, but the size of those curves are too small to be used
+in normal settings. Also those curves are using a generic backend using num-traits
+and num-bigint, which is not particularly fast, nor secure.
+
+Futures plans includes support of ed25519, ed448, curve9767, and other edwards curves,
+and maybe other.
+
 ## FAQ
 
 Q: Does using formally generated modules makes this crate more secure ?
