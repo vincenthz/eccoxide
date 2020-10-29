@@ -9,7 +9,17 @@
 //! For implementation of specific curve:
 //! * sec2 (e.g. p192r1, p5p256k1, p256k1, p384r1, p521r1)
 
+#[cfg(any(
+    feature = "p112r1",
+    feature = "p112r2",
+    feature = "p128r1",
+    feature = "p128r2",
+    feature = "p160k1",
+    feature = "p160r1",
+    feature = "p160r2",
+))]
 pub(crate) mod bigint; // module used for compat and naive implementations
+
 pub(crate) mod fiat;
 
 pub mod affine;

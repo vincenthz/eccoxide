@@ -1,5 +1,14 @@
 //! macros to generate curve definition using num_trait/num_bigint dependencies
 
+#[cfg(any(
+    feature = "p112r1",
+    feature = "p112r2",
+    feature = "p128r1",
+    feature = "p128r2",
+    feature = "p160k1",
+    feature = "p160r1",
+    feature = "p160r2",
+))]
 use crate::bigint_prime_curve;
 
 #[cfg(feature = "p112r1")]
@@ -16,20 +25,24 @@ bigint_prime_curve!(p160k1, 160);
 bigint_prime_curve!(p160r1, 160);
 #[cfg(feature = "p160r2")]
 bigint_prime_curve!(p160r2, 160);
-//#[cfg(feature = "p192k1")]
-//bigint_prime_curve!(p192k1, 192);
-//#[cfg(feature = "p192r1")]
-//bigint_prime_curve!(p192r1, 192);
-//#[cfg(feature = "p224k1")]
-//bigint_prime_curve!(p224k1, 224);
-//#[cfg(feature = "p256k1")]
-//bigint_prime_curve!(p256k1, 256);
-//#[cfg(feature = "p256r1")]
-//bigint_prime_curve!(p256r1, 256);
-//#[cfg(feature = "p384r1")]
-//bigint_prime_curve!(p384r1, 384);
-//#[cfg(feature = "p521r1")]
-//bigint_prime_curve!(p521r1, 521);
+/*
+#[cfg(feature = "p192k1")]
+bigint_prime_curve!(p192k1, 192);
+#[cfg(feature = "p192r1")]
+bigint_prime_curve!(p192r1, 192);
+#[cfg(feature = "p224k1")]
+bigint_prime_curve!(p224k1, 224);
+#[cfg(feature = "p224r1")]
+bigint_prime_curve!(p224r1, 224);
+#[cfg(feature = "p256k1")]
+bigint_prime_curve!(p256k1, 256);
+#[cfg(feature = "p256r1")]
+bigint_prime_curve!(p256r1, 256);
+#[cfg(feature = "p384r1")]
+bigint_prime_curve!(p384r1, 384);
+#[cfg(feature = "p521r1")]
+bigint_prime_curve!(p521r1, 521);
+*/
 
 #[cfg(test)]
 mod tests {

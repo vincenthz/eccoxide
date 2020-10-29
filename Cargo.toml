@@ -13,9 +13,9 @@ repository = "https://github.com/vincenthz/eccoxide/"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-num-bigint = "0.3"
-num-traits = "0.2"
 lazy_static = "1.4"
+num-bigint = { version = "0.3", optional = true }
+num-traits = { version = "0.2", optional = true }
 
 [features]
 default = ["sec2"]
@@ -24,7 +24,7 @@ default = ["sec2"]
 sec2 = ["p192k1", "p192r1", "p224k1", "p224r1", "p256k1", "p256r1", "p384r1", "p521r1"]
 
 # This is not recommended to enable as the size is too small for cryptographic needs
-sec2-small = ["p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r2"]
+sec2-small = ["p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r2", "num-bigint", "num-traits"]
 
 p112r2 = []
 p128r1 = []

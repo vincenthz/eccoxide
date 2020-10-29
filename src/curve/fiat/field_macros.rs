@@ -631,7 +631,8 @@ macro_rules! fiat_field_sqrt_unittest {
         #[test]
         fn sqrt() {
             let mut found = 0;
-            for i in 2..34 {
+            let tested = 56;
+            for i in 2..tested {
                 let f = $FE::from_u64(i);
                 match f.sqrt().into_option() {
                     None => println!("{} no sqrt", i),
@@ -641,7 +642,12 @@ macro_rules! fiat_field_sqrt_unittest {
                     }
                 }
             }
-            assert!(found > 1, "not enough sqrt found")
+            assert!(
+                found > 1,
+                "not enough sqrt found={} tested={}",
+                found,
+                tested - 1
+            )
         }
     };
 }
