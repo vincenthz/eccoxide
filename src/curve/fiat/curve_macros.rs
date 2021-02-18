@@ -165,7 +165,6 @@ macro_rules! fiat_define_weierstrass_points {
 
             fn mul(self, other: &'b Scalar) -> Point {
                 self.scale(other)
-                //Point(self.0.scale_a0(&other.to_bytes(), Curve))
             }
         }
 
@@ -174,6 +173,24 @@ macro_rules! fiat_define_weierstrass_points {
 
             fn mul(self, other: &'b Point) -> Point {
                 other * self
+            }
+        }
+
+        #[cfg(feature = "fast-u64-scalar-mul")]
+        impl<'a> std::ops::Mul<u64> for &'a Point {
+            type Output = Point;
+
+            fn mul(self, other: u64) -> Point {
+                self.scale_u64(other)
+            }
+        }
+
+        #[cfg(feature = "fast-u64-scalar-mul")]
+        impl<'a> std::ops::Mul<&'a Point> for u64 {
+            type Output = Point;
+
+            fn mul(self, other: &'a Point) -> Point {
+                other.scale_u64(self)
             }
         }
 

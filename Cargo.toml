@@ -20,6 +20,11 @@ num-traits = { version = "0.2", optional = true }
 [features]
 default = ["sec2"]
 
+# Fast scalar multiplication for scalars that are represented as u64. This
+# multiplication implementation exits early (upon reaching the first leading
+# zero) so it could be subject to side-channel attacks.
+fast-u64-scalar-mul = []
+
 # SEC2 curves enabled by default (192, 224 are probably too small in 2020)
 sec2 = ["p192k1", "p192r1", "p224k1", "p224r1", "p256k1", "p256r1", "p384r1", "p521r1"]
 
