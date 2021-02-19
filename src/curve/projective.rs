@@ -421,6 +421,28 @@ where
     }
 
     /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
+    /// Optimized for u64 weights. Using early exit so might be subject to side-channel attacks.
+    #[cfg(feature = "fast-u64-scalar-mul")]
+    #[inline]
+    fn scalar_mul_daa_limbs8_u64<C: WeierstrassCurve<FieldElement = FE>>(
+        &self,
+        mut n: u64,
+        curve: C,
+    ) -> Self {
+        let mut a: Point<FE> = self.clone();
+        let mut q: Point<FE> = Point::infinity();
+
+        while n != 0 {
+            if n & 1 != 0 {
+                q = q.add_or_double(&a, curve);
+            }
+            a = a.double(curve);
+            n >>= 1;
+        }
+        q
+    }
+
+    /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
     #[inline]
     fn scalar_mul_daa_limbs8<C: WeierstrassCurve<FieldElement = FE>>(
         &self,
@@ -437,6 +459,28 @@ where
                 }
                 a = a.double(curve)
             }
+        }
+        q
+    }
+
+    /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
+    /// Optimized for u64 weights. Using early exit so might be subject to side-channel attacks.
+    #[inline]
+    #[cfg(feature = "fast-u64-scalar-mul")]
+    fn scalar_mul_daa_limbs8_a0_u64<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+        &self,
+        mut n: u64,
+        curve: C,
+    ) -> Self {
+        let mut a: Point<FE> = self.clone();
+        let mut q: Point<FE> = Point::infinity();
+
+        while n != 0 {
+            if n & 1 != 0 {
+                q = q.add_or_double_a0(&a, curve);
+            }
+            a = a.double_a0(curve);
+            n >>= 1;
         }
         q
     }
@@ -461,8 +505,22 @@ where
         q
     }
 
+    #[cfg(feature = "fast-u64-scalar-mul")]
+    pub fn scale_u64<C: WeierstrassCurve<FieldElement = FE>>(&self, n: u64, curve: C) -> Self {
+        self.scalar_mul_daa_limbs8_u64(n, curve)
+    }
+
     pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8], curve: C) -> Self {
         self.scalar_mul_daa_limbs8(n, curve)
+    }
+
+    #[cfg(feature = "fast-u64-scalar-mul")]
+    pub fn scale_a0_u64<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+        &self,
+        n: u64,
+        curve: C,
+    ) -> Self {
+        self.scalar_mul_daa_limbs8_a0_u64(n, curve)
     }
 
     pub fn scale_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(

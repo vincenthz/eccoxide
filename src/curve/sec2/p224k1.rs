@@ -188,6 +188,10 @@ impl Point {
     fn scale<'b>(&self, other: &'b Scalar) -> Self {
         Point(self.0.scale_a0(&other.to_bytes(), Curve))
     }
+    #[cfg(feature = "fast-u64-scalar-mul")]
+    fn scale_u64(&self, other: u64) -> Self {
+        Point(self.0.scale_a0_u64(other, Curve))
+    }
 }
 
 #[cfg(test)]
