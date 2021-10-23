@@ -160,6 +160,25 @@ impl CtZero for [u64] {
     }
 }
 
+impl<const N: usize> CtEqual for [u8; N] {
+    fn ct_eq(&self, b: &[u8; N]) -> Choice {
+        let mut acc = 0u64;
+        for (x, y) in self.iter().zip(b.iter()) {
+            acc |= (*x as u64) ^ (*y as u64);
+        }
+        acc.ct_zero()
+    }
+}
+impl<const N: usize> CtEqual for [u64; N] {
+    fn ct_eq(&self, b: &[u64; N]) -> Choice {
+        let mut acc = 0u64;
+        for (x, y) in self.iter().zip(b.iter()) {
+            acc |= x ^ y;
+        }
+        acc.ct_zero()
+    }
+}
+
 impl CtEqual for [u64] {
     fn ct_eq(&self, b: &[u64]) -> Choice {
         assert_eq!(self.len(), b.len());
