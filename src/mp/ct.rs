@@ -213,4 +213,10 @@ mod tests {
         assert_eq!(0u64.ct_zero().is_true(), true);
         assert_eq!(1u64.ct_zero().is_false(), true);
     }
+
+    #[test]
+    fn test_ct_less() {
+        let a: [u8; 4] = [0u8, 1, 2, 3];
+        assert_eq!(<&[u8; 4]>::ct_lt(&a, &[1, 1, 2, 3]).is_true(), true);
+    }
 }
