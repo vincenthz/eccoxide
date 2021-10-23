@@ -523,6 +523,33 @@ macro_rules! fiat_field_sqrt_define {
 #[macro_export]
 macro_rules! fiat_field_unittest {
     ($FE:ident) => {
+        fn fe_u64(i: u64) -> $FE {
+            let mut x8 = [0u8; $FE::SIZE_BYTES];
+            let b7 = (i >> 56) as u8;
+            let b6 = (i >> 48) as u8;
+            let b5 = (i >> 40) as u8;
+            let b4 = (i >> 32) as u8;
+            let b3 = (i >> 24) as u8;
+            let b2 = (i >> 16) as u8;
+            let b1 = (i >> 8) as u8;
+            let b0 = i as u8;
+
+            x8[$FE::SIZE_BYTES - 8] = b7;
+            x8[$FE::SIZE_BYTES - 7] = b6;
+            x8[$FE::SIZE_BYTES - 6] = b5;
+            x8[$FE::SIZE_BYTES - 5] = b4;
+            x8[$FE::SIZE_BYTES - 4] = b3;
+            x8[$FE::SIZE_BYTES - 3] = b2;
+            x8[$FE::SIZE_BYTES - 2] = b1;
+            x8[$FE::SIZE_BYTES - 1] = b0;
+
+            $FE::from_bytes(&x8).expect("working fe_u64")
+        }
+
+        fn random_fe_small() -> [$FE; 4] {
+            [fe_u64(250), fe_u64(255), fe_u64(256), fe_u64(280)]
+        }
+
         fn eq_small(v1: u64, v2: u64) {
             let f1 = $FE::from_u64(v1);
             let f2 = $FE::from_u64(v2);
@@ -610,6 +637,25 @@ macro_rules! fiat_field_unittest {
             let fr = $FE::from_u64(25);
 
             assert_eq!(f1 - f2, fr)
+        }
+
+        #[test]
+        fn sub_and_opp_add() {
+            for fe in random_fe_small() {
+                let zero1 = &fe + (-&fe);
+                let zero2 = &fe - &fe;
+                assert_eq!(zero1, $FE::zero(), "add opposite not zero");
+                assert_eq!(zero2, $FE::zero(), "sub same not zero");
+            }
+        }
+
+        #[test]
+        fn u64_constructor() {
+            for i in 250..260 {
+                let f1 = $FE::from_u64(i);
+                let f2 = fe_u64(i);
+                assert_eq!(f1, f2)
+            }
         }
 
         #[test]
