@@ -76,12 +76,6 @@ macro_rules! fiat_field_common_impl {
                 Self::init(limbs)
             }
 
-            pub fn from_u64(n: u64) -> Self {
-                let mut limbs = [0u64; $FE_LIMBS_SIZE];
-                limbs[0] = n;
-                Self::init(limbs)
-            }
-
             pub fn to_string(&self) -> String {
                 let mut s = String::new();
                 let bytes = self.to_bytes();
@@ -379,6 +373,12 @@ macro_rules! fiat_field_ops_impl {
                 let mut out = [0u64; $FE_LIMBS_SIZE];
                 $fiat_to_montgomery(&mut out, &current);
                 Self(out)
+            }
+
+            pub fn from_u64(n: u64) -> Self {
+                let mut limbs = [0u64; $FE_LIMBS_SIZE];
+                limbs[0] = n;
+                Self::init(limbs)
             }
 
             /// Get the sign of the field element
