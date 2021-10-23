@@ -2,7 +2,7 @@ pub type Borrow = u8;
 pub type IBorrow = i8;
 
 #[derive(Clone, Copy)]
-pub struct Choice(pub(super) u64);
+pub struct Choice(pub(crate) u64);
 
 #[derive(Clone)]
 pub struct CtOption<T> {
