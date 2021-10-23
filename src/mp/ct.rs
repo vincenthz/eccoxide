@@ -190,6 +190,20 @@ impl CtEqual for [u64] {
     }
 }
 
+// big endian representation of a number, but also leading byte of a array being the MSB.
+impl<const N: usize> CtLesser for &[u8; N] {
+    fn ct_lt(a: Self, b: Self) -> Choice {
+        let mut borrow = 0u8;
+        for (x, y) in a.iter().rev().zip(b.iter().rev()) {
+            let x1: i16 = ((*x as i16) - (borrow as i16)) - (*y as i16);
+            let x2: i8 = (x1 >> 8) as i8;
+            borrow = (0x0 - x2) as u8;
+        }
+        let borrow = borrow as u64;
+        Choice((borrow | borrow.wrapping_neg()) >> 63)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
