@@ -16,8 +16,8 @@ macro_rules! test_kats_mul {
                 yraw[FieldElement::SIZE_BYTES - kv.y.len()..].copy_from_slice(&kv.y);
                 kraw[Scalar::SIZE_BYTES - kv.k.len()..].copy_from_slice(&kv.k);
 
-                let x = FieldElement::from_bytes(&xraw).unwrap();
-                let y = FieldElement::from_bytes(&yraw).unwrap();
+                let x = FieldElement::from_bytes(&xraw).expect("x fits");
+                let y = FieldElement::from_bytes(&yraw).expect("y fits");
                 let k = Scalar::from_bytes(&kraw).unwrap();
                 let paffine = PointAffine::from_coordinate(&x, &y).unwrap();
                 let expected = Point::from_affine(&paffine);
