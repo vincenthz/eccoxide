@@ -381,6 +381,7 @@ macro_rules! fiat_field_ops_impl {
                 Self::init(limbs)
             }
 
+
             /// Get the sign of the field element
             pub fn sign(&self) -> Sign {
                 let mut out = [0u64; $FE_LIMBS_SIZE];
@@ -397,6 +398,23 @@ macro_rules! fiat_field_ops_impl {
                 let mut out = [0u64; $FE_LIMBS_SIZE];
                 $fiat_from_montgomery(&mut out, &self.0);
                 (out[0] & 1) != 0
+            }
+
+            /// Initialize a new scalar from its bytes representation (BE)
+            ///
+            /// This doesn't verify if the element represented fits in the field,
+            /// so that run the run of having elements that are greater or equal
+            /// than the order of the field
+            pub fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness
+
+                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out_mont = [0u64; $FE_LIMBS_SIZE];
+                $fiat_from_bytes(&mut out, &buf);
+                $fiat_to_montgomery(&mut out_mont, &out);
+                $FE(out_mont)
             }
 
             /// Initialize a new scalar from its bytes representation (BE)
@@ -437,7 +455,7 @@ macro_rules! fiat_field_ops_impl {
             }
         }
     };
-    ($FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, solinas) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, solinas) => {
         crate::fiat_field_common_impl!(
             $FE,
             $SIZE_BITS,
@@ -451,8 +469,20 @@ macro_rules! fiat_field_ops_impl {
         );
 
         impl $FE {
+            // build from a little endian limbs size
+            //
+            // probably should be removed from unsaturated solinas strategy, as this easy
+            // to introduce serious bugs..
             fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
                 Self(current)
+            }
+
+            pub fn from_u64(n: u64) -> Self {
+                // unsatured solinas run the risk of overflow, so use from_bytes
+                // no risk of running into the P limit with a u64
+                let mut bytes = [0u8; Self::SIZE_BYTES];
+                bytes[Self::SIZE_BYTES-8..].copy_from_slice(&n.to_be_bytes());
+                Self::from_bytes_unchecked(&bytes)
             }
 
             /// Get the sign of the field element
@@ -473,11 +503,25 @@ macro_rules! fiat_field_ops_impl {
 
             /// Initialize a new scalar from its bytes representation (BE)
             ///
+            /// This doesn't verify if the element represented fits in the field,
+            /// so that run the run of having elements that are greater or equal
+            /// than the order of the field
+            pub fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness
+
+                let mut out = [0u64; $FE_LIMBS_SIZE];
+                $fiat_from_bytes(&mut out, &buf);
+                $FE(out)
+            }
+
+            /// Initialize a new scalar from its bytes representation (BE)
+            ///
             /// If the represented value overflow the field element size,
             /// then None is returned.
             pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
                 use crate::mp::ct::CtLesser;
-                use crate::mp::limbs::LimbsLE;
 
                 let mut buf = [0u8; Self::SIZE_BYTES];
                 buf.copy_from_slice(bytes);
@@ -486,10 +530,8 @@ macro_rules! fiat_field_ops_impl {
                 let mut out = [0u64; $FE_LIMBS_SIZE];
                 $fiat_from_bytes(&mut out, &buf);
 
-                let p = $FIELD_P_LIMBS.iter().rev().copied().collect::<Vec<_>>();
-
                 // TODO: non constant
-                if LimbsLE::ct_lt(LimbsLE(&out), LimbsLE(&p[..])).is_true() {
+                if <&[u8; Self::SIZE_BYTES]>::ct_lt(bytes, &$FIELD_P_BYTES).is_true() {
                     Some($FE(out))
                 } else {
                     None

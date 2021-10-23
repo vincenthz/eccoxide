@@ -12,24 +12,53 @@ use crate::{fiat_field_ops_impl, fiat_field_sqrt_define};
 const GM_LIMBS_SIZE: usize = 9;
 const FE_LIMBS_SIZE: usize = 9;
 
+fn fiat_p521_nonzero(out: &mut u64, fe: &[u64; FE_LIMBS_SIZE]) -> () {
+    let mut bytes = [0u8; 66];
+    fiat_p521_to_bytes(&mut bytes, fe);
+    *out = bytes.ct_nonzero().0;
+}
+
+fn fiat_p521_carry_add(
+    out: &mut [u64; FE_LIMBS_SIZE],
+    a: &[u64; FE_LIMBS_SIZE],
+    b: &[u64; FE_LIMBS_SIZE],
+) {
+    let mut loose = [0u64; FE_LIMBS_SIZE];
+    fiat_p521_add(&mut loose, a, b);
+    fiat_p521_carry(out, &loose)
+}
+
+fn fiat_p521_carry_sub(
+    out: &mut [u64; FE_LIMBS_SIZE],
+    a: &[u64; FE_LIMBS_SIZE],
+    b: &[u64; FE_LIMBS_SIZE],
+) {
+    let mut loose = [0u64; FE_LIMBS_SIZE];
+    fiat_p521_sub(&mut loose, a, b);
+    fiat_p521_carry(out, &loose);
+}
+
+fn fiat_p521_carry_opp(out: &mut [u64; FE_LIMBS_SIZE], a: &[u64; FE_LIMBS_SIZE]) {
+    let mut loose = [0u64; FE_LIMBS_SIZE];
+    fiat_p521_opp(&mut loose, a);
+    fiat_p521_carry(out, &loose)
+}
+
 fiat_field_ops_impl!(
     #[doc = "Element of the prime field Fp where p = 2^521-1"]
     FieldElement,
     521,
-    P_LIMBS,
+    P_BYTES,
     FE_LIMBS_SIZE,
     fiat_p521_nonzero,
-    fiat_p521_add,
-    fiat_p521_sub,
-    fiat_p521_mul,
-    fiat_p521_square,
-    fiat_p521_opp,
+    fiat_p521_carry_add,
+    fiat_p521_carry_sub,
+    fiat_p521_carry_mul,
+    fiat_p521_carry_square,
+    fiat_p521_carry_opp,
     fiat_p521_to_bytes,
     fiat_p521_from_bytes,
-    montgomery {
-        fiat_p521_to_montgomery,
-        fiat_p521_from_montgomery
-    }
+    solinas
 );
 fiat_field_sqrt_define!(FieldElement);
 
