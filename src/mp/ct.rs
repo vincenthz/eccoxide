@@ -109,6 +109,40 @@ impl CtGreater for u64 {
     }
 }
 
+impl<const N: usize> CtZero for [u8; N] {
+    fn ct_zero(&self) -> Choice {
+        let mut acc = 0u64;
+        for b in self.iter() {
+            acc |= *b as u64
+        }
+        acc.ct_zero()
+    }
+    fn ct_nonzero(&self) -> Choice {
+        let mut acc = 0u64;
+        for b in self.iter() {
+            acc |= *b as u64
+        }
+        acc.ct_nonzero()
+    }
+}
+
+impl<const N: usize> CtZero for [u64; N] {
+    fn ct_zero(&self) -> Choice {
+        let mut acc = 0u64;
+        for b in self.iter() {
+            acc |= b
+        }
+        acc.ct_zero()
+    }
+    fn ct_nonzero(&self) -> Choice {
+        let mut acc = 0u64;
+        for b in self.iter() {
+            acc |= b
+        }
+        acc.ct_nonzero()
+    }
+}
+
 impl CtZero for [u64] {
     fn ct_zero(&self) -> Choice {
         let mut acc = 0u64;
