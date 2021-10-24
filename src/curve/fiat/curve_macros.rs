@@ -46,16 +46,20 @@ macro_rules! fiat_define_weierstrass_curve {
 #[macro_export]
 macro_rules! fiat_define_weierstrass_points {
     ($FE:ident) => {
-        /// Affine Point on the curve
+        /// Affine Point on the curve of type (X,Y)
+        ///
+        /// Note that this representation cannot handle the point at infinity
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct PointAffine(affine::Point<$FE>);
 
-        /// Point on the curve
+        /// Point on the curve using a more optimised representation
+        ///
+        /// This implementation used projective coordinate (X:Y:Z)
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct Point(projective::Point<$FE>);
 
         impl PointAffine {
-            /// Curve generator point
+            /// Curve generator point in affine coordinate
             pub fn generator() -> Self {
                 PointAffine(affine::Point {
                     x: GX.clone(),
@@ -63,23 +67,43 @@ macro_rules! fiat_define_weierstrass_points {
                 })
             }
 
-            // check if y^2 = x^3 + a*x + b (mod p) holds
+            /// Try to create an affine point with X, Y coordinates.
+            ///
+            /// check if the equation y^2 = x^3 + a*x + b (mod p) holds for this curve, if it doesn't
+            /// None is returned
             pub fn from_coordinate(x: &FieldElement, y: &FieldElement) -> Option<Self> {
                 affine::Point::from_coordinate(x, y, Curve).map(PointAffine)
             }
 
+            /// Return the tuple of coordinate (x, y) associated with this
+            /// affine point
             pub fn to_coordinate(&self) -> (&FieldElement, &FieldElement) {
                 (&self.0.x, &self.0.y)
             }
 
+            /// Double the affine point Self
+            ///
+            /// This is equivalent to Self + Self at the mathematic level,
+            /// but is implemented more quickly than the normal addition
+            /// of double possibly arbitrary point
             pub fn double(&self) -> PointAffine {
                 PointAffine(affine::Point::double(&self.0, Curve))
             }
 
+            /// Turn an affine point into the X component and the sign of the Y component
+            ///
+            /// This is often refered as point compression, and related to the fact there
+            /// two point on the curve for a valid x component as (x,y) and (x,-y), unless
+            /// y is 0. So it is sufficient to know just the sign of y to know which point
+            /// is in use for a given x component
             pub fn compress(&self) -> (&FieldElement, Sign) {
                 self.0.compress()
             }
 
+            /// Try to create an affine point given a X component and the sign
+            /// of the Y component.
+            ///
+            /// This is often refered as point decompression
             pub fn decompress(x: &FieldElement, sign: Sign) -> Option<Self> {
                 affine::Point::decompress(x, sign, Curve).map(PointAffine)
             }
@@ -102,19 +126,28 @@ macro_rules! fiat_define_weierstrass_points {
                 })
             }
 
-            /// Point at infinity
+            /// Point at infinity, used as additive zero
             pub fn infinity() -> Self {
                 Point(projective::Point::infinity())
             }
 
+            /// Convert an affine point to optimised point representation
+            ///
+            /// In projective coordinate it means, (X,Y) => (X:Y:1)
             pub fn from_affine(p: &PointAffine) -> Self {
                 Point(projective::Point::from_affine(&p.0))
             }
 
+            /// Convert a point to the affine point
+            ///
+            /// In projective coordinate it means, (X:Y:Z) => (X/Z, Y/Z)
             pub fn to_affine(&self) -> Option<PointAffine> {
                 self.0.to_affine().map(PointAffine)
             }
 
+            /// Normalize the point keeping the same representation
+            ///
+            /// In projective coordinate it means, (X:Y:Z) => (X/Z:Y/Z:1)
             pub fn normalize(&mut self) {
                 self.0.normalize()
             }

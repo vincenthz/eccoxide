@@ -1,9 +1,44 @@
-pub type Borrow = u8;
-pub type IBorrow = i8;
+//! Constant time operations
+//!
+//! This module exports traits to do basic checking operation in constant time,
+//! those operations are:
+//!
+//! * CtZero : constant time zero and non-zero checking
+//! * CtEqual : constant time equality and non-equality checking
+//! * CtLesser : constant time less (<) and opposite greater-equal (>=) checking
+//! * CtGreater : constant time greater (>) and opposite lesser-equal (<=) checking
+//!
+//! And simple types to manipulate those capabilities in a safer way:
+//!
+//! * Choice : Constant time boolean and safe methods.
+//!            this was initially called CtBool but aligned to other implementation.
+//! * CtOption : Constant time Option type.
+//!
+//! Great care has been done to make operation constant so that it's useful in
+//! cryptographic context, but we're not protected from implementation bug,
+//! compiler optimisations, gamma rays and other Moon-Mars alignments.
+//!
+//! The general functionality would be a great addition to the rust core library
+//! to have those type of things built-in and crucially more eyeballs.
 
+/// Constant time boolean
+///
+/// This implementation uses a u64 under the hood, but it's never exposed
+/// and only used through abstraction that push toward more constant time
+/// operations.
+///
+/// Choice can be combined with simple And operation.
+///
+/// Choice can be converted back to a boolean operations, although
+/// once this is done, the operation will likely be non-constant.
 #[derive(Clone, Copy)]
 pub struct Choice(pub(crate) u64);
 
+/// Constant time equivalent to Option.
+///
+/// The T type is always present in the data structure,
+/// it's just marked as valid / invalid with a Choice
+/// type.
 #[derive(Clone)]
 pub struct CtOption<T> {
     present: Choice, // if present the value is there and valid
@@ -54,17 +89,28 @@ impl<T> CtOption<T> {
     }
 }
 
+/// Check in constant time if the object is zero or non-zero
+///
+/// Note that zero means 0 with integer primitive, or for array of integer
+/// it means all elements are 0
 pub trait CtZero {
     fn ct_zero(&self) -> Choice;
     fn ct_nonzero(&self) -> Choice;
 }
 
+/// Check in constant time if the left object is greater than right object
+///
+/// This equivalent to the > operator found in the core library.
 pub trait CtGreater: Sized {
     fn ct_gt(a: Self, b: Self) -> Choice;
     fn ct_le(a: Self, b: Self) -> Choice {
         Self::ct_gt(b, a)
     }
 }
+
+/// Check in constant time if the left object is lesser than right object
+///
+/// This equivalent to the < operator found in the core library.
 pub trait CtLesser: Sized {
     fn ct_lt(a: Self, b: Self) -> Choice;
     fn ct_ge(a: Self, b: Self) -> Choice {
@@ -72,6 +118,9 @@ pub trait CtLesser: Sized {
     }
 }
 
+/// Check in constant time if the left object is equal to the right object
+///
+/// This equivalent to the == operator found in the core library.
 pub trait CtEqual<Rhs: ?Sized = Self> {
     fn ct_eq(&self, b: &Rhs) -> Choice;
     fn ct_ne(&self, b: &Rhs) -> Choice {

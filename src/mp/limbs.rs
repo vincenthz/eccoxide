@@ -4,6 +4,9 @@ use super::ct::*;
 
 pub type Limb = u64;
 
+pub type Borrow = u8;
+pub type IBorrow = i8;
+
 pub struct LimbsLE<'a>(pub &'a [Limb]);
 
 pub struct LimbsBE<'a>(pub &'a [Limb]);
