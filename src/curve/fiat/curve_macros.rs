@@ -16,9 +16,12 @@ macro_rules! fiat_define_weierstrass_curve {
         pub struct Curve;
 
         impl Curve {
+            /// Get the group order as an array of bytes in big endian representation
             pub fn group_order(self) -> &'static [u8] {
                 &ORDER
             }
+
+            /// Return the generator field element in affine coordinate (X,Y)
             pub fn generator() -> (&'static $FE, &'static $FE) {
                 (&GX, &GY)
             }
@@ -145,7 +148,7 @@ macro_rules! fiat_define_weierstrass_points {
                 self.0.to_affine().map(PointAffine)
             }
 
-            /// Normalize the point keeping the same representation
+            /// Normalize the point, keeping the same representation
             ///
             /// In projective coordinate it means, (X:Y:Z) => (X/Z:Y/Z:1)
             pub fn normalize(&mut self) {
