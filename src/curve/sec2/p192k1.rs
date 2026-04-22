@@ -10,17 +10,18 @@ use crate::curve::{
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p192k1::*;
 use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
-use crate::{fiat_field_ops_impl, fiat_field_sqrt_define};
+use crate::{fiat_field_montgomery_impl, fiat_field_sqrt_define};
 
 const GM_LIMBS_SIZE: usize = 3;
 const FE_LIMBS_SIZE: usize = 3;
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp where p = 2^192 - 2^32 - 2^12 - 2^8 - 2^7 - 2^6 - 2^3 - 1"]
     FieldElement,
     192,
     P_LIMBS,
     FE_LIMBS_SIZE,
+    fiat_p192k1_non_montgomery_domain_field_element,
     fiat_p192k1_nonzero,
     fiat_p192k1_add,
     fiat_p192k1_sub,
@@ -29,10 +30,9 @@ fiat_field_ops_impl!(
     fiat_p192k1_opp,
     fiat_p192k1_to_bytes,
     fiat_p192k1_from_bytes,
-    montgomery {
-        fiat_p192k1_to_montgomery,
-        fiat_p192k1_from_montgomery
-    }
+    fiat_p192k1_montgomery_domain_field_element,
+    fiat_p192k1_to_montgomery,
+    fiat_p192k1_from_montgomery
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -87,12 +87,13 @@ impl FieldElement {
     }
 }
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP192K1 curve"]
     Scalar,
     192,
     ORDER_LIMBS,
     GM_LIMBS_SIZE,
+    fiat_p192k1_scalar_non_montgomery_domain_field_element,
     fiat_p192k1_scalar_nonzero,
     fiat_p192k1_scalar_add,
     fiat_p192k1_scalar_sub,
@@ -101,10 +102,9 @@ fiat_field_ops_impl!(
     fiat_p192k1_scalar_opp,
     fiat_p192k1_scalar_to_bytes,
     fiat_p192k1_scalar_from_bytes,
-    montgomery {
-        fiat_p192k1_scalar_to_montgomery,
-        fiat_p192k1_scalar_from_montgomery
-    }
+    fiat_p192k1_scalar_montgomery_domain_field_element,
+    fiat_p192k1_scalar_to_montgomery,
+    fiat_p192k1_scalar_from_montgomery
 );
 
 impl Scalar {

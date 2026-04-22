@@ -1,10 +1,10 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_common_impl {
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident) => {
         $(#[$outer])*
         #[derive(Clone)]
-        pub struct $FE([u64; $FE_LIMBS_SIZE]);
+        pub struct $FE($fiat_constr);
 
         impl PartialEq for $FE {
             fn eq(&self, other: &Self) -> bool {
@@ -34,12 +34,12 @@ macro_rules! fiat_field_common_impl {
         impl CtZero for $FE {
             fn ct_zero(&self) -> Choice {
                 let mut out = 0u64;
-                $fiat_nonzero(&mut out, &self.0);
+                $fiat_nonzero(&mut out, &self.0.0);
                 out.ct_zero()
             }
             fn ct_nonzero(&self) -> Choice {
                 let mut out = 0u64;
-                $fiat_nonzero(&mut out, &self.0);
+                $fiat_nonzero(&mut out, &self.0.0);
                 out.ct_nonzero()
             }
         }
@@ -65,7 +65,7 @@ macro_rules! fiat_field_common_impl {
 
             pub fn is_zero(&self) -> bool {
                 let mut cond = 0;
-                $fiat_nonzero(&mut cond, &self.0);
+                $fiat_nonzero(&mut cond, &self.0.0);
                 cond == 0
             }
 
@@ -89,7 +89,7 @@ macro_rules! fiat_field_common_impl {
             ///
             /// Always true: `self.square() == self * self`
             pub fn square(&self) -> Self {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_square(&mut out, &self.0);
                 Self(out)
             }
@@ -105,7 +105,7 @@ macro_rules! fiat_field_common_impl {
 
             /// Double the field element, this is equivalent to 2*self or self+self, but can be implemented faster
             pub fn double(&self) -> Self {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_add(&mut out, &self.0, &self.0);
                 $FE(out)
             }
@@ -186,7 +186,7 @@ macro_rules! fiat_field_common_impl {
             type Output = $FE;
 
             fn neg(self) -> Self::Output {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_opp(&mut out, &self.0);
                 $FE(out)
             }
@@ -196,7 +196,7 @@ macro_rules! fiat_field_common_impl {
             type Output = $FE;
 
             fn neg(self) -> Self::Output {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_opp(&mut out, &self.0);
                 $FE(out)
             }
@@ -210,7 +210,7 @@ macro_rules! fiat_field_common_impl {
             type Output = $FE;
 
             fn add(self, other: &'b $FE) -> $FE {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_add(&mut out, &self.0, &other.0);
                 $FE(out)
             }
@@ -248,7 +248,7 @@ macro_rules! fiat_field_common_impl {
             type Output = $FE;
 
             fn sub(self, other: &'b $FE) -> $FE {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_sub(&mut out, &self.0, &other.0);
                 $FE(out)
             }
@@ -286,7 +286,7 @@ macro_rules! fiat_field_common_impl {
             type Output = $FE;
 
             fn mul(self, other: &'b $FE) -> $FE {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_mul(&mut out, &self.0, &other.0);
                 $FE(out)
             }
@@ -353,13 +353,14 @@ macro_rules! fiat_field_common_impl {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! fiat_field_ops_impl {
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, montgomery { $fiat_to_montgomery:ident, $fiat_from_montgomery:ident }) => {
+macro_rules! fiat_field_montgomery_impl {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_constr_montgomery:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident) => {
         crate::fiat_field_common_impl!(
             $(#[$outer])*
             $FE,
             $SIZE_BITS,
             $FE_LIMBS_SIZE,
+            $fiat_constr_montgomery,
             $fiat_add,
             $fiat_sub,
             $fiat_mul,
@@ -370,8 +371,8 @@ macro_rules! fiat_field_ops_impl {
 
         impl $FE {
             fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                $fiat_to_montgomery(&mut out, &current);
+                let mut out = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
+                $fiat_to_montgomery(&mut out, &$fiat_constr(current));
                 Self(out)
             }
 
@@ -384,7 +385,7 @@ macro_rules! fiat_field_ops_impl {
 
             /// Get the sign of the field element
             pub fn sign(&self) -> Sign {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_from_montgomery(&mut out, &self.0);
                 if out[0] & 1 == 1 {
                     Sign::Negative
@@ -395,7 +396,7 @@ macro_rules! fiat_field_ops_impl {
 
             // there's no really negative number in Fp, but if high bit is set ...
             pub fn is_negative(&self) -> bool {
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_from_montgomery(&mut out, &self.0);
                 (out[0] & 1) != 0
             }
@@ -410,9 +411,9 @@ macro_rules! fiat_field_ops_impl {
                 buf.copy_from_slice(bytes);
                 buf.reverse(); // swap endianness
 
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                let mut out_mont = [0u64; $FE_LIMBS_SIZE];
-                $fiat_from_bytes(&mut out, &buf);
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
+                let mut out_mont = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
+                $fiat_from_bytes(&mut out.0, &buf);
                 $fiat_to_montgomery(&mut out_mont, &out);
                 $FE(out_mont)
             }
@@ -429,14 +430,14 @@ macro_rules! fiat_field_ops_impl {
                 buf.copy_from_slice(bytes);
                 buf.reverse(); // swap endianness
 
-                let mut out = [0u64; $FE_LIMBS_SIZE];
-                let mut out_mont = [0u64; $FE_LIMBS_SIZE];
-                $fiat_from_bytes(&mut out, &buf);
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
+                let mut out_mont = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
+                $fiat_from_bytes(&mut out.0, &buf);
 
                 let p = $FIELD_P_LIMBS.iter().rev().copied().collect::<Vec<_>>();
 
                 // TODO: non constant
-                if LimbsLE::ct_lt(LimbsLE(&out), LimbsLE(&p[..])).is_true() {
+                if LimbsLE::ct_lt(LimbsLE(&out.0), LimbsLE(&p[..])).is_true() {
                     $fiat_to_montgomery(&mut out_mont, &out);
                     Some($FE(out_mont))
                 } else {
@@ -446,20 +447,26 @@ macro_rules! fiat_field_ops_impl {
 
             /// Output the scalar bytes representation (BE)
             pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
-                let mut out_normal = [0u64; $FE_LIMBS_SIZE];
+                let mut out_normal = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 let mut out = [0u8; Self::SIZE_BYTES];
                 $fiat_from_montgomery(&mut out_normal, &self.0);
-                $fiat_to_bytes(&mut out, &out_normal);
+                $fiat_to_bytes(&mut out, &out_normal.0);
                 out.reverse(); // swap endianness
                 out
             }
         }
     };
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, solinas) => {
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_field_solinas_impl {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_tight_constr:ident, $fiat_loose_constr:ident, $fiat_tighten:ident, $fiat_relax:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident) => {
         crate::fiat_field_common_impl!(
             $FE,
             $SIZE_BITS,
             $FE_LIMBS_SIZE,
+            $fiat_tight_constr,
             $fiat_add,
             $fiat_sub,
             $fiat_mul,
@@ -474,14 +481,14 @@ macro_rules! fiat_field_ops_impl {
             // probably should be removed from unsaturated solinas strategy, as this easy
             // to introduce serious bugs..
             fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
-                Self(current)
+                Self($fiat_tight_constr(current))
             }
 
             pub fn from_u64(n: u64) -> Self {
                 // unsatured solinas run the risk of overflow, so use from_bytes
                 // no risk of running into the P limit with a u64
                 let mut bytes = [0u8; Self::SIZE_BYTES];
-                bytes[Self::SIZE_BYTES-8..].copy_from_slice(&n.to_be_bytes());
+                bytes[Self::SIZE_BYTES - 8..].copy_from_slice(&n.to_be_bytes());
                 Self::from_bytes_unchecked(&bytes)
             }
 
@@ -511,7 +518,7 @@ macro_rules! fiat_field_ops_impl {
                 buf.copy_from_slice(bytes);
                 buf.reverse(); // swap endianness
 
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_tight_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_from_bytes(&mut out, &buf);
                 $FE(out)
             }
@@ -527,7 +534,7 @@ macro_rules! fiat_field_ops_impl {
                 buf.copy_from_slice(bytes);
                 buf.reverse(); // swap endianness
 
-                let mut out = [0u64; $FE_LIMBS_SIZE];
+                let mut out = $fiat_tight_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_from_bytes(&mut out, &buf);
 
                 // TODO: non constant

@@ -2,8 +2,8 @@
 //!
 //! This is also the curve used by some crypto-currencies (e.g. Bitcoin, Ethereum)
 
-use crate::curve::fiat::secp256k1_64::*;
-use crate::curve::fiat::secp256k1_scalar_64::*;
+use crate::curve::fiat::secp256k1_montgomery_64::*;
+use crate::curve::fiat::secp256k1_montgomery_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::{
     affine, projective,
@@ -12,29 +12,29 @@ use crate::curve::{
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p256k1::*;
 use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
-use crate::{fiat_field_ops_impl, fiat_field_sqrt_define};
+use crate::{fiat_field_montgomery_impl, fiat_field_sqrt_define};
 
 const GM_LIMBS_SIZE: usize = 4;
 const FE_LIMBS_SIZE: usize = 4;
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp where p = 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1"]
     FieldElement,
     256,
     P_LIMBS,
     FE_LIMBS_SIZE,
-    fiat_secp256k1_nonzero,
-    fiat_secp256k1_add,
-    fiat_secp256k1_sub,
-    fiat_secp256k1_mul,
-    fiat_secp256k1_square,
-    fiat_secp256k1_opp,
-    fiat_secp256k1_to_bytes,
-    fiat_secp256k1_from_bytes,
-    montgomery {
-        fiat_secp256k1_to_montgomery,
-        fiat_secp256k1_from_montgomery
-    }
+    fiat_secp256k1_montgomery_non_montgomery_domain_field_element,
+    fiat_secp256k1_montgomery_nonzero,
+    fiat_secp256k1_montgomery_add,
+    fiat_secp256k1_montgomery_sub,
+    fiat_secp256k1_montgomery_mul,
+    fiat_secp256k1_montgomery_square,
+    fiat_secp256k1_montgomery_opp,
+    fiat_secp256k1_montgomery_to_bytes,
+    fiat_secp256k1_montgomery_from_bytes,
+    fiat_secp256k1_montgomery_montgomery_domain_field_element,
+    fiat_secp256k1_montgomery_to_montgomery,
+    fiat_secp256k1_montgomery_from_montgomery
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -88,24 +88,24 @@ impl FieldElement {
     }
 }
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP256K1 curve"]
     Scalar,
     256,
     ORDER_LIMBS,
     GM_LIMBS_SIZE,
-    fiat_secp256k1_scalar_nonzero,
-    fiat_secp256k1_scalar_add,
-    fiat_secp256k1_scalar_sub,
-    fiat_secp256k1_scalar_mul,
-    fiat_secp256k1_scalar_square,
-    fiat_secp256k1_scalar_opp,
-    fiat_secp256k1_scalar_to_bytes,
-    fiat_secp256k1_scalar_from_bytes,
-    montgomery {
-        fiat_secp256k1_scalar_to_montgomery,
-        fiat_secp256k1_scalar_from_montgomery
-    }
+    fiat_secp256k1_montgomery_scalar_non_montgomery_domain_field_element,
+    fiat_secp256k1_montgomery_scalar_nonzero,
+    fiat_secp256k1_montgomery_scalar_add,
+    fiat_secp256k1_montgomery_scalar_sub,
+    fiat_secp256k1_montgomery_scalar_mul,
+    fiat_secp256k1_montgomery_scalar_square,
+    fiat_secp256k1_montgomery_scalar_opp,
+    fiat_secp256k1_montgomery_scalar_to_bytes,
+    fiat_secp256k1_montgomery_scalar_from_bytes,
+    fiat_secp256k1_montgomery_scalar_montgomery_domain_field_element,
+    fiat_secp256k1_montgomery_scalar_to_montgomery,
+    fiat_secp256k1_montgomery_scalar_from_montgomery
 );
 
 impl Scalar {

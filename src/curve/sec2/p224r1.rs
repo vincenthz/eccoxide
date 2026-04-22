@@ -1,34 +1,34 @@
 //! Curve p224r1 as defined over the prime field of order 2^224 - 2^96 + 1
-use crate::curve::fiat::p224r1_64::*;
-use crate::curve::fiat::p224r1_scalar_64::*;
+use crate::curve::fiat::p224_64::*;
+use crate::curve::fiat::p224_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::{affine, projective, weierstrass::WeierstrassCurve};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p224r1::*;
 use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
-use crate::{fiat_field_ops_impl, fiat_field_sqrt_define};
+use crate::{fiat_field_montgomery_impl, fiat_field_sqrt_define};
 
 const GM_LIMBS_SIZE: usize = 4;
 const FE_LIMBS_SIZE: usize = 4;
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp where p = 2^224 - 2^96 + 1"]
     FieldElement,
     224,
     P_LIMBS,
     FE_LIMBS_SIZE,
-    fiat_p224r1_nonzero,
-    fiat_p224r1_add,
-    fiat_p224r1_sub,
-    fiat_p224r1_mul,
-    fiat_p224r1_square,
-    fiat_p224r1_opp,
-    fiat_p224r1_to_bytes,
-    fiat_p224r1_from_bytes,
-    montgomery {
-        fiat_p224r1_to_montgomery,
-        fiat_p224r1_from_montgomery
-    }
+    fiat_p224_non_montgomery_domain_field_element,
+    fiat_p224_nonzero,
+    fiat_p224_add,
+    fiat_p224_sub,
+    fiat_p224_mul,
+    fiat_p224_square,
+    fiat_p224_opp,
+    fiat_p224_to_bytes,
+    fiat_p224_from_bytes,
+    fiat_p224_montgomery_domain_field_element,
+    fiat_p224_to_montgomery,
+    fiat_p224_from_montgomery
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -132,24 +132,24 @@ impl FieldElement {
     }
 }
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP224R1 curve"]
     Scalar,
     224,
     ORDER_LIMBS,
     GM_LIMBS_SIZE,
-    fiat_p224r1_scalar_nonzero,
-    fiat_p224r1_scalar_add,
-    fiat_p224r1_scalar_sub,
-    fiat_p224r1_scalar_mul,
-    fiat_p224r1_scalar_square,
-    fiat_p224r1_scalar_opp,
-    fiat_p224r1_scalar_to_bytes,
-    fiat_p224r1_scalar_from_bytes,
-    montgomery {
-        fiat_p224r1_scalar_to_montgomery,
-        fiat_p224r1_scalar_from_montgomery
-    }
+    fiat_p224_scalar_non_montgomery_domain_field_element,
+    fiat_p224_scalar_nonzero,
+    fiat_p224_scalar_add,
+    fiat_p224_scalar_sub,
+    fiat_p224_scalar_mul,
+    fiat_p224_scalar_square,
+    fiat_p224_scalar_opp,
+    fiat_p224_scalar_to_bytes,
+    fiat_p224_scalar_from_bytes,
+    fiat_p224_scalar_montgomery_domain_field_element,
+    fiat_p224_scalar_to_montgomery,
+    fiat_p224_scalar_from_montgomery
 );
 
 impl Scalar {

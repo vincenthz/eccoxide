@@ -7,58 +7,84 @@ use crate::curve::{affine, projective, weierstrass::WeierstrassCurve};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p521r1::*;
 use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
-use crate::{fiat_field_ops_impl, fiat_field_sqrt_define};
+use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
 
 const GM_LIMBS_SIZE: usize = 9;
 const FE_LIMBS_SIZE: usize = 9;
 
 fn fiat_p521_nonzero(out: &mut u64, fe: &[u64; FE_LIMBS_SIZE]) -> () {
     let mut bytes = [0u8; 66];
-    fiat_p521_to_bytes(&mut bytes, fe);
+    let fe_tight = fiat_p521_tight_field_element(*fe);
+    fiat_p521_to_bytes(&mut bytes, &fe_tight);
     *out = bytes.ct_nonzero().0;
 }
 
 fn fiat_p521_carry_add(
-    out: &mut [u64; FE_LIMBS_SIZE],
-    a: &[u64; FE_LIMBS_SIZE],
-    b: &[u64; FE_LIMBS_SIZE],
+    out: &mut fiat_p521_tight_field_element,
+    a: &fiat_p521_tight_field_element,
+    b: &fiat_p521_tight_field_element,
 ) {
-    let mut loose = [0u64; FE_LIMBS_SIZE];
+    let mut loose = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
     fiat_p521_add(&mut loose, a, b);
     fiat_p521_carry(out, &loose)
 }
 
 fn fiat_p521_carry_sub(
-    out: &mut [u64; FE_LIMBS_SIZE],
-    a: &[u64; FE_LIMBS_SIZE],
-    b: &[u64; FE_LIMBS_SIZE],
+    out: &mut fiat_p521_tight_field_element,
+    a: &fiat_p521_tight_field_element,
+    b: &fiat_p521_tight_field_element,
 ) {
-    let mut loose = [0u64; FE_LIMBS_SIZE];
+    let mut loose = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
     fiat_p521_sub(&mut loose, a, b);
     fiat_p521_carry(out, &loose);
 }
 
-fn fiat_p521_carry_opp(out: &mut [u64; FE_LIMBS_SIZE], a: &[u64; FE_LIMBS_SIZE]) {
-    let mut loose = [0u64; FE_LIMBS_SIZE];
+fn fiat_p521_mul_tight(
+    out: &mut fiat_p521_tight_field_element,
+    a: &fiat_p521_tight_field_element,
+    b: &fiat_p521_tight_field_element,
+) {
+    let mut a_relaxed = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
+    let mut b_relaxed = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
+
+    fiat_p521_relax(&mut a_relaxed, a);
+    fiat_p521_relax(&mut b_relaxed, b);
+    fiat_p521_carry_mul(out, &a_relaxed, &b_relaxed);
+}
+
+fn fiat_p521_carry_opp(out: &mut fiat_p521_tight_field_element, a: &fiat_p521_tight_field_element) {
+    let mut loose = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
     fiat_p521_opp(&mut loose, a);
     fiat_p521_carry(out, &loose)
 }
 
-fiat_field_ops_impl!(
+fn fiat_p521_square_tight(
+    out: &mut fiat_p521_tight_field_element,
+    a: &fiat_p521_tight_field_element,
+) {
+    let mut loose = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
+    fiat_p521_relax(&mut loose, a);
+    fiat_p521_carry_square(out, &loose);
+}
+
+fiat_field_solinas_impl!(
     #[doc = "Element of the prime field Fp where p = 2^521-1"]
     FieldElement,
     521,
     P_BYTES,
     FE_LIMBS_SIZE,
+    fiat_p521_tight_field_element,
+    fiat_p521_loose_field_element,
+    fiat_p521_carry,
+    fiat_p521_relax,
     fiat_p521_nonzero,
     fiat_p521_carry_add,
     fiat_p521_carry_sub,
-    fiat_p521_carry_mul,
-    fiat_p521_carry_square,
+    fiat_p521_mul_tight,
+    fiat_p521_square_tight,
     fiat_p521_carry_opp,
     fiat_p521_to_bytes,
-    fiat_p521_from_bytes,
-    solinas
+    fiat_p521_from_bytes
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -95,12 +121,13 @@ impl FieldElement {
     }
 }
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP521R1 curve"]
     Scalar,
     521,
     ORDER_LIMBS,
     GM_LIMBS_SIZE,
+    fiat_p521_scalar_non_montgomery_domain_field_element,
     fiat_p521_scalar_nonzero,
     fiat_p521_scalar_add,
     fiat_p521_scalar_sub,
@@ -109,10 +136,9 @@ fiat_field_ops_impl!(
     fiat_p521_scalar_opp,
     fiat_p521_scalar_to_bytes,
     fiat_p521_scalar_from_bytes,
-    montgomery {
-        fiat_p521_scalar_to_montgomery,
-        fiat_p521_scalar_from_montgomery
-    }
+    fiat_p521_scalar_montgomery_domain_field_element,
+    fiat_p521_scalar_to_montgomery,
+    fiat_p521_scalar_from_montgomery
 );
 
 impl Scalar {

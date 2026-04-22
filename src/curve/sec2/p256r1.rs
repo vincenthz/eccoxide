@@ -6,17 +6,18 @@ use crate::curve::{affine, projective, weierstrass::WeierstrassCurve};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p256r1::*;
 use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
-use crate::{fiat_field_ops_impl, fiat_field_sqrt_define};
+use crate::{fiat_field_montgomery_impl, fiat_field_sqrt_define};
 
 const GM_LIMBS_SIZE: usize = 4;
 const FE_LIMBS_SIZE: usize = 4;
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp where p = 2^256 - 2^224 + 2^192 + 2^96 - 1"]
     FieldElement,
     256,
     P_LIMBS,
     FE_LIMBS_SIZE,
+    fiat_p256_non_montgomery_domain_field_element,
     fiat_p256_nonzero,
     fiat_p256_add,
     fiat_p256_sub,
@@ -25,10 +26,9 @@ fiat_field_ops_impl!(
     fiat_p256_opp,
     fiat_p256_to_bytes,
     fiat_p256_from_bytes,
-    montgomery {
-        fiat_p256_to_montgomery,
-        fiat_p256_from_montgomery
-    }
+    fiat_p256_montgomery_domain_field_element,
+    fiat_p256_to_montgomery,
+    fiat_p256_from_montgomery
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -75,12 +75,13 @@ impl FieldElement {
     }
 }
 
-fiat_field_ops_impl!(
+fiat_field_montgomery_impl!(
     #[doc = "Element of the prime field Fp for scalar where p is the order of the SECP256R1 curve"]
     Scalar,
     256,
     ORDER_LIMBS,
     GM_LIMBS_SIZE,
+    fiat_p256_scalar_non_montgomery_domain_field_element,
     fiat_p256_scalar_nonzero,
     fiat_p256_scalar_add,
     fiat_p256_scalar_sub,
@@ -89,10 +90,9 @@ fiat_field_ops_impl!(
     fiat_p256_scalar_opp,
     fiat_p256_scalar_to_bytes,
     fiat_p256_scalar_from_bytes,
-    montgomery {
-        fiat_p256_scalar_to_montgomery,
-        fiat_p256_scalar_from_montgomery
-    }
+    fiat_p256_scalar_montgomery_domain_field_element,
+    fiat_p256_scalar_to_montgomery,
+    fiat_p256_scalar_from_montgomery
 );
 
 impl Scalar {
