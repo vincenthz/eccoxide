@@ -17,6 +17,13 @@ lazy_static = "1.4"
 num-bigint = { version = "0.3", optional = true }
 num-traits = { version = "0.2", optional = true }
 
+[dev-dependencies]
+divan = "0.1"
+
+[[bench]]
+name = "curves"
+harness = false
+
 [features]
 default = ["sec2"]
 
