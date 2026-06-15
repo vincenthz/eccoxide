@@ -498,6 +498,9 @@ pub mod p160r2 {
 
 /// Elliptic curve parameters for p192k1 over Fp (192 bits)
 pub mod p192k1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p192k1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 24] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -574,6 +577,9 @@ pub mod p192k1 {
 
 /// Elliptic curve parameters for p192r1 over Fp (192 bits)
 pub mod p192r1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p192r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 24] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -650,6 +656,9 @@ pub mod p192r1 {
 
 /// Elliptic curve parameters for p224k1 over Fp (224 bits)
 pub mod p224k1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p224k1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 28] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -767,6 +776,9 @@ pub mod p224k1 {
 
 /// Elliptic curve parameters for p224r1 over Fp (224 bits)
 pub mod p224r1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p224r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 28] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -884,6 +896,9 @@ pub mod p224r1 {
 
 /// Elliptic curve parameters for p256k1 over Fp (256 bits)
 pub mod p256k1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p256k1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 32] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -1011,6 +1026,9 @@ pub mod p256k1 {
 
 /// Elliptic curve parameters for p256r1 over Fp (256 bits)
 pub mod p256r1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p256r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 32] = [
         0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -1138,6 +1156,9 @@ pub mod p256r1 {
 
 /// Elliptic curve parameters for p384r1 over Fp (384 bits)
 pub mod p384r1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p384r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 48] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -1295,6 +1316,9 @@ pub mod p384r1 {
 
 /// Elliptic curve parameters for p521r1 over Fp (521 bits)
 pub mod p521r1 {
+    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
+    #[cfg(feature = "table")]
+    include!("comb/p521r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 66] = [
         0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

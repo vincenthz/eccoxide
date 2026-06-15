@@ -73,6 +73,24 @@ macro_rules! test_completeness {
                 }
                 assert_eq!(&g * &big, g.mul_vartime(&big));
             }
+
+            #[test]
+            fn mul_base_matches_generic() {
+                // the fixed-base comb (mul_base) must agree with the general
+                // variable-base scalar multiplication of the generator. This
+                // validates the embedded precomputation tables end to end.
+                let g = Point::generator();
+                for v in [0u64, 1, 2, 15, 16, 17, 255, 256, 0x0123_4567_89ab_cdef] {
+                    let k = Scalar::from_u64(v);
+                    assert_eq!(Point::mul_base(&k), &g * &k, "mul_base mismatch for k = {}", v);
+                }
+                // a full-width scalar as well
+                let mut big = Scalar::from_u64(0xfedc_ba98_7654_3210);
+                for _ in 0..5 {
+                    big = big.square();
+                }
+                assert_eq!(Point::mul_base(&big), &g * &big);
+            }
         }
     };
 }

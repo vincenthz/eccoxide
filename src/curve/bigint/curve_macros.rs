@@ -34,21 +34,34 @@ macro_rules! point_impl {
 
         impl Eq for Point {}
 
-        lazy_static! {
-            static ref A: $FE = $FE(BigUint::from_bytes_be(&A_BYTES));
-            static ref B: $FE = $FE(BigUint::from_bytes_be(&B_BYTES));
-            static ref B3: $FE =
-                $FE(BigUint::from_bytes_be(&B_BYTES) * BigUint::from_bytes_be(&[3]));
-            static ref GX: $FE = $FE(BigUint::from_bytes_be(&GX_BYTES));
-            static ref GY: $FE = $FE(BigUint::from_bytes_be(&GY_BYTES));
+        // Curve constants, parsed once on first use (replaces `lazy_static!`).
+        fn curve_a() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE(BigUint::from_bytes_be(&A_BYTES)))
+        }
+        fn curve_b() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE(BigUint::from_bytes_be(&B_BYTES)))
+        }
+        fn curve_b3() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE(BigUint::from_bytes_be(&B_BYTES) * BigUint::from_bytes_be(&[3])))
+        }
+        fn curve_gx() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE(BigUint::from_bytes_be(&GX_BYTES)))
+        }
+        fn curve_gy() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE(BigUint::from_bytes_be(&GY_BYTES)))
         }
 
         impl PointAffine {
             /// Curve generator point
             pub fn generator() -> Self {
                 PointAffine {
-                    x: GX.clone(),
-                    y: GY.clone(),
+                    x: curve_gx().clone(),
+                    y: curve_gy().clone(),
                 }
             }
 
@@ -56,9 +69,9 @@ macro_rules! point_impl {
             pub fn from_coordinate(x: &$FE, y: &$FE) -> Option<Self> {
                 let y2 = y * y;
                 let x3 = x.power(3);
-                let ax = &*A * x;
+                let ax = curve_a() * x;
 
-                if y2 == x3 + ax + &*B {
+                if y2 == x3 + ax + curve_b() {
                     Some(PointAffine {
                         x: x.clone(),
                         y: y.clone(),
@@ -77,7 +90,7 @@ macro_rules! point_impl {
                     x: ref x1,
                     y: ref y1,
                 } = self;
-                let l = ($FE::from_u64(3) * (x1 * x1) + &*A)
+                let l = ($FE::from_u64(3) * (x1 * x1) + curve_a())
                     * ($FE::from_u64(2) * y1).inverse().unwrap();
                 let l2 = &l * &l;
                 let x3 = l2 - $FE::from_u64(2) * x1;
@@ -91,7 +104,7 @@ macro_rules! point_impl {
 
             pub fn decompress(x: &$FE, bit: bool) -> Option<Self> {
                 // Y^2 = X^3 - A*X + b
-                let yy = x.power(3) + (&*A * x) + &*B;
+                let yy = x.power(3) + (curve_a() * x) + curve_b();
                 let y = yy.sqrt()?;
                 let x = x.clone();
                 if bit == y.high_bit_set() {
@@ -125,8 +138,8 @@ macro_rules! point_impl {
             /// Curve generator point
             pub fn generator() -> Self {
                 Point {
-                    x: GX.clone(),
-                    y: GY.clone(),
+                    x: curve_gx().clone(),
+                    y: curve_gy().clone(),
                     z: $FE::one(),
                 }
             }
@@ -220,19 +233,19 @@ macro_rules! point_impl {
                 let t5 = t5 * &x3;
                 let x3 = &t1 + &t2;
                 let t5 = t5 - &x3;
-                let z3 = &*A * &t4;
-                let x3 = &*B3 * &t2;
+                let z3 = curve_a() * &t4;
+                let x3 = curve_b3() * &t2;
                 let z3 = &x3 + z3;
                 let x3 = &t1 - &z3;
                 let z3 = &t1 + &z3;
                 let y3 = &x3 * &z3;
                 let t1 = t0.double();
                 let t1 = t1 + &t0;
-                let t2 = &*A * t2;
-                let t4 = &*B3 * &t4;
+                let t2 = curve_a() * t2;
+                let t4 = curve_b3() * &t4;
                 let t1 = t1 + &t2;
                 let t2 = &t0 - t2;
-                let t2 = &*A * t2;
+                let t2 = curve_a() * t2;
                 let t4 = t4 + &t2;
                 let t0 = &t1 * &t4;
                 let y3 = y3 + t0;
@@ -281,17 +294,17 @@ macro_rules! point_impl {
                 let t3 = t3.double();
                 let z3 = x * z;
                 let z3 = &z3 + &z3;
-                let x3 = &*A * &z3;
-                let y3 = &*B3 * &t2;
+                let x3 = curve_a() * &z3;
+                let y3 = curve_b3() * &t2;
                 let y3 = &x3 + &y3;
                 let x3 = &t1 - &y3;
                 let y3 = &t1 + &y3;
                 let y3 = &x3 * &y3;
                 let x3 = &t3 * &x3;
-                let z3 = &*B3 * &z3;
-                let t2 = &*A * &t2;
+                let z3 = curve_b3() * &z3;
+                let t2 = curve_a() * &t2;
                 let t3 = &t0 - &t2;
-                let t3 = &*A * &t3;
+                let t3 = curve_a() * &t3;
                 let t3 = &t3 + &z3;
                 let z3 = &t0 + &t0;
                 let t0 = &z3 + &t0;
@@ -575,32 +588,39 @@ macro_rules! bigint_prime_curve {
             use crate::curve::bigint::maths::{mod_inverse, tonelli_shanks};
             use crate::params::sec2::$m::*;
             use crate::{bigint_scalar_impl, point_impl};
-            use lazy_static;
             use num_bigint::BigUint;
             use num_traits::{cast::ToPrimitive, identities::One};
 
-            lazy_static! {
-                static ref P: BigUint = BigUint::from_bytes_be(&P_BYTES);
-                static ref PMOD4: u32 = {
-                    let pmodded = &*P & BigUint::from(0b11u32);
-                    pmodded.to_u32().unwrap()
-                };
-
-                // "constant" (P + 1) / 4
-                static ref PP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
-
-                static ref ORDER: BigUint = BigUint::from_bytes_be(&ORDER_BYTES);
-                static ref OMOD4: u32 = {
-                    let pmodded = &*ORDER & BigUint::from(0b11u32);
-                    pmodded.to_u32().unwrap()
-                };
-
-                // "constant" (ORDER + 1) / 4
-                static ref OP1D4: BigUint = (&*P + BigUint::one()) / BigUint::from(4u32);
+            // Curve constants, parsed once on first use (replaces `lazy_static!`).
+            fn curve_p() -> &'static BigUint {
+                static V: std::sync::OnceLock<BigUint> = std::sync::OnceLock::new();
+                V.get_or_init(|| BigUint::from_bytes_be(&P_BYTES))
             }
-            bigint_scalar_impl!(FieldElement, &*P, $szfe, PMOD4, PP1D4);
-            bigint_scalar_impl!(Scalar, &*ORDER, $szfe, OMOD4, OP1D4);
-            point_impl!(FieldElement, Scalar, &*GX, &*GY);
+            fn curve_pmod4() -> &'static u32 {
+                static V: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+                V.get_or_init(|| (curve_p() & BigUint::from(0b11u32)).to_u32().unwrap())
+            }
+            // "constant" (P + 1) / 4
+            fn curve_pp1d4() -> &'static BigUint {
+                static V: std::sync::OnceLock<BigUint> = std::sync::OnceLock::new();
+                V.get_or_init(|| (curve_p() + BigUint::one()) / BigUint::from(4u32))
+            }
+            fn curve_order() -> &'static BigUint {
+                static V: std::sync::OnceLock<BigUint> = std::sync::OnceLock::new();
+                V.get_or_init(|| BigUint::from_bytes_be(&ORDER_BYTES))
+            }
+            fn curve_omod4() -> &'static u32 {
+                static V: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+                V.get_or_init(|| (curve_order() & BigUint::from(0b11u32)).to_u32().unwrap())
+            }
+            // "constant" (ORDER + 1) / 4
+            fn curve_op1d4() -> &'static BigUint {
+                static V: std::sync::OnceLock<BigUint> = std::sync::OnceLock::new();
+                V.get_or_init(|| (curve_p() + BigUint::one()) / BigUint::from(4u32))
+            }
+            bigint_scalar_impl!(FieldElement, curve_p(), $szfe, curve_pmod4(), curve_pp1d4());
+            bigint_scalar_impl!(Scalar, curve_order(), $szfe, curve_omod4(), curve_op1d4());
+            point_impl!(FieldElement, Scalar, (), ());
 
             #[cfg(test)]
             mod tests {

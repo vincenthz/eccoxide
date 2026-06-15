@@ -229,6 +229,13 @@ macro_rules! curve_benches {
                 }
 
                 #[divan::bench]
+                fn mul_base(bencher: Bencher) {
+                    // fixed-base: scalar * generator, via the precomputed table
+                    let k = sc_a();
+                    bencher.bench(|| Point::mul_base(black_box(&k)));
+                }
+
+                #[divan::bench]
                 fn to_affine(bencher: Bencher) {
                     // G + 2G = 3G is a genuine projective point (z != 1), so the
                     // benchmark exercises the modular inversion rather than the

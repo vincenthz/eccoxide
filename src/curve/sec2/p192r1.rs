@@ -161,6 +161,21 @@ impl Point {
         Point(self.0.scale_am3_ct(&other.to_bytes(), Curve))
     }
 
+    /// Constant-time multiplication of the curve generator: `scalar · G`.
+    ///
+    /// Uses the precomputed fixed-base comb table, which is substantially
+    /// faster than the general `&Point * &Scalar` path.
+    pub fn mul_base(scalar: &Scalar) -> Self {
+        #[cfg(feature = "table")]
+        return Point(projective::Point::<FieldElement>::mul_base_table_am3(
+            generator_comb(),
+            &scalar.to_bytes(),
+            Curve,
+        ));
+        #[cfg(not(feature = "table"))]
+        return &Point::generator() * scalar;
+    }
+
     /// Variable-time scalar multiplication.
     ///
     /// Faster than the constant-time `*` operator, but its running time depends

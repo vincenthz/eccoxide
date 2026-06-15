@@ -394,6 +394,31 @@ impl<FE: Field> Point<FE> {
         }
         acc
     }
+
+    /// Build the runtime fixed-base comb table from the statically embedded
+    /// `sage/comb.sage` table (`src/params/comb/<curve>.rs`).
+    ///
+    /// `table[i]` holds the 15 affine points `1·B, 2·B, …, 15·B` (where
+    /// `B = 16^i·G` for window `i`) as `(x, y)` coordinate byte arrays. The
+    /// returned per-window arrays place those at indices `1..=15`, with index
+    /// `0` set to the point at infinity so a zero digit selects the neutral
+    /// element. `parse` is the coordinate decoder (`FieldElement::from_bytes`).
+    pub fn build_comb_table<const NW: usize, const FS: usize>(
+        table: &[[([u8; FS], [u8; FS]); 15]; NW],
+        parse: fn(&[u8; FS]) -> Option<FE>,
+    ) -> [[Point<FE>; 16]; NW] {
+        core::array::from_fn(|w| {
+            let mut window: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+            for (slot, (x, y)) in window.iter_mut().skip(1).zip(table[w].iter()) {
+                *slot = Point {
+                    x: parse(x).expect("valid comb x coordinate"),
+                    y: parse(y).expect("valid comb y coordinate"),
+                    z: FE::one(),
+                };
+            }
+            window
+        })
+    }
 }
 
 impl<FE> Point<FE>
@@ -810,6 +835,66 @@ where
         curve: C,
     ) -> Self {
         self.scalar_mul_fixed_window_am3(n, curve)
+    }
+
+    /// Constant-time fixed-base scalar multiplication from a precomputed comb
+    /// table (see [`Self::build_comb_table`]): computes `n · G`, where `G` is the
+    /// generator the table was built from.
+    ///
+    /// The table already folds in the per-window `16^i` weights, so this needs
+    /// no point doublings: just one constant-time table lookup and one complete
+    /// addition per 4-bit window of the scalar. The digit only ever feeds the
+    /// constant-time table scan, so the running time is independent of `n`.
+    pub fn mul_base_table<const NW: usize, C: WeierstrassCurve<FieldElement = FE>>(
+        tables: &[[Point<FE>; 16]; NW],
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        assert_eq!(tables.len(), n.len() * 2, "comb table size mismatch");
+        let mut q = Point::infinity();
+        for (i, window) in tables.iter().enumerate() {
+            let byte = n[n.len() - 1 - (i / 2)];
+            let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
+            let selected = Self::select_from_table(window, digit);
+            q = q.add_different(&selected, curve);
+        }
+        q
+    }
+
+    /// Fixed-base comb scalar multiplication for a=0 curves. See
+    /// [`Self::mul_base_table`].
+    pub fn mul_base_table_a0<const NW: usize, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+        tables: &[[Point<FE>; 16]; NW],
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        assert_eq!(tables.len(), n.len() * 2, "comb table size mismatch");
+        let mut q = Point::infinity();
+        for (i, window) in tables.iter().enumerate() {
+            let byte = n[n.len() - 1 - (i / 2)];
+            let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
+            let selected = Self::select_from_table(window, digit);
+            q = q.add_different_a0(&selected, curve);
+        }
+        q
+    }
+
+    /// Fixed-base comb scalar multiplication for a=-3 curves. See
+    /// [`Self::mul_base_table`].
+    pub fn mul_base_table_am3<const NW: usize, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        tables: &[[Point<FE>; 16]; NW],
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        assert_eq!(tables.len(), n.len() * 2, "comb table size mismatch");
+        let mut q = Point::infinity();
+        for (i, window) in tables.iter().enumerate() {
+            let byte = n[n.len() - 1 - (i / 2)];
+            let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
+            let selected = Self::select_from_table(window, digit);
+            q = q.add_different_am3(&selected, curve);
+        }
+        q
     }
 
     /// Add two points, correctly handling every case (`self == other`,

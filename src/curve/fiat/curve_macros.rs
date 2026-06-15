@@ -2,13 +2,27 @@
 #[macro_export]
 macro_rules! fiat_define_weierstrass_curve {
     ($FE:ident) => {
-        lazy_static! {
-            static ref A: $FE = $FE::from_bytes(&A_BYTES).unwrap();
-            static ref B: $FE = $FE::from_bytes(&B_BYTES).unwrap();
-            static ref B3: $FE = $FE::from_bytes(&B3_BYTES).unwrap();
-            static ref GX: $FE = $FE::from_bytes(&GX_BYTES).unwrap();
-            static ref GY: $FE = $FE::from_bytes(&GY_BYTES).unwrap();
-            static ref ORDER: &'static [u8] = &ORDER_BYTES;
+        // Curve constants, parsed once from their byte encodings on first use.
+        // (`std::sync::OnceLock` replaces the previous `lazy_static!` usage.)
+        fn curve_a() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE::from_bytes(&A_BYTES).unwrap())
+        }
+        fn curve_b() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE::from_bytes(&B_BYTES).unwrap())
+        }
+        fn curve_b3() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE::from_bytes(&B3_BYTES).unwrap())
+        }
+        fn curve_gx() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE::from_bytes(&GX_BYTES).unwrap())
+        }
+        fn curve_gy() -> &'static $FE {
+            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
+            V.get_or_init(|| $FE::from_bytes(&GY_BYTES).unwrap())
         }
 
         /// The Weierstrass elliptic curve object itself
@@ -18,12 +32,12 @@ macro_rules! fiat_define_weierstrass_curve {
         impl Curve {
             /// Get the group order as an array of bytes in big endian representation
             pub fn group_order(self) -> &'static [u8] {
-                &ORDER
+                &ORDER_BYTES
             }
 
             /// Return the generator field element in affine coordinate (X,Y)
             pub fn generator() -> (&'static $FE, &'static $FE) {
-                (&GX, &GY)
+                (curve_gx(), curve_gy())
             }
         }
 
@@ -31,15 +45,15 @@ macro_rules! fiat_define_weierstrass_curve {
             type FieldElement = $FE;
 
             fn a(self) -> &'static Self::FieldElement {
-                &A
+                curve_a()
             }
 
             fn b(self) -> &'static Self::FieldElement {
-                &B
+                curve_b()
             }
 
             fn b3(self) -> &'static Self::FieldElement {
-                &B3
+                curve_b3()
             }
         }
     };
@@ -61,12 +75,21 @@ macro_rules! fiat_define_weierstrass_points {
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct Point(projective::Point<$FE>);
 
+        /// Fixed-base comb table for the generator, built once on first use
+        /// from the statically embedded `COMB_TABLE` constant.
+        #[cfg(feature = "table")]
+        fn generator_comb() -> &'static [[projective::Point<$FE>; 16]; COMB_WINDOWS] {
+            static V: std::sync::OnceLock<[[projective::Point<$FE>; 16]; COMB_WINDOWS]> =
+                std::sync::OnceLock::new();
+            V.get_or_init(|| projective::Point::<$FE>::build_comb_table(&COMB_TABLE, $FE::from_bytes))
+        }
+
         impl PointAffine {
             /// Curve generator point in affine coordinate
             pub fn generator() -> Self {
                 PointAffine(affine::Point {
-                    x: GX.clone(),
-                    y: GY.clone(),
+                    x: curve_gx().clone(),
+                    y: curve_gy().clone(),
                 })
             }
 
@@ -123,8 +146,8 @@ macro_rules! fiat_define_weierstrass_points {
             /// Curve generator point
             pub fn generator() -> Self {
                 Point(projective::Point {
-                    x: GX.clone(),
-                    y: GY.clone(),
+                    x: curve_gx().clone(),
+                    y: curve_gy().clone(),
                     z: FieldElement::one(),
                 })
             }

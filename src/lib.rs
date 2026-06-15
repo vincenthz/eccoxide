@@ -57,9 +57,6 @@
 //! public_key_bytes.extend_from_slice(&x.to_bytes());
 //! ```
 
-#[macro_use]
-extern crate lazy_static;
-
 pub mod curve;
 pub(crate) mod mp;
 pub mod params;

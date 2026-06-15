@@ -13,7 +13,6 @@ repository = "https://github.com/vincenthz/eccoxide/"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lazy_static = "1.4"
 num-bigint = { version = "0.3", optional = true }
 num-traits = { version = "0.2", optional = true }
 
@@ -26,6 +25,12 @@ harness = false
 
 [features]
 default = ["sec2"]
+
+# Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
+# constant-time comb (~4x faster than a variable-base scalar mult). This adds a
+# sizeable amount of static data to the binary; when disabled, `mul_base` falls
+# back to a normal scalar multiplication of the generator.
+table = []
 
 # SEC2 curves enabled by default (192, 224 are probably too small in 2020)
 sec2 = ["p192k1", "p192r1", "p224k1", "p224r1", "p256k1", "p256r1", "p384r1", "p521r1"]
