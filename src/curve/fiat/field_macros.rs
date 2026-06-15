@@ -1,7 +1,7 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_common_impl {
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident, $fiat_selectznz:ident) => {
         $(#[$outer])*
         #[derive(Clone)]
         pub struct $FE($fiat_constr);
@@ -107,6 +107,20 @@ macro_rules! fiat_field_common_impl {
             pub fn double(&self) -> Self {
                 let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_add(&mut out, &self.0, &self.0);
+                $FE(out)
+            }
+
+            /// Constant-time select: returns `a` if `cond` is true, otherwise `b`.
+            ///
+            /// Delegates to the fiat-crypto `selectznz` routine, which performs
+            /// a branch-free limb-by-limb conditional move. This works whatever
+            /// the internal representation is, as a field element and its limbs
+            /// are in a one-to-one correspondence.
+            pub fn ct_select(cond: Choice, a: &Self, b: &Self) -> Self {
+                // selectznz(out, c, x, y) computes `out = if c == 0 { x } else { y }`,
+                // so pass `b` then `a` to return `a` when `cond` is true.
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
+                $fiat_selectznz(&mut out.0, cond.to_u1(), &b.0 .0, &a.0 .0);
                 $FE(out)
             }
 
@@ -347,6 +361,9 @@ macro_rules! fiat_field_common_impl {
             fn cube(&self) -> $FE {
                 self.square() * self
             }
+            fn ct_select(cond: Choice, a: &$FE, b: &$FE) -> $FE {
+                $FE::ct_select(cond, a, b)
+            }
         }
     };
 }
@@ -354,7 +371,7 @@ macro_rules! fiat_field_common_impl {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_montgomery_impl {
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_constr_montgomery:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_constr_montgomery:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident, $fiat_selectznz:ident) => {
         crate::fiat_field_common_impl!(
             $(#[$outer])*
             $FE,
@@ -366,7 +383,8 @@ macro_rules! fiat_field_montgomery_impl {
             $fiat_mul,
             $fiat_square,
             $fiat_opp,
-            $fiat_nonzero
+            $fiat_nonzero,
+            $fiat_selectznz
         );
 
         impl $FE {
@@ -465,7 +483,7 @@ macro_rules! fiat_field_montgomery_impl {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_solinas_impl {
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_tight_constr:ident, $fiat_loose_constr:ident, $fiat_tighten:ident, $fiat_relax:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_tight_constr:ident, $fiat_loose_constr:ident, $fiat_tighten:ident, $fiat_relax:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_selectznz:ident) => {
         crate::fiat_field_common_impl!(
             $FE,
             $SIZE_BITS,
@@ -476,7 +494,8 @@ macro_rules! fiat_field_solinas_impl {
             $fiat_mul,
             $fiat_square,
             $fiat_opp,
-            $fiat_nonzero
+            $fiat_nonzero,
+            $fiat_selectznz
         );
 
         impl $FE {

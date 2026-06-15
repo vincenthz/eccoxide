@@ -55,6 +55,12 @@ impl Choice {
     pub fn negate(self) -> Self {
         Choice(1 ^ self.0)
     }
+
+    // Return the choice as a `0`/`1` bit, in the shape expected by fiat-crypto
+    // `*_selectznz` / `*_cmovznz` routines which use a u1
+    pub(crate) fn to_u1(self) -> u8 {
+        self.0 as u8
+    }
 }
 
 impl From<Choice> for bool {

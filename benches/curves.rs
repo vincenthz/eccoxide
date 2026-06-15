@@ -217,8 +217,15 @@ macro_rules! curve_benches {
 
                 #[divan::bench]
                 fn scalar_mul(bencher: Bencher) {
+                    // the `*` operator is the constant-time fixed-window routine
                     let (p, k) = (point(), sc_a());
                     bencher.bench(|| black_box(&p) * black_box(&k));
+                }
+
+                #[divan::bench]
+                fn scalar_mul_vartime(bencher: Bencher) {
+                    let (p, k) = (point(), sc_a());
+                    bencher.bench(|| black_box(&p).mul_vartime(black_box(&k)));
                 }
 
                 #[divan::bench]

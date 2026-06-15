@@ -55,6 +55,24 @@ macro_rules! test_completeness {
                 let rhs = &g * &ab;
                 assert_eq!(lhs, rhs);
             }
+
+            #[test]
+            fn ct_matches_vartime() {
+                // The default `*` is the constant-time fixed-window routine; it
+                // must agree with the variable-time double-and-add for every
+                // scalar, including the edge cases (0, low/high window values).
+                let g = Point::generator();
+                for v in [0u64, 1, 2, 15, 16, 17, 255, 256, 0x0123_4567_89ab_cdef] {
+                    let k = Scalar::from_u64(v);
+                    assert_eq!(&g * &k, g.mul_vartime(&k), "mismatch for k = {}", v);
+                }
+                // a full-width scalar as well
+                let mut big = Scalar::from_u64(0xfedc_ba98_7654_3210);
+                for _ in 0..5 {
+                    big = big.square();
+                }
+                assert_eq!(&g * &big, g.mul_vartime(&big));
+            }
         }
     };
 }

@@ -373,6 +373,27 @@ impl<FE: Field> Point<FE> {
             z: z3,
         }
     }
+
+    /// Constant-time select between two points: returns `a` if `cond` is true,
+    /// otherwise `b`, without branching on `cond`.
+    fn ct_select(cond: Choice, a: &Point<FE>, b: &Point<FE>) -> Point<FE> {
+        Point {
+            x: FE::ct_select(cond, &a.x, &b.x),
+            y: FE::ct_select(cond, &a.y, &b.y),
+            z: FE::ct_select(cond, &a.z, &b.z),
+        }
+    }
+
+    /// Constant-time lookup of `table[index]`. The whole table is scanned so the
+    /// memory access pattern does not depend on the (secret) `index`.
+    fn select_from_table(table: &[Point<FE>], index: u8) -> Point<FE> {
+        let mut acc = Point::infinity();
+        for (j, t) in table.iter().enumerate() {
+            let take = (j as u64).ct_eq(&(index as u64));
+            acc = Point::ct_select(take, t, &acc);
+        }
+        acc
+    }
 }
 
 impl<FE> Point<FE>
@@ -675,6 +696,120 @@ where
         curve: C,
     ) -> Self {
         self.scalar_mul_daa_limbs8_am3(n, curve)
+    }
+
+    /// Constant-time scalar multiplication using a fixed 4-bit window.
+    ///
+    /// The window value is read from a precomputed table with a constant-time
+    /// scan, and the addition relies on the complete formula so a zero window
+    /// needs no special case.
+    fn scalar_mul_fixed_window<C: WeierstrassCurve<FieldElement = FE>>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        // table[d] = d * self, for d in 0..16
+        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        table[1] = self.clone();
+        table[2] = self.double(curve);
+        for d in 3..16 {
+            let next = table[d - 1].add_different(self, curve);
+            table[d] = next;
+        }
+
+        let mut q = Point::infinity();
+        for byte in n.iter() {
+            for &index in &[byte >> 4, byte & 0x0f] {
+                q = q.double(curve).double(curve).double(curve).double(curve);
+                let selected = Self::select_from_table(&table, index);
+                q = q.add_different(&selected, curve);
+            }
+        }
+        q
+    }
+
+    /// Constant-time fixed 4-bit window scalar multiplication for a=0 curves.
+    /// See [`Self::scalar_mul_fixed_window`].
+    fn scalar_mul_fixed_window_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        table[1] = self.clone();
+        table[2] = self.double_a0(curve);
+        for d in 3..16 {
+            let next = table[d - 1].add_different_a0(self, curve);
+            table[d] = next;
+        }
+
+        let mut q = Point::infinity();
+        for byte in n.iter() {
+            for &index in &[byte >> 4, byte & 0x0f] {
+                q = q
+                    .double_a0(curve)
+                    .double_a0(curve)
+                    .double_a0(curve)
+                    .double_a0(curve);
+                let selected = Self::select_from_table(&table, index);
+                q = q.add_different_a0(&selected, curve);
+            }
+        }
+        q
+    }
+
+    /// Constant-time fixed 4-bit window scalar multiplication for a=-3 curves.
+    /// See [`Self::scalar_mul_fixed_window`].
+    fn scalar_mul_fixed_window_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        table[1] = self.clone();
+        table[2] = self.double_am3(curve);
+        for d in 3..16 {
+            let next = table[d - 1].add_different_am3(self, curve);
+            table[d] = next;
+        }
+
+        let mut q = Point::infinity();
+        for byte in n.iter() {
+            for &index in &[byte >> 4, byte & 0x0f] {
+                q = q
+                    .double_am3(curve)
+                    .double_am3(curve)
+                    .double_am3(curve)
+                    .double_am3(curve);
+                let selected = Self::select_from_table(&table, index);
+                q = q.add_different_am3(&selected, curve);
+            }
+        }
+        q
+    }
+
+    /// Constant-time scalar multiplication (default). See
+    /// [`Self::scalar_mul_fixed_window`].
+    pub fn scale_ct<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8], curve: C) -> Self {
+        self.scalar_mul_fixed_window(n, curve)
+    }
+
+    /// Constant-time scalar multiplication for a=0 curves (default).
+    pub fn scale_a0_ct<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        self.scalar_mul_fixed_window_a0(n, curve)
+    }
+
+    /// Constant-time scalar multiplication for a=-3 curves (default).
+    pub fn scale_am3_ct<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        self.scalar_mul_fixed_window_am3(n, curve)
     }
 
     /// Add two points, correctly handling every case (`self == other`,

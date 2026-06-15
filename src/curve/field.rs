@@ -11,7 +11,7 @@
 //! between field and prime field.
 //!
 
-use crate::mp::ct::{CtEqual, CtOption};
+use crate::mp::ct::{Choice, CtEqual, CtOption};
 use std::fmt;
 use std::ops::{Add, Mul, Neg, Sub};
 
@@ -53,6 +53,12 @@ pub trait Field<Output = Self>:
 
     fn square(&self) -> Output;
     fn cube(&self) -> Output;
+
+    /// Constant-time select: returns `a` when `cond` is true, otherwise `b`.
+    ///
+    /// The selection must not branch on `cond`, so that it is safe to drive
+    /// with a secret-dependent choice (e.g. a scalar digit).
+    fn ct_select(cond: Choice, a: &Self, b: &Self) -> Output;
 }
 
 pub trait FieldSqrt: Field {

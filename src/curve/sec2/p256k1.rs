@@ -34,7 +34,8 @@ fiat_field_montgomery_impl!(
     fiat_secp256k1_montgomery_from_bytes,
     fiat_secp256k1_montgomery_montgomery_domain_field_element,
     fiat_secp256k1_montgomery_to_montgomery,
-    fiat_secp256k1_montgomery_from_montgomery
+    fiat_secp256k1_montgomery_from_montgomery,
+    fiat_secp256k1_montgomery_selectznz
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -105,7 +106,8 @@ fiat_field_montgomery_impl!(
     fiat_secp256k1_montgomery_scalar_from_bytes,
     fiat_secp256k1_montgomery_scalar_montgomery_domain_field_element,
     fiat_secp256k1_montgomery_scalar_to_montgomery,
-    fiat_secp256k1_montgomery_scalar_from_montgomery
+    fiat_secp256k1_montgomery_scalar_from_montgomery,
+    fiat_secp256k1_montgomery_scalar_selectznz
 );
 
 impl Scalar {
@@ -173,6 +175,14 @@ impl Point {
         Point(self.0.add_or_double_a0(&other.0, Curve))
     }
     fn scale<'b>(&self, other: &'b Scalar) -> Self {
+        Point(self.0.scale_a0_ct(&other.to_bytes(), Curve))
+    }
+
+    /// Variable-time scalar multiplication.
+    ///
+    /// Faster than the constant-time `*` operator, but its running time depends
+    /// on the scalar; only use it when the scalar is public.
+    pub fn mul_vartime(&self, other: &Scalar) -> Self {
         Point(self.0.scale_a0(&other.to_bytes(), Curve))
     }
 }
