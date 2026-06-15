@@ -434,7 +434,11 @@ macro_rules! fiat_field_montgomery_impl {
                 let mut out_mont = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
                 $fiat_from_bytes(&mut out.0, &buf);
 
-                let p = $FIELD_P_LIMBS.iter().rev().copied().collect::<Vec<_>>();
+                // modulus limbs, least-significant first
+                let mut p = [0u64; $FE_LIMBS_SIZE];
+                for (dst, src) in p.iter_mut().zip($FIELD_P_LIMBS.iter().rev()) {
+                    *dst = *src;
+                }
 
                 // TODO: non constant
                 if LimbsLE::ct_lt(LimbsLE(&out.0), LimbsLE(&p[..])).is_true() {
