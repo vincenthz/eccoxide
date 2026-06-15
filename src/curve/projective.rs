@@ -11,7 +11,7 @@
 
 use super::affine;
 use super::field::Field;
-use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0};
+use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
 use crate::mp::ct::{Choice, CtEqual};
 use std::convert::TryFrom;
 use std::ops::{Add, Mul, Neg, Sub};
@@ -287,6 +287,92 @@ impl<FE: Field> Point<FE> {
             z: z3,
         }
     }
+
+    pub fn add_different_am3<'x, 'y, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &'x self,
+        other: &'y Point<FE>,
+        curve: C,
+    ) -> Point<FE>
+    where
+        for<'a> &'a FE: Add<FE, Output = FE>,
+        for<'a> &'a FE: Mul<FE, Output = FE>,
+        for<'a> &'a FE: Sub<FE, Output = FE>,
+        for<'a, 'b> &'a FE: Add<&'b FE, Output = FE>,
+        for<'a, 'b> &'a FE: Mul<&'b FE, Output = FE>,
+        for<'a, 'b> &'a FE: Sub<&'b FE, Output = FE>,
+    {
+        // Algorithm 4 from (1) - addition formula for a=-3
+        //
+        // ```magma
+        // ADD := function ( X1 , Y1 , Z1 , X2 , Y2 , Z2 , b )
+        //     t0 := X1 * X2 ; t1 := Y1 * Y2 ; t2 := Z1 * Z2 ;
+        //     t3 := X1 + Y1 ; t4 := X2 + Y2 ; t3 := t3 * t4 ;
+        //     t4 := t0 + t1 ; t3 := t3 - t4 ; t4 := Y1 + Z1 ;
+        //     X3 := Y2 + Z2 ; t4 := t4 * X3 ; X3 := t1 + t2 ;
+        //     t4 := t4 - X3 ; X3 := X1 + Z1 ; Y3 := X2 + Z2 ;
+        //     X3 := X3 * Y3 ; Y3 := t0 + t2 ; Y3 := X3 - Y3 ;
+        //     Z3 := b * t2 ; X3 := Y3 - Z3 ; Z3 := X3 + X3 ;
+        //     X3 := X3 + Z3 ; Z3 := t1 - X3 ; X3 := t1 + X3 ;
+        //     Y3 := b * Y3 ; t1 := t2 + t2 ; t2 := t1 + t2 ;
+        //     Y3 := Y3 - t2 ; Y3 := Y3 - t0 ; t1 := Y3 + Y3 ;
+        //     Y3 := t1 + Y3 ; t1 := t0 + t0 ; t0 := t1 + t0 ;
+        //     t0 := t0 - t2 ; t1 := t4 * Y3 ; t2 := t0 * Y3 ;
+        //     Y3 := X3 * Z3 ; Y3 := Y3 + t2 ; X3 := t3 * X3 ;
+        //     X3 := X3 - t1 ; Z3 := t4 * Z3 ; t1 := t3 * t0 ;
+        //     Z3 := Z3 + t1 ;
+        //     return X3 , Y3 , Z3 ;
+        // end function ;
+        // ```
+        let t0 = &self.x * &other.x;
+        let t1 = &self.y * &other.y;
+        let t2 = &self.z * &other.z;
+        let t3 = &self.x + &self.y;
+        let t4 = &other.x + &other.y;
+        let t3 = &t3 * &t4;
+        let t4 = &t0 + &t1;
+        let t3 = &t3 - &t4;
+        let t4 = &self.y + &self.z;
+        let x3 = &other.y + &other.z;
+        let t4 = &t4 * &x3;
+        let x3 = &t1 + &t2;
+        let t4 = &t4 - &x3;
+        let x3 = &self.x + &self.z;
+        let y3 = &other.x + &other.z;
+        let x3 = &x3 * &y3;
+        let y3 = &t0 + &t2;
+        let y3 = &x3 - &y3;
+        let z3 = curve.b() * &t2;
+        let x3 = &y3 - &z3;
+        let z3 = &x3 + &x3;
+        let x3 = &x3 + &z3;
+        let z3 = &t1 - &x3;
+        let x3 = &t1 + &x3;
+        let y3 = curve.b() * &y3;
+        let t1 = &t2 + &t2;
+        let t2 = &t1 + &t2;
+        let y3 = &y3 - &t2;
+        let y3 = &y3 - &t0;
+        let t1 = &y3 + &y3;
+        let y3 = &t1 + &y3;
+        let t1 = &t0 + &t0;
+        let t0 = &t1 + &t0;
+        let t0 = &t0 - &t2;
+        let t1 = &t4 * &y3;
+        let t2 = &t0 * &y3;
+        let y3 = &x3 * &z3;
+        let y3 = &y3 + &t2;
+        let x3 = &t3 * &x3;
+        let x3 = &x3 - &t1;
+        let z3 = &t4 * &z3;
+        let t1 = &t3 * &t0;
+        let z3 = &z3 + &t1;
+
+        Point {
+            x: x3,
+            y: y3,
+            z: z3,
+        }
+    }
 }
 
 impl<FE> Point<FE>
@@ -402,6 +488,72 @@ where
         }
     }
 
+    #[inline]
+    pub fn double_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &self,
+        curve: C,
+    ) -> Self {
+        // Algorithm 6 from (1) - doubling formula for a=-3
+        //
+        // ```magma
+        // DBL := function (X ,Y ,Z , b )
+        //     t0 := X ^2; t1 := Y ^2; t2 := Z ^2;
+        //     t3 := X * Y ; t3 := t3 + t3 ; Z3 := X * Z ;
+        //     Z3 := Z3 + Z3 ; Y3 := b * t2 ; Y3 := Y3 - Z3 ;
+        //     X3 := Y3 + Y3 ; Y3 := X3 + Y3 ; X3 := t1 - Y3 ;
+        //     Y3 := t1 + Y3 ; Y3 := X3 * Y3 ; X3 := X3 * t3 ;
+        //     t3 := t2 + t2 ; t2 := t2 + t3 ; Z3 := b * Z3 ;
+        //     Z3 := Z3 - t2 ; Z3 := Z3 - t0 ; t3 := Z3 + Z3 ;
+        //     Z3 := Z3 + t3 ; t3 := t0 + t0 ; t0 := t3 + t0 ;
+        //     t0 := t0 - t2 ; t0 := t0 * Z3 ; Y3 := Y3 + t0 ;
+        //     t0 := Y * Z ; t0 := t0 + t0 ; Z3 := t0 * Z3 ;
+        //     X3 := X3 - Z3 ; Z3 := t0 * t1 ; Z3 := Z3 + Z3 ;
+        //     Z3 := Z3 + Z3 ;
+        //     return X3 , Y3 , Z3 ;
+        // end function ;
+        // ```
+        let t0 = self.x.square();
+        let t1 = self.y.square();
+        let t2 = self.z.square();
+        let t3 = &self.x * &self.y;
+        let t3 = &t3 + &t3;
+        let z3 = &self.x * &self.z;
+        let z3 = &z3 + &z3;
+        let y3 = curve.b() * &t2;
+        let y3 = &y3 - &z3;
+        let x3 = &y3 + &y3;
+        let y3 = &x3 + &y3;
+        let x3 = &t1 - &y3;
+        let y3 = &t1 + &y3;
+        let y3 = &x3 * &y3;
+        let x3 = &x3 * &t3;
+        let t3 = &t2 + &t2;
+        let t2 = &t2 + &t3;
+        let z3 = curve.b() * &z3;
+        let z3 = &z3 - &t2;
+        let z3 = &z3 - &t0;
+        let t3 = &z3 + &z3;
+        let z3 = &z3 + &t3;
+        let t3 = &t0 + &t0;
+        let t0 = &t3 + &t0;
+        let t0 = &t0 - &t2;
+        let t0 = &t0 * &z3;
+        let y3 = &y3 + &t0;
+        let t0 = &self.y * &self.z;
+        let t0 = &t0 + &t0;
+        let z3 = &t0 * &z3;
+        let x3 = &x3 - &z3;
+        let z3 = &t0 * &t1;
+        let z3 = &z3 + &z3;
+        let z3 = &z3 + &z3;
+
+        Point {
+            x: x3,
+            y: y3,
+            z: z3,
+        }
+    }
+
     pub fn to_affine(&self) -> Option<affine::Point<FE>> {
         if self.z == FE::one() {
             return Some(affine::Point {
@@ -430,10 +582,15 @@ where
         let mut a: Point<FE> = self.clone();
         let mut q: Point<FE> = Point::infinity();
 
+        // `add_different` is the *complete* addition formula (Algorithm 1),
+        // so it already handles the q == a and q == infinity cases. There is
+        // therefore no need to test for equality and dispatch to a dedicated
+        // doubling here: doing so would only cost an extra point comparison
+        // (4 field multiplications) per step for no benefit.
         for digit in n.iter().rev() {
             for i in 0..8 {
                 if digit & (1 << i) != 0 {
-                    q = q.add_or_double(&a, curve);
+                    q = q.add_different(&a, curve);
                 }
                 a = a.double(curve)
             }
@@ -453,9 +610,29 @@ where
         for digit in n.iter().rev() {
             for i in 0..8 {
                 if digit & (1 << i) != 0 {
-                    q = q.add_or_double_a0(&a, curve);
+                    q = q.add_different_a0(&a, curve);
                 }
                 a = a.double_a0(curve)
+            }
+        }
+        q
+    }
+
+    #[inline]
+    fn scalar_mul_daa_limbs8_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        let mut a: Point<FE> = self.clone();
+        let mut q: Point<FE> = Point::infinity();
+
+        for digit in n.iter().rev() {
+            for i in 0..8 {
+                if digit & (1 << i) != 0 {
+                    q = q.add_different_am3(&a, curve);
+                }
+                a = a.double_am3(curve)
             }
         }
         q
@@ -473,17 +650,28 @@ where
         self.scalar_mul_daa_limbs8_a0(n, curve)
     }
 
+    pub fn scale_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &self,
+        n: &[u8],
+        curve: C,
+    ) -> Self {
+        self.scalar_mul_daa_limbs8_am3(n, curve)
+    }
+
+    /// Add two points, correctly handling every case (`self == other`,
+    /// `self == -other` and the point at infinity).
+    ///
+    /// This relies on the *complete* addition formula (Algorithm 1), which is
+    /// exception-free for prime order curves, so unlike a naive implementation
+    /// it does not need to compare the two points and branch to a dedicated
+    /// doubling routine.
     #[inline]
     pub fn add_or_double<'b, C: WeierstrassCurve<FieldElement = FE>>(
         &self,
         other: &'b Point<FE>,
         curve: C,
     ) -> Point<FE> {
-        if self.ct_eq(other).is_true() {
-            self.double(curve)
-        } else {
-            self.add_different(&other, curve)
-        }
+        self.add_different(other, curve)
     }
 
     #[inline]
@@ -492,11 +680,16 @@ where
         other: &'b Point<FE>,
         curve: C,
     ) -> Point<FE> {
-        if self.ct_eq(other).is_true() {
-            self.double_a0(curve)
-        } else {
-            self.add_different_a0(&other, curve)
-        }
+        self.add_different_a0(other, curve)
+    }
+
+    #[inline]
+    pub fn add_or_double_am3<'b, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+        &self,
+        other: &'b Point<FE>,
+        curve: C,
+    ) -> Point<FE> {
+        self.add_different_am3(other, curve)
     }
 }
 

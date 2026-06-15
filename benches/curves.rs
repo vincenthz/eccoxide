@@ -212,7 +212,6 @@ macro_rules! curve_benches {
                 #[divan::bench]
                 fn double(bencher: Bencher) {
                     let p = point();
-                    // p + p hits the doubling path of `add_or_double`
                     bencher.bench(|| black_box(&p) + black_box(&p));
                 }
 

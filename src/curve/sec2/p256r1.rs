@@ -2,7 +2,10 @@
 use crate::curve::fiat::p256_64::*;
 use crate::curve::fiat::p256_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
-use crate::curve::{affine, projective, weierstrass::WeierstrassCurve};
+use crate::curve::{
+    affine, projective,
+    weierstrass::{WeierstrassCurve, WeierstrassCurveAM3},
+};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p256r1::*;
 use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
@@ -161,12 +164,14 @@ impl Scalar {
 fiat_define_weierstrass_curve!(FieldElement);
 fiat_define_weierstrass_points!(FieldElement);
 
+impl WeierstrassCurveAM3 for Curve {}
+
 impl Point {
     fn add_or_double<'b>(&self, other: &'b Point) -> Point {
-        Point(self.0.add_or_double(&other.0, Curve))
+        Point(self.0.add_or_double_am3(&other.0, Curve))
     }
     fn scale<'b>(&self, other: &'b Scalar) -> Self {
-        Point(self.0.scale(&other.to_bytes(), Curve))
+        Point(self.0.scale_am3(&other.to_bytes(), Curve))
     }
 }
 
