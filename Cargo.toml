@@ -24,7 +24,7 @@ name = "curves"
 harness = false
 
 [features]
-default = ["sec2"]
+default = ["sec2", "table"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
