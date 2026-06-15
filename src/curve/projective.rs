@@ -587,12 +587,19 @@ where
         // therefore no need to test for equality and dispatch to a dedicated
         // doubling here: doing so would only cost an extra point comparison
         // (4 field multiplications) per step for no benefit.
+        //
+        // make sure we don't double at the end of the loop
+        let nbits = n.len() * 8;
+        let mut bit = 0;
         for digit in n.iter().rev() {
             for i in 0..8 {
                 if digit & (1 << i) != 0 {
                     q = q.add_different(&a, curve);
                 }
-                a = a.double(curve)
+                bit += 1;
+                if bit < nbits {
+                    a = a.double(curve);
+                }
             }
         }
         q
@@ -607,12 +614,18 @@ where
         let mut a: Point<FE> = self.clone();
         let mut q: Point<FE> = Point::infinity();
 
+        // make sure we don't double at the end of the loop
+        let nbits = n.len() * 8;
+        let mut bit = 0;
         for digit in n.iter().rev() {
             for i in 0..8 {
                 if digit & (1 << i) != 0 {
                     q = q.add_different_a0(&a, curve);
                 }
-                a = a.double_a0(curve)
+                bit += 1;
+                if bit < nbits {
+                    a = a.double_a0(curve);
+                }
             }
         }
         q
@@ -627,12 +640,18 @@ where
         let mut a: Point<FE> = self.clone();
         let mut q: Point<FE> = Point::infinity();
 
+        // make sure we don't double at the end of the loop
+        let nbits = n.len() * 8;
+        let mut bit = 0;
         for digit in n.iter().rev() {
             for i in 0..8 {
                 if digit & (1 << i) != 0 {
                     q = q.add_different_am3(&a, curve);
                 }
-                a = a.double_am3(curve)
+                bit += 1;
+                if bit < nbits {
+                    a = a.double_am3(curve);
+                }
             }
         }
         q
