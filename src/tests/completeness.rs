@@ -62,7 +62,26 @@ macro_rules! test_completeness {
                 // must agree with the variable-time double-and-add for every
                 // scalar, including the edge cases (0, low/high window values).
                 let g = Point::generator();
-                for v in [0u64, 1, 2, 15, 16, 17, 255, 256, 0x0123_4567_89ab_cdef] {
+                // includes values that stress the wNAF recoding used by the
+                // variable-time path: long runs of set bits (carry propagation),
+                // the window boundaries and a top-bit-set value.
+                for v in [
+                    0u64,
+                    1,
+                    2,
+                    15,
+                    16,
+                    17,
+                    31,
+                    32,
+                    255,
+                    256,
+                    0x5555_5555_5555_5555,
+                    0xaaaa_aaaa_aaaa_aaaa,
+                    0xffff_ffff_ffff_ffff,
+                    0x8000_0000_0000_0000,
+                    0x0123_4567_89ab_cdef,
+                ] {
                     let k = Scalar::from_u64(v);
                     assert_eq!(&g * &k, g.mul_vartime(&k), "mismatch for k = {}", v);
                 }

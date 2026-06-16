@@ -55,6 +55,59 @@ where
 #[derive(Debug, Clone, Copy)]
 pub struct AffineAtInfinity;
 
+/// Compute the width-`w` non-adjacent form (wNAF) of the big-endian integer
+/// `n`, returned as signed digits, least-significant first.
+///
+/// Every non-zero digit is odd and lies in `[-(2^(w-1)-1), 2^(w-1)-1]`, and no
+/// two consecutive digits are both non-zero (so on average only `1/(w+1)` of
+/// the digits are non-zero). This is used solely by the *variable-time* scalar
+/// multiplication and is deliberately not constant-time.
+fn wnaf(n: &[u8], w: u32) -> Vec<i8> {
+    debug_assert!((2..=8).contains(&w));
+
+    // Little-endian working copy of `n` with one extra byte of headroom: the
+    // `k -= digit` step transiently *increases* k when the digit is negative,
+    // and the spare byte guarantees the carry never runs off the end.
+    let mut k = Vec::with_capacity(n.len() + 1);
+    k.extend(n.iter().rev().copied());
+    k.push(0);
+
+    let width = 1i32 << w; // 2^w
+    let half = 1i32 << (w - 1); // 2^(w-1)
+
+    let mut naf = Vec::with_capacity(n.len() * 8 + 1);
+    while k.iter().any(|&b| b != 0) {
+        let mut digit = 0i32;
+        if k[0] & 1 == 1 {
+            // k mod 2^w (w <= 8, so only the low byte contributes)
+            let m = (k[0] as i32) & (width - 1);
+            digit = if m >= half { m - width } else { m };
+
+            // k -= digit (signed: adds |digit| when digit < 0). The arithmetic
+            // right shift turns the per-byte overflow into a sign-extended
+            // carry/borrow that propagates to the next byte.
+            let mut carry = -digit;
+            let mut i = 0;
+            while carry != 0 && i < k.len() {
+                let v = k[i] as i32 + carry;
+                k[i] = (v & 0xff) as u8;
+                carry = v >> 8;
+                i += 1;
+            }
+        }
+        naf.push(digit as i8);
+
+        // k >>= 1
+        let mut prev = 0u8;
+        for b in k.iter_mut().rev() {
+            let cur = *b;
+            *b = (cur >> 1) | (prev << 7);
+            prev = cur & 1;
+        }
+    }
+    naf
+}
+
 impl<FE: Field> TryFrom<Point<FE>> for affine::Point<FE>
 where
     for<'a> &'a FE: Add<FE, Output = FE>,
@@ -618,93 +671,115 @@ where
         }
     }
 
-    /// scalar multiplication : `n * self` with double-and-add algorithm with increasing index
+    /// Width of the signed window used by the variable-time wNAF scalar
+    /// multiplication. `W = 5` keeps the odd-multiple table small (`2^(W-2)`
+    /// points) while giving an average non-zero digit density of `1/(W+1)`,
+    /// which is close to optimal for ~192–521 bit scalars.
+    const WNAF_W: u32 = 5;
+
+    /// Additive inverse of the point: `-(X:Y:Z) = (X:-Y:Z)`.
     #[inline]
-    fn scalar_mul_daa_limbs8<C: WeierstrassCurve<FieldElement = FE>>(
+    fn negate(&self) -> Self {
+        Point {
+            x: self.x.clone(),
+            y: -self.y.clone(),
+            z: self.z.clone(),
+        }
+    }
+
+    /// Variable-time scalar multiplication `n * self` using a width-`W` wNAF.
+    ///
+    /// Compared with a plain double-and-add this keeps the same number of
+    /// doublings but cuts the additions from ~`nbits/2` down to ~`nbits/(W+1)`
+    /// by using a signed sparse recoding of the scalar. The running time
+    /// depends on the scalar, so this must only be used when `n` is public.
+    ///
+    /// `add_different` is the *complete* addition formula, so the `q == self`
+    /// and `q == infinity` cases need no special handling.
+    #[inline]
+    fn scalar_mul_wnaf<C: WeierstrassCurve<FieldElement = FE>>(
         &self,
         n: &[u8],
         curve: C,
     ) -> Self {
-        let mut a: Point<FE> = self.clone();
-        let mut q: Point<FE> = Point::infinity();
+        let naf = wnaf(n, Self::WNAF_W);
+        // table[i] = (2i+1) * self, i.e. the odd multiples 1·P, 3·P, … of self
+        let dbl = self.double(curve);
+        let tlen = 1usize << (Self::WNAF_W - 2);
+        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
+        table.push(self.clone());
+        for i in 1..tlen {
+            table.push(table[i - 1].add_different(&dbl, curve));
+        }
 
-        // `add_different` is the *complete* addition formula (Algorithm 1),
-        // so it already handles the q == a and q == infinity cases. There is
-        // therefore no need to test for equality and dispatch to a dedicated
-        // doubling here: doing so would only cost an extra point comparison
-        // (4 field multiplications) per step for no benefit.
-        //
-        // make sure we don't double at the end of the loop
-        let nbits = n.len() * 8;
-        let mut bit = 0;
-        for digit in n.iter().rev() {
-            for i in 0..8 {
-                if digit & (1 << i) != 0 {
-                    q = q.add_different(&a, curve);
-                }
-                bit += 1;
-                if bit < nbits {
-                    a = a.double(curve);
-                }
+        let mut q = Point::infinity();
+        for &d in naf.iter().rev() {
+            q = q.double(curve);
+            if d > 0 {
+                q = q.add_different(&table[(d as usize) >> 1], curve);
+            } else if d < 0 {
+                q = q.add_different(&table[((-(d as i32)) as usize) >> 1].negate(), curve);
             }
         }
         q
     }
 
     #[inline]
-    fn scalar_mul_daa_limbs8_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+    fn scalar_mul_wnaf_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
         n: &[u8],
         curve: C,
     ) -> Self {
-        let mut a: Point<FE> = self.clone();
-        let mut q: Point<FE> = Point::infinity();
+        let naf = wnaf(n, Self::WNAF_W);
+        let dbl = self.double_a0(curve);
+        let tlen = 1usize << (Self::WNAF_W - 2);
+        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
+        table.push(self.clone());
+        for i in 1..tlen {
+            table.push(table[i - 1].add_different_a0(&dbl, curve));
+        }
 
-        // make sure we don't double at the end of the loop
-        let nbits = n.len() * 8;
-        let mut bit = 0;
-        for digit in n.iter().rev() {
-            for i in 0..8 {
-                if digit & (1 << i) != 0 {
-                    q = q.add_different_a0(&a, curve);
-                }
-                bit += 1;
-                if bit < nbits {
-                    a = a.double_a0(curve);
-                }
+        let mut q = Point::infinity();
+        for &d in naf.iter().rev() {
+            q = q.double_a0(curve);
+            if d > 0 {
+                q = q.add_different_a0(&table[(d as usize) >> 1], curve);
+            } else if d < 0 {
+                q = q.add_different_a0(&table[((-(d as i32)) as usize) >> 1].negate(), curve);
             }
         }
         q
     }
 
     #[inline]
-    fn scalar_mul_daa_limbs8_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+    fn scalar_mul_wnaf_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
         n: &[u8],
         curve: C,
     ) -> Self {
-        let mut a: Point<FE> = self.clone();
-        let mut q: Point<FE> = Point::infinity();
+        let naf = wnaf(n, Self::WNAF_W);
+        let dbl = self.double_am3(curve);
+        let tlen = 1usize << (Self::WNAF_W - 2);
+        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
+        table.push(self.clone());
+        for i in 1..tlen {
+            table.push(table[i - 1].add_different_am3(&dbl, curve));
+        }
 
-        // make sure we don't double at the end of the loop
-        let nbits = n.len() * 8;
-        let mut bit = 0;
-        for digit in n.iter().rev() {
-            for i in 0..8 {
-                if digit & (1 << i) != 0 {
-                    q = q.add_different_am3(&a, curve);
-                }
-                bit += 1;
-                if bit < nbits {
-                    a = a.double_am3(curve);
-                }
+        let mut q = Point::infinity();
+        for &d in naf.iter().rev() {
+            q = q.double_am3(curve);
+            if d > 0 {
+                q = q.add_different_am3(&table[(d as usize) >> 1], curve);
+            } else if d < 0 {
+                q = q.add_different_am3(&table[((-(d as i32)) as usize) >> 1].negate(), curve);
             }
         }
         q
     }
 
     pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8], curve: C) -> Self {
-        self.scalar_mul_daa_limbs8(n, curve)
+        self.scalar_mul_wnaf(n, curve)
     }
 
     pub fn scale_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
@@ -712,7 +787,7 @@ where
         n: &[u8],
         curve: C,
     ) -> Self {
-        self.scalar_mul_daa_limbs8_a0(n, curve)
+        self.scalar_mul_wnaf_a0(n, curve)
     }
 
     pub fn scale_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
@@ -720,7 +795,7 @@ where
         n: &[u8],
         curve: C,
     ) -> Self {
-        self.scalar_mul_daa_limbs8_am3(n, curve)
+        self.scalar_mul_wnaf_am3(n, curve)
     }
 
     /// Constant-time scalar multiplication using a fixed 4-bit window.
