@@ -15,7 +15,7 @@ pub struct Point<FE> {
 }
 
 impl<FE: Field> Point<FE> {
-    pub fn to_coordinate(&self) -> (&FE, &FE) {
+    pub const fn to_coordinate(&self) -> (&FE, &FE) {
         (&self.x, &self.y)
     }
 
@@ -34,10 +34,9 @@ where
     pub fn decompress<C: WeierstrassCurve<FieldElement = FE>>(
         x: &FE,
         y_sign: Sign,
-        curve: C,
     ) -> Option<Self> {
         // Y^2 = X^3 - A*X + b
-        let yy = x.square() * x + (curve.a() * &x) + curve.b();
+        let yy = x.square() * x + (&C::A * &x) + C::B;
         match yy.sqrt().into_option() {
             None => None,
             Some(y) => {
@@ -63,16 +62,21 @@ where
     for<'a, 'b> &'a FE: Mul<&'b FE, Output = FE>,
     for<'a, 'b> &'a FE: Sub<&'b FE, Output = FE>,
 {
-    pub fn from_coordinate<C: WeierstrassCurve<FieldElement = FE>>(
-        x: &FE,
-        y: &FE,
-        curve: C,
-    ) -> Option<Self> {
+    /// Create a point without verifying this is a valid point
+    #[allow(unused)]
+    pub(crate) const fn from_coordinate_unchecked<C: WeierstrassCurve<FieldElement = FE>>(
+        x: FE,
+        y: FE,
+    ) -> Self {
+        Point { x, y }
+    }
+
+    pub fn from_coordinate<C: WeierstrassCurve<FieldElement = FE>>(x: &FE, y: &FE) -> Option<Self> {
         let y2 = y.square();
         let x3 = x.square() * x;
-        let ax = curve.a() * x;
+        let ax = C::A * x;
 
-        if y2 == x3 + ax + curve.b() {
+        if y2 == x3 + ax + C::B {
             Some(Point {
                 x: x.clone(),
                 y: y.clone(),
@@ -82,12 +86,12 @@ where
         }
     }
 
-    pub fn double<C: WeierstrassCurve<FieldElement = FE>>(&self, curve: C) -> Self {
+    pub fn double<C: WeierstrassCurve<FieldElement = FE>>(&self) -> Self {
         let Point {
             x: ref x1,
             y: ref y1,
         } = self;
-        let l = (FE::from(3u64) * (x1.square()) + curve.a()) * (y1.double()).inverse();
+        let l = (FE::from(3u64) * (x1.square()) + C::A) * (y1.double()).inverse();
         let l2 = l.square();
         let x3 = l2 - x1.double();
         let y3 = l * (x1 - &x3) - y1;

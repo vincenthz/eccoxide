@@ -23,11 +23,10 @@
 //! let two = FieldElement::one() + FieldElement::one();
 //!
 //! // Get the generator and add the point at infinity
-//! let generator = Point::generator();
-//! let same_generator = &generator + Point::infinity();
+//! let same_generator = &Point::GENERATOR + Point::INFINITY;
 //!
 //! // transform the point to affine coordinate
-//! let point = generator.to_affine().unwrap();
+//! let point = Point::GENERATOR.to_affine().unwrap();
 //! let (x, y) = point.to_coordinate();
 //! ```
 //!
@@ -42,7 +41,7 @@
 //! let bytes : [u8;66] = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
 //!
 //! let secret_key = Scalar::from_bytes(&bytes).unwrap();
-//! let public_key = &Point::generator() * &secret_key;
+//! let public_key = &Point::GENERATOR * &secret_key;
 //!
 //! // serialize the public key to a standard-ish compress format for p521r1
 //! let public_affine = public_key.to_affine().unwrap();

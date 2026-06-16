@@ -1320,7 +1320,7 @@ mod p256k1 {
 
     #[test]
     fn generator() {
-        let g = Point::generator();
+        let g = Point::GENERATOR;
         let paffine = g.to_affine().unwrap();
         let (x, y) = paffine.to_coordinate();
         let kat = &KATS[0];
@@ -1329,7 +1329,7 @@ mod p256k1 {
     }
     #[test]
     fn add_same() {
-        let g = Point::generator();
+        let g = Point::GENERATOR;
         let p = &g + &g;
         let paffine = p.to_affine().unwrap();
         let (x, y) = paffine.to_coordinate();
@@ -1340,7 +1340,7 @@ mod p256k1 {
 
     #[test]
     fn add_different() {
-        let g = Point::generator();
+        let g = Point::GENERATOR;
         let x2 = FieldElement::from_bytes(&KATS[1].x).expect("KAT has valid field element x");
         let y2 = FieldElement::from_bytes(&KATS[1].y).expect("KAT has valid field element y");
         let g2 = Point::from_affine(
@@ -1356,7 +1356,7 @@ mod p256k1 {
 
     #[test]
     fn mul() {
-        let g = Point::generator();
+        let g = Point::GENERATOR;
         for kat in KATS.iter() {
             println!("{}", kat.n);
             let p = &g * &Scalar::from_u64(kat.n);

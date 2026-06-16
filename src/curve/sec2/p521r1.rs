@@ -22,7 +22,7 @@ fn fiat_p521_nonzero(out: &mut u64, fe: &[u64; FE_LIMBS_SIZE]) -> () {
     *out = bytes.ct_nonzero().0;
 }
 
-fn fiat_p521_carry_add(
+const fn fiat_p521_carry_add(
     out: &mut fiat_p521_tight_field_element,
     a: &fiat_p521_tight_field_element,
     b: &fiat_p521_tight_field_element,
@@ -32,7 +32,7 @@ fn fiat_p521_carry_add(
     fiat_p521_carry(out, &loose)
 }
 
-fn fiat_p521_carry_sub(
+const fn fiat_p521_carry_sub(
     out: &mut fiat_p521_tight_field_element,
     a: &fiat_p521_tight_field_element,
     b: &fiat_p521_tight_field_element,
@@ -42,7 +42,7 @@ fn fiat_p521_carry_sub(
     fiat_p521_carry(out, &loose);
 }
 
-fn fiat_p521_mul_tight(
+const fn fiat_p521_mul_tight(
     out: &mut fiat_p521_tight_field_element,
     a: &fiat_p521_tight_field_element,
     b: &fiat_p521_tight_field_element,
@@ -55,13 +55,16 @@ fn fiat_p521_mul_tight(
     fiat_p521_carry_mul(out, &a_relaxed, &b_relaxed);
 }
 
-fn fiat_p521_carry_opp(out: &mut fiat_p521_tight_field_element, a: &fiat_p521_tight_field_element) {
+const fn fiat_p521_carry_opp(
+    out: &mut fiat_p521_tight_field_element,
+    a: &fiat_p521_tight_field_element,
+) {
     let mut loose = fiat_p521_loose_field_element([0u64; FE_LIMBS_SIZE]);
     fiat_p521_opp(&mut loose, a);
     fiat_p521_carry(out, &loose)
 }
 
-fn fiat_p521_square_tight(
+const fn fiat_p521_square_tight(
     out: &mut fiat_p521_tight_field_element,
     a: &fiat_p521_tight_field_element,
 ) {
@@ -240,10 +243,10 @@ impl WeierstrassCurveAM3 for Curve {}
 
 impl Point {
     fn add_or_double<'b>(&self, other: &'b Point) -> Point {
-        Point(self.0.add_or_double_am3(&other.0, Curve))
+        Point(self.0.add_or_double_am3::<Curve>(&other.0))
     }
     fn scale<'b>(&self, other: &'b Scalar) -> Self {
-        Point(self.0.scale_am3_ct(&other.to_bytes(), Curve))
+        Point(self.0.scale_am3_ct::<Curve>(&other.to_bytes()))
     }
 
     /// Constant-time multiplication of the curve generator: `scalar · G`.
@@ -252,13 +255,12 @@ impl Point {
     /// faster than the general `&Point * &Scalar` path.
     pub fn mul_base(scalar: &Scalar) -> Self {
         #[cfg(feature = "table")]
-        return Point(projective::Point::<FieldElement>::mul_base_table_am3(
-            generator_comb(),
-            &scalar.to_bytes(),
+        return Point(projective::Point::<FieldElement>::mul_base_table_am3::<
+            _,
             Curve,
-        ));
+        >(generator_comb(), &scalar.to_bytes()));
         #[cfg(not(feature = "table"))]
-        return &Point::generator() * scalar;
+        return &Point::GENERATOR * scalar;
     }
 
     /// Variable-time scalar multiplication.
@@ -266,7 +268,7 @@ impl Point {
     /// Faster than the constant-time `*` operator, but its running time depends
     /// on the scalar; only use it when the scalar is public.
     pub fn mul_vartime(&self, other: &Scalar) -> Self {
-        Point(self.0.scale_am3(&other.to_bytes(), Curve))
+        Point(self.0.scale_am3::<Curve>(&other.to_bytes()))
     }
 }
 

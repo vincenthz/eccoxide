@@ -7,11 +7,20 @@ pub trait WeierstrassCurve: Copy + Clone {
     type FieldElement;
 
     // Weirstrass A parameter
+    const A: Self::FieldElement;
+    // Weirstrass B parameter
+    const B: Self::FieldElement;
+    // Weirstrsass B parameter multiplied by 3
+    const B3: Self::FieldElement;
+
+    /*
+    // Weirstrass A parameter
     fn a(self) -> &'static Self::FieldElement;
     // Weirstrass B parameter
     fn b(self) -> &'static Self::FieldElement;
     // Weirstrsass B parameter multiplied by 3
     fn b3(self) -> &'static Self::FieldElement;
+    */
 }
 
 /// Weierstrass curves with with A=0

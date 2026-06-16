@@ -2,28 +2,11 @@
 #[macro_export]
 macro_rules! fiat_define_weierstrass_curve {
     ($FE:ident) => {
-        // Curve constants, parsed once from their byte encodings on first use.
-        // (`std::sync::OnceLock` replaces the previous `lazy_static!` usage.)
-        fn curve_a() -> &'static $FE {
-            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
-            V.get_or_init(|| $FE::from_bytes(&A_BYTES).unwrap())
-        }
-        fn curve_b() -> &'static $FE {
-            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
-            V.get_or_init(|| $FE::from_bytes(&B_BYTES).unwrap())
-        }
-        fn curve_b3() -> &'static $FE {
-            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
-            V.get_or_init(|| $FE::from_bytes(&B3_BYTES).unwrap())
-        }
-        fn curve_gx() -> &'static $FE {
-            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
-            V.get_or_init(|| $FE::from_bytes(&GX_BYTES).unwrap())
-        }
-        fn curve_gy() -> &'static $FE {
-            static V: std::sync::OnceLock<$FE> = std::sync::OnceLock::new();
-            V.get_or_init(|| $FE::from_bytes(&GY_BYTES).unwrap())
-        }
+        const A: $FE = $FE::from_bytes_unchecked(&A_BYTES);
+        const B: $FE = $FE::from_bytes_unchecked(&B_BYTES);
+        const B3: $FE = $FE::from_bytes_unchecked(&B3_BYTES);
+        const GX: $FE = $FE::from_bytes_unchecked(&GX_BYTES);
+        const GY: $FE = $FE::from_bytes_unchecked(&GY_BYTES);
 
         /// The Weierstrass elliptic curve object itself
         #[derive(Debug, Clone, Copy)]
@@ -37,24 +20,16 @@ macro_rules! fiat_define_weierstrass_curve {
 
             /// Return the generator field element in affine coordinate (X,Y)
             pub fn generator() -> (&'static $FE, &'static $FE) {
-                (curve_gx(), curve_gy())
+                (&GX, &GY)
             }
         }
 
         impl WeierstrassCurve for Curve {
             type FieldElement = $FE;
 
-            fn a(self) -> &'static Self::FieldElement {
-                curve_a()
-            }
-
-            fn b(self) -> &'static Self::FieldElement {
-                curve_b()
-            }
-
-            fn b3(self) -> &'static Self::FieldElement {
-                curve_b3()
-            }
+            const A: Self::FieldElement = A;
+            const B: Self::FieldElement = B;
+            const B3: Self::FieldElement = B3;
         }
     };
 }
@@ -79,31 +54,30 @@ macro_rules! fiat_define_weierstrass_points {
         /// from the statically embedded `COMB_TABLE` constant.
         #[cfg(feature = "table")]
         fn generator_comb() -> &'static [[projective::Point<$FE>; 16]; COMB_WINDOWS] {
-            static V: std::sync::OnceLock<[[projective::Point<$FE>; 16]; COMB_WINDOWS]> =
+            // The comb table is held boxed (see `build_comb_table`) so it is
+            // never materialized on the stack; deref to a plain array reference.
+            static V: std::sync::OnceLock<Box<[[projective::Point<$FE>; 16]; COMB_WINDOWS]>> =
                 std::sync::OnceLock::new();
-            V.get_or_init(|| projective::Point::<$FE>::build_comb_table(&COMB_TABLE, $FE::from_bytes))
+            &**V.get_or_init(|| {
+                projective::Point::<$FE>::build_comb_table(&COMB_TABLE, $FE::from_bytes_unchecked)
+            })
         }
 
         impl PointAffine {
             /// Curve generator point in affine coordinate
-            pub fn generator() -> Self {
-                PointAffine(affine::Point {
-                    x: curve_gx().clone(),
-                    y: curve_gy().clone(),
-                })
-            }
+            pub const GENERATOR: Self = PointAffine(affine::Point { x: GX, y: GY });
 
             /// Try to create an affine point with X, Y coordinates.
             ///
             /// check if the equation y^2 = x^3 + a*x + b (mod p) holds for this curve, if it doesn't
             /// None is returned
             pub fn from_coordinate(x: &FieldElement, y: &FieldElement) -> Option<Self> {
-                affine::Point::from_coordinate(x, y, Curve).map(PointAffine)
+                affine::Point::from_coordinate::<Curve>(x, y).map(PointAffine)
             }
 
             /// Return the tuple of coordinate (x, y) associated with this
             /// affine point
-            pub fn to_coordinate(&self) -> (&FieldElement, &FieldElement) {
+            pub const fn to_coordinate(&self) -> (&FieldElement, &FieldElement) {
                 (&self.0.x, &self.0.y)
             }
 
@@ -113,7 +87,7 @@ macro_rules! fiat_define_weierstrass_points {
             /// but is implemented more quickly than the normal addition
             /// of double possibly arbitrary point
             pub fn double(&self) -> PointAffine {
-                PointAffine(affine::Point::double(&self.0, Curve))
+                PointAffine(affine::Point::double::<Curve>(&self.0))
             }
 
             /// Turn an affine point into the X component and the sign of the Y component
@@ -131,7 +105,7 @@ macro_rules! fiat_define_weierstrass_points {
             ///
             /// This is often refered as point decompression
             pub fn decompress(x: &FieldElement, sign: Sign) -> Option<Self> {
-                affine::Point::decompress(x, sign, Curve).map(PointAffine)
+                affine::Point::decompress::<Curve>(x, sign).map(PointAffine)
             }
         }
 
@@ -144,18 +118,14 @@ macro_rules! fiat_define_weierstrass_points {
 
         impl Point {
             /// Curve generator point
-            pub fn generator() -> Self {
-                Point(projective::Point {
-                    x: curve_gx().clone(),
-                    y: curve_gy().clone(),
-                    z: FieldElement::one(),
-                })
-            }
+            pub const GENERATOR: Self = Point(projective::Point {
+                x: GX,
+                y: GY,
+                z: FieldElement::ONE,
+            });
 
             /// Point at infinity, used as additive zero
-            pub fn infinity() -> Self {
-                Point(projective::Point::infinity())
-            }
+            pub const INFINITY: Self = Point(projective::Point::<$FE>::INFINITY);
 
             /// Convert an affine point to optimised point representation
             ///
@@ -224,7 +194,6 @@ macro_rules! fiat_define_weierstrass_points {
 
             fn mul(self, other: &'b Scalar) -> Point {
                 self.scale(other)
-                //Point(self.0.scale_a0(&other.to_bytes(), Curve))
             }
         }
 

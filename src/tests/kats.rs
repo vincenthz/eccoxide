@@ -21,7 +21,7 @@ macro_rules! test_kats_mul {
                 let k = Scalar::from_bytes(&kraw).unwrap();
                 let paffine = PointAffine::from_coordinate(&x, &y).unwrap();
                 let expected = Point::from_affine(&paffine);
-                let got = &Point::generator() * &k;
+                let got = &Point::GENERATOR * &k;
                 assert_eq!(expected, got);
             }
         }

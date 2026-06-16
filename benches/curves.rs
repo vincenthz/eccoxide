@@ -64,23 +64,23 @@ macro_rules! curve_benches {
 
             /// The generator in projective coordinates.
             fn point() -> Point {
-                Point::generator()
+                Point::GENERATOR
             }
 
             /// `2 * generator`, distinct from the generator so that adding the
             /// two exercises the generic (non-doubling) addition path.
             fn point2() -> Point {
-                Point::from_affine(&PointAffine::generator().double())
+                Point::from_affine(&PointAffine::GENERATOR.double())
             }
 
             /// The generator in affine coordinates.
             fn affine() -> PointAffine {
-                PointAffine::generator()
+                PointAffine::GENERATOR
             }
 
             /// `2 * generator` in affine coordinates.
             fn affine2() -> PointAffine {
-                PointAffine::generator().double()
+                PointAffine::GENERATOR.double()
             }
 
             // --- prime field F(p) ---------------------------------------------

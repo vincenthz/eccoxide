@@ -43,9 +43,10 @@ pub trait Field<Output = Self>:
     + for<'a> Sub<&'a Self, Output = Output>
     + for<'a> Mul<&'a Self, Output = Output>
 {
-    fn zero() -> Output;
+    const ZERO: Output;
+    const ONE: Output;
+
     fn is_zero(&self) -> bool;
-    fn one() -> Output;
     fn double(&self) -> Output;
 
     fn inverse(&self) -> Output;

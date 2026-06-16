@@ -59,7 +59,7 @@ macro_rules! fiat_field_common_impl {
             pub const SIZE_BYTES: usize = (Self::SIZE_BITS + 7) / 8;
 
             /// the zero constant (additive identity)
-            pub fn zero() -> Self {
+            pub const fn zero() -> Self {
                 Self::init([0u64; $FE_LIMBS_SIZE])
             }
 
@@ -70,7 +70,7 @@ macro_rules! fiat_field_common_impl {
             }
 
             /// The one constant (multiplicative identity)
-            pub fn one() -> Self {
+            pub const fn one() -> Self {
                 let mut limbs = [0u64; $FE_LIMBS_SIZE];
                 limbs[0] = 1;
                 Self::init(limbs)
@@ -104,7 +104,7 @@ macro_rules! fiat_field_common_impl {
             }
 
             /// Double the field element, this is equivalent to 2*self or self+self, but can be implemented faster
-            pub fn double(&self) -> Self {
+            pub const fn double(&self) -> Self {
                 let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_add(&mut out, &self.0, &self.0);
                 $FE(out)
@@ -337,14 +337,11 @@ macro_rules! fiat_field_common_impl {
         }
 
         impl Field for $FE {
-            fn zero() -> $FE {
-                $FE::zero()
-            }
+            const ZERO : $FE = $FE::zero();
+            const ONE : $FE = $FE::one();
+
             fn is_zero(&self) -> bool {
                 self.is_zero()
-            }
-            fn one() -> $FE {
-                $FE::one()
             }
             fn sign(&self) -> Sign {
                 self.sign()
@@ -388,13 +385,13 @@ macro_rules! fiat_field_montgomery_impl {
         );
 
         impl $FE {
-            fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
+            const fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
                 let mut out = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
                 $fiat_to_montgomery(&mut out, &$fiat_constr(current));
                 Self(out)
             }
 
-            pub fn from_u64(n: u64) -> Self {
+            pub const fn from_u64(n: u64) -> Self {
                 let mut limbs = [0u64; $FE_LIMBS_SIZE];
                 limbs[0] = n;
                 Self::init(limbs)
@@ -419,12 +416,12 @@ macro_rules! fiat_field_montgomery_impl {
                 (out[0] & 1) != 0
             }
 
-            /// Initialize a new scalar from its bytes representation (BE)
+            /// Initialize a new scalar from its bytes representation (BE) without size check
             ///
             /// This doesn't verify if the element represented fits in the field,
-            /// so that run the run of having elements that are greater or equal
-            /// than the order of the field
-            pub fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+            /// so that run the risk of having elements that are greater or equal
+            /// to the order of the field
+            pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
                 let mut buf = [0u8; Self::SIZE_BYTES];
                 buf.copy_from_slice(bytes);
                 buf.reverse(); // swap endianness
@@ -468,7 +465,7 @@ macro_rules! fiat_field_montgomery_impl {
             }
 
             /// Output the scalar bytes representation (BE)
-            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+            pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out_normal = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 let mut out = [0u8; Self::SIZE_BYTES];
                 $fiat_from_montgomery(&mut out_normal, &self.0);
@@ -503,15 +500,24 @@ macro_rules! fiat_field_solinas_impl {
             //
             // probably should be removed from unsaturated solinas strategy, as this easy
             // to introduce serious bugs..
-            fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
+            const fn init(current: [u64; $FE_LIMBS_SIZE]) -> Self {
                 Self($fiat_tight_constr(current))
             }
 
-            pub fn from_u64(n: u64) -> Self {
+            pub const fn from_u64(n: u64) -> Self {
                 // unsatured solinas run the risk of overflow, so use from_bytes
                 // no risk of running into the P limit with a u64
+                let [n0, n1, n2, n3, n4, n5, n6, n7] = n.to_be_bytes();
                 let mut bytes = [0u8; Self::SIZE_BYTES];
-                bytes[Self::SIZE_BYTES - 8..].copy_from_slice(&n.to_be_bytes());
+                bytes[Self::SIZE_BYTES - 8] = n0;
+                bytes[Self::SIZE_BYTES - 7] = n1;
+                bytes[Self::SIZE_BYTES - 6] = n2;
+                bytes[Self::SIZE_BYTES - 5] = n3;
+                bytes[Self::SIZE_BYTES - 4] = n4;
+                bytes[Self::SIZE_BYTES - 3] = n5;
+                bytes[Self::SIZE_BYTES - 2] = n6;
+                bytes[Self::SIZE_BYTES - 1] = n7;
+                //bytes[Self::SIZE_BYTES - 8..].copy_from_slice(&n.to_be_bytes());
                 Self::from_bytes_unchecked(&bytes)
             }
 
@@ -536,7 +542,7 @@ macro_rules! fiat_field_solinas_impl {
             /// This doesn't verify if the element represented fits in the field,
             /// so that run the run of having elements that are greater or equal
             /// than the order of the field
-            pub fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+            pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
                 let mut buf = [0u8; Self::SIZE_BYTES];
                 buf.copy_from_slice(bytes);
                 buf.reverse(); // swap endianness
@@ -569,7 +575,7 @@ macro_rules! fiat_field_solinas_impl {
             }
 
             /// Output the scalar bytes representation (BE)
-            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+            pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out = [0u8; Self::SIZE_BYTES];
                 $fiat_to_bytes(&mut out, &self.0);
                 out.reverse(); // swap endianness

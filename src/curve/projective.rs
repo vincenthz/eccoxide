@@ -140,7 +140,7 @@ where
 
     /// Check if a point is at infinity
     pub fn is_infinity(&self) -> Choice {
-        self.z.ct_eq(&FE::zero())
+        self.z.ct_eq(&FE::ZERO)
     }
 }
 
@@ -149,19 +149,17 @@ where
     FE: Field,
 {
     /// Returns the point at infinity
-    pub fn infinity() -> Self {
-        Point {
-            x: FE::zero(),
-            y: FE::one(),
-            z: FE::zero(),
-        }
-    }
+    pub const INFINITY: Self = Point {
+        x: FE::ZERO,
+        y: FE::ONE,
+        z: FE::ZERO,
+    };
 
     pub fn from_affine(p: &affine::Point<FE>) -> Self {
         Point {
             x: p.x.clone(),
             y: p.y.clone(),
-            z: FE::one(),
+            z: FE::ONE,
         }
     }
 }
@@ -179,7 +177,7 @@ where
 
             self.x = &self.x * &zinv;
             self.y = &self.y * &zinv;
-            self.z = FE::one()
+            self.z = FE::ONE
         }
     }
 }
@@ -188,7 +186,6 @@ impl<FE: Field> Point<FE> {
     pub fn add_different<'x, 'y, C: WeierstrassCurve<FieldElement = FE>>(
         &'x self,
         other: &'y Point<FE>,
-        curve: C,
     ) -> Point<FE>
     where
         for<'a> &'a FE: Add<FE, Output = FE>,
@@ -238,19 +235,19 @@ impl<FE: Field> Point<FE> {
         let t5 = t5 * &x3;
         let x3 = &t1 + &t2;
         let t5 = t5 - &x3;
-        let z3 = curve.a() * &t4;
-        let x3 = curve.b3() * &t2;
+        let z3 = C::A * &t4;
+        let x3 = C::B3 * &t2;
         let z3 = &x3 + &z3;
         let x3 = &t1 - &z3;
         let z3 = &t1 + &z3;
         let y3 = &x3 * &z3;
         let t1 = t0.double();
         let t1 = t1 + &t0;
-        let t2 = curve.a() * &t2;
-        let t4 = curve.b3() * &t4;
+        let t2 = C::A * &t2;
+        let t4 = C::B3 * &t4;
         let t1 = t1 + &t2;
         let t2 = &t0 - &t2;
-        let t2 = curve.a() * &t2;
+        let t2 = C::A * &t2;
         let t4 = t4 + &t2;
         let t0 = &t1 * &t4;
         let y3 = y3 + t0;
@@ -271,7 +268,6 @@ impl<FE: Field> Point<FE> {
     pub fn add_different_a0<'x, 'y, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &'x self,
         other: &'y Point<FE>,
-        curve: C,
     ) -> Point<FE>
     where
         for<'a> &'a FE: Add<FE, Output = FE>,
@@ -320,10 +316,10 @@ impl<FE: Field> Point<FE> {
         let y3 = x3 - y3;
         let x3 = &t0 + &t0;
         let t0 = &x3 + &t0;
-        let t2 = curve.b3() * &t2;
+        let t2 = C::B3 * &t2;
         let z3 = &t1 + &t2;
         let t1 = t1 - &t2;
-        let y3 = curve.b3() * y3;
+        let y3 = C::B3 * y3;
         let x3 = &t4 * &y3;
         let t2 = &t3 * &t1;
         let x3 = &t2 - x3;
@@ -344,7 +340,6 @@ impl<FE: Field> Point<FE> {
     pub fn add_different_am3<'x, 'y, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &'x self,
         other: &'y Point<FE>,
-        curve: C,
     ) -> Point<FE>
     where
         for<'a> &'a FE: Add<FE, Output = FE>,
@@ -394,13 +389,13 @@ impl<FE: Field> Point<FE> {
         let x3 = &x3 * &y3;
         let y3 = &t0 + &t2;
         let y3 = &x3 - &y3;
-        let z3 = curve.b() * &t2;
+        let z3 = C::B * &t2;
         let x3 = &y3 - &z3;
         let z3 = &x3 + &x3;
         let x3 = &x3 + &z3;
         let z3 = &t1 - &x3;
         let x3 = &t1 + &x3;
-        let y3 = curve.b() * &y3;
+        let y3 = C::B * &y3;
         let t1 = &t2 + &t2;
         let t2 = &t1 + &t2;
         let y3 = &y3 - &t2;
@@ -440,7 +435,7 @@ impl<FE: Field> Point<FE> {
     /// Constant-time lookup of `table[index]`. The whole table is scanned so the
     /// memory access pattern does not depend on the (secret) `index`.
     fn select_from_table(table: &[Point<FE>], index: u8) -> Point<FE> {
-        let mut acc = Point::infinity();
+        let mut acc = Self::INFINITY;
         for (j, t) in table.iter().enumerate() {
             let take = (j as u64).ct_eq(&(index as u64));
             acc = Point::ct_select(take, t, &acc);
@@ -456,21 +451,33 @@ impl<FE: Field> Point<FE> {
     /// returned per-window arrays place those at indices `1..=15`, with index
     /// `0` set to the point at infinity so a zero digit selects the neutral
     /// element. `parse` is the coordinate decoder (`FieldElement::from_bytes`).
-    pub fn build_comb_table<const NW: usize, const FS: usize>(
+    ///
+    /// The result is heap-allocated (`Box`): the table is large for the bigger
+    /// curves (e.g. p521 needs `132·16` points ≈ 450 KiB), so building it on the
+    /// stack would overflow it in unoptimized builds. We grow a `Vec` one window
+    /// at a time — only a single 16-point window is ever on the stack — and then
+    /// reuse that allocation as the boxed array (no copy of the bulk data).
+    pub(crate) fn build_comb_table<const NW: usize, const FS: usize>(
         table: &[[([u8; FS], [u8; FS]); 15]; NW],
-        parse: fn(&[u8; FS]) -> Option<FE>,
-    ) -> [[Point<FE>; 16]; NW] {
-        core::array::from_fn(|w| {
-            let mut window: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        parse: fn(&[u8; FS]) -> FE,
+    ) -> Box<[[Point<FE>; 16]; NW]> {
+        let mut windows: Vec<[Point<FE>; 16]> = Vec::with_capacity(NW);
+        for w in 0..NW {
+            let mut window: [Point<FE>; 16] = core::array::from_fn(|_| Self::INFINITY);
             for (slot, (x, y)) in window.iter_mut().skip(1).zip(table[w].iter()) {
                 *slot = Point {
-                    x: parse(x).expect("valid comb x coordinate"),
-                    y: parse(y).expect("valid comb y coordinate"),
-                    z: FE::one(),
+                    x: parse(x),
+                    y: parse(y),
+                    z: FE::ONE,
                 };
             }
-            window
-        })
+            windows.push(window);
+        }
+
+        // conversion should not reallocate since we pinned the capacity
+        <Box<[[Point<FE>; 16]; NW]>>::try_from(windows.into_boxed_slice())
+            .ok()
+            .expect("comb table window count matches NW")
     }
 }
 
@@ -485,7 +492,7 @@ where
     for<'a, 'b> &'a FE: Sub<&'b FE, Output = FE>,
 {
     #[inline]
-    pub fn double<C: WeierstrassCurve<FieldElement = FE>>(&self, curve: C) -> Self {
+    pub fn double<C: WeierstrassCurve<FieldElement = FE>>(&self) -> Self {
         // Algorithm 3 from (1) - doubling formula for arbitrary a
         // ```magma
         // DBL := function (X ,Y ,Z ,a , b3 )
@@ -510,17 +517,17 @@ where
         let t3 = t3.double();
         let z3 = &self.x * &self.z;
         let z3 = &z3 + &z3;
-        let x3 = curve.a() * &z3;
-        let y3 = curve.b3() * &t2;
+        let x3 = C::A * &z3;
+        let y3 = C::B3 * &t2;
         let y3 = &x3 + &y3;
         let x3 = &t1 - &y3;
         let y3 = &t1 + &y3;
         let y3 = &x3 * &y3;
         let x3 = &t3 * &x3;
-        let z3 = curve.b3() * &z3;
-        let t2 = curve.a() * &t2;
+        let z3 = C::B3 * &z3;
+        let t2 = C::A * &t2;
         let t3 = &t0 - &t2;
-        let t3 = curve.a() * &t3;
+        let t3 = C::A * &t3;
         let t3 = &t3 + &z3;
         let z3 = &t0 + &t0;
         let t0 = &z3 + &t0;
@@ -543,10 +550,7 @@ where
     }
 
     #[inline]
-    pub fn double_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
-        &self,
-        curve: C,
-    ) -> Self {
+    pub fn double_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(&self) -> Self {
         // Algorithm 5 from (1) - doubling formula for a=0
         //
         // ```magma
@@ -567,7 +571,7 @@ where
         let z3 = z3.double();
         let t1 = &self.y * &self.z;
         let t2 = self.z.square();
-        let t2 = curve.b3() * &t2;
+        let t2 = C::B3 * &t2;
         let x3 = &t2 * &z3;
         let y3 = &t0 + &t2;
         let z3 = &t1 * &z3;
@@ -588,10 +592,7 @@ where
     }
 
     #[inline]
-    pub fn double_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
-        &self,
-        curve: C,
-    ) -> Self {
+    pub fn double_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(&self) -> Self {
         // Algorithm 6 from (1) - doubling formula for a=-3
         //
         // ```magma
@@ -618,7 +619,7 @@ where
         let t3 = &t3 + &t3;
         let z3 = &self.x * &self.z;
         let z3 = &z3 + &z3;
-        let y3 = curve.b() * &t2;
+        let y3 = C::B * &t2;
         let y3 = &y3 - &z3;
         let x3 = &y3 + &y3;
         let y3 = &x3 + &y3;
@@ -628,7 +629,7 @@ where
         let x3 = &x3 * &t3;
         let t3 = &t2 + &t2;
         let t2 = &t2 + &t3;
-        let z3 = curve.b() * &z3;
+        let z3 = C::B * &z3;
         let z3 = &z3 - &t2;
         let z3 = &z3 - &t0;
         let t3 = &z3 + &z3;
@@ -654,7 +655,7 @@ where
     }
 
     pub fn to_affine(&self) -> Option<affine::Point<FE>> {
-        if self.z == FE::one() {
+        if self.z == FE::ONE {
             return Some(affine::Point {
                 x: self.x.clone(),
                 y: self.y.clone(),
@@ -697,28 +698,24 @@ where
     /// `add_different` is the *complete* addition formula, so the `q == self`
     /// and `q == infinity` cases need no special handling.
     #[inline]
-    fn scalar_mul_wnaf<C: WeierstrassCurve<FieldElement = FE>>(
-        &self,
-        n: &[u8],
-        curve: C,
-    ) -> Self {
+    fn scalar_mul_wnaf<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
         let naf = wnaf(n, Self::WNAF_W);
         // table[i] = (2i+1) * self, i.e. the odd multiples 1·P, 3·P, … of self
-        let dbl = self.double(curve);
+        let dbl = self.double::<C>();
         let tlen = 1usize << (Self::WNAF_W - 2);
         let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
         table.push(self.clone());
         for i in 1..tlen {
-            table.push(table[i - 1].add_different(&dbl, curve));
+            table.push(table[i - 1].add_different::<C>(&dbl));
         }
 
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for &d in naf.iter().rev() {
-            q = q.double(curve);
+            q = q.double::<C>();
             if d > 0 {
-                q = q.add_different(&table[(d as usize) >> 1], curve);
+                q = q.add_different::<C>(&table[(d as usize) >> 1]);
             } else if d < 0 {
-                q = q.add_different(&table[((-(d as i32)) as usize) >> 1].negate(), curve);
+                q = q.add_different::<C>(&table[((-(d as i32)) as usize) >> 1].negate());
             }
         }
         q
@@ -728,24 +725,23 @@ where
     fn scalar_mul_wnaf_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
         let naf = wnaf(n, Self::WNAF_W);
-        let dbl = self.double_a0(curve);
+        let dbl = self.double_a0::<C>();
         let tlen = 1usize << (Self::WNAF_W - 2);
         let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
         table.push(self.clone());
         for i in 1..tlen {
-            table.push(table[i - 1].add_different_a0(&dbl, curve));
+            table.push(table[i - 1].add_different_a0::<C>(&dbl));
         }
 
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for &d in naf.iter().rev() {
-            q = q.double_a0(curve);
+            q = q.double_a0::<C>();
             if d > 0 {
-                q = q.add_different_a0(&table[(d as usize) >> 1], curve);
+                q = q.add_different_a0::<C>(&table[(d as usize) >> 1]);
             } else if d < 0 {
-                q = q.add_different_a0(&table[((-(d as i32)) as usize) >> 1].negate(), curve);
+                q = q.add_different_a0::<C>(&table[((-(d as i32)) as usize) >> 1].negate());
             }
         }
         q
@@ -755,47 +751,44 @@ where
     fn scalar_mul_wnaf_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
         let naf = wnaf(n, Self::WNAF_W);
-        let dbl = self.double_am3(curve);
+        let dbl = self.double_am3::<C>();
         let tlen = 1usize << (Self::WNAF_W - 2);
         let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
         table.push(self.clone());
         for i in 1..tlen {
-            table.push(table[i - 1].add_different_am3(&dbl, curve));
+            table.push(table[i - 1].add_different_am3::<C>(&dbl));
         }
 
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for &d in naf.iter().rev() {
-            q = q.double_am3(curve);
+            q = q.double_am3::<C>();
             if d > 0 {
-                q = q.add_different_am3(&table[(d as usize) >> 1], curve);
+                q = q.add_different_am3::<C>(&table[(d as usize) >> 1]);
             } else if d < 0 {
-                q = q.add_different_am3(&table[((-(d as i32)) as usize) >> 1].negate(), curve);
+                q = q.add_different_am3::<C>(&table[((-(d as i32)) as usize) >> 1].negate());
             }
         }
         q
     }
 
-    pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8], curve: C) -> Self {
-        self.scalar_mul_wnaf(n, curve)
+    pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
+        self.scalar_mul_wnaf::<C>(n)
     }
 
     pub fn scale_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
-        self.scalar_mul_wnaf_a0(n, curve)
+        self.scalar_mul_wnaf_a0::<C>(n)
     }
 
     pub fn scale_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
-        self.scalar_mul_wnaf_am3(n, curve)
+        self.scalar_mul_wnaf_am3::<C>(n)
     }
 
     /// Constant-time scalar multiplication using a fixed 4-bit window.
@@ -803,26 +796,22 @@ where
     /// The window value is read from a precomputed table with a constant-time
     /// scan, and the addition relies on the complete formula so a zero window
     /// needs no special case.
-    fn scalar_mul_fixed_window<C: WeierstrassCurve<FieldElement = FE>>(
-        &self,
-        n: &[u8],
-        curve: C,
-    ) -> Self {
+    fn scalar_mul_fixed_window<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
         // table[d] = d * self, for d in 0..16
-        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Self::INFINITY);
         table[1] = self.clone();
-        table[2] = self.double(curve);
+        table[2] = self.double::<C>();
         for d in 3..16 {
-            let next = table[d - 1].add_different(self, curve);
+            let next = table[d - 1].add_different::<C>(self);
             table[d] = next;
         }
 
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for byte in n.iter() {
             for &index in &[byte >> 4, byte & 0x0f] {
-                q = q.double(curve).double(curve).double(curve).double(curve);
+                q = q.double::<C>().double::<C>().double::<C>().double::<C>();
                 let selected = Self::select_from_table(&table, index);
-                q = q.add_different(&selected, curve);
+                q = q.add_different::<C>(&selected);
             }
         }
         q
@@ -833,26 +822,25 @@ where
     fn scalar_mul_fixed_window_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
-        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Self::INFINITY);
         table[1] = self.clone();
-        table[2] = self.double_a0(curve);
+        table[2] = self.double_a0::<C>();
         for d in 3..16 {
-            let next = table[d - 1].add_different_a0(self, curve);
+            let next = table[d - 1].add_different_a0::<C>(self);
             table[d] = next;
         }
 
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for byte in n.iter() {
             for &index in &[byte >> 4, byte & 0x0f] {
                 q = q
-                    .double_a0(curve)
-                    .double_a0(curve)
-                    .double_a0(curve)
-                    .double_a0(curve);
+                    .double_a0::<C>()
+                    .double_a0::<C>()
+                    .double_a0::<C>()
+                    .double_a0::<C>();
                 let selected = Self::select_from_table(&table, index);
-                q = q.add_different_a0(&selected, curve);
+                q = q.add_different_a0::<C>(&selected);
             }
         }
         q
@@ -863,26 +851,25 @@ where
     fn scalar_mul_fixed_window_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
-        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Point::infinity());
+        let mut table: [Point<FE>; 16] = core::array::from_fn(|_| Self::INFINITY);
         table[1] = self.clone();
-        table[2] = self.double_am3(curve);
+        table[2] = self.double_am3::<C>();
         for d in 3..16 {
-            let next = table[d - 1].add_different_am3(self, curve);
+            let next = table[d - 1].add_different_am3::<C>(self);
             table[d] = next;
         }
 
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for byte in n.iter() {
             for &index in &[byte >> 4, byte & 0x0f] {
                 q = q
-                    .double_am3(curve)
-                    .double_am3(curve)
-                    .double_am3(curve)
-                    .double_am3(curve);
+                    .double_am3::<C>()
+                    .double_am3::<C>()
+                    .double_am3::<C>()
+                    .double_am3::<C>();
                 let selected = Self::select_from_table(&table, index);
-                q = q.add_different_am3(&selected, curve);
+                q = q.add_different_am3::<C>(&selected);
             }
         }
         q
@@ -890,26 +877,24 @@ where
 
     /// Constant-time scalar multiplication (default). See
     /// [`Self::scalar_mul_fixed_window`].
-    pub fn scale_ct<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8], curve: C) -> Self {
-        self.scalar_mul_fixed_window(n, curve)
+    pub fn scale_ct<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
+        self.scalar_mul_fixed_window::<C>(n)
     }
 
     /// Constant-time scalar multiplication for a=0 curves (default).
     pub fn scale_a0_ct<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
-        self.scalar_mul_fixed_window_a0(n, curve)
+        self.scalar_mul_fixed_window_a0::<C>(n)
     }
 
     /// Constant-time scalar multiplication for a=-3 curves (default).
     pub fn scale_am3_ct<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
         n: &[u8],
-        curve: C,
     ) -> Self {
-        self.scalar_mul_fixed_window_am3(n, curve)
+        self.scalar_mul_fixed_window_am3::<C>(n)
     }
 
     /// Constant-time fixed-base scalar multiplication from a precomputed comb
@@ -921,53 +906,56 @@ where
     /// addition per 4-bit window of the scalar. The digit only ever feeds the
     /// constant-time table scan, so the running time is independent of `n`.
     pub fn mul_base_table<const NW: usize, C: WeierstrassCurve<FieldElement = FE>>(
-        tables: &[[Point<FE>; 16]; NW],
+        tables: &[[Self; 16]; NW],
         n: &[u8],
-        curve: C,
     ) -> Self {
         assert_eq!(tables.len(), n.len() * 2, "comb table size mismatch");
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for (i, window) in tables.iter().enumerate() {
             let byte = n[n.len() - 1 - (i / 2)];
             let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
             let selected = Self::select_from_table(window, digit);
-            q = q.add_different(&selected, curve);
+            q = q.add_different::<C>(&selected);
         }
         q
     }
 
     /// Fixed-base comb scalar multiplication for a=0 curves. See
     /// [`Self::mul_base_table`].
-    pub fn mul_base_table_a0<const NW: usize, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
+    pub fn mul_base_table_a0<
+        const NW: usize,
+        C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0,
+    >(
         tables: &[[Point<FE>; 16]; NW],
         n: &[u8],
-        curve: C,
     ) -> Self {
         assert_eq!(tables.len(), n.len() * 2, "comb table size mismatch");
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for (i, window) in tables.iter().enumerate() {
             let byte = n[n.len() - 1 - (i / 2)];
             let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
             let selected = Self::select_from_table(window, digit);
-            q = q.add_different_a0(&selected, curve);
+            q = q.add_different_a0::<C>(&selected);
         }
         q
     }
 
     /// Fixed-base comb scalar multiplication for a=-3 curves. See
     /// [`Self::mul_base_table`].
-    pub fn mul_base_table_am3<const NW: usize, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
+    pub fn mul_base_table_am3<
+        const NW: usize,
+        C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3,
+    >(
         tables: &[[Point<FE>; 16]; NW],
         n: &[u8],
-        curve: C,
     ) -> Self {
         assert_eq!(tables.len(), n.len() * 2, "comb table size mismatch");
-        let mut q = Point::infinity();
+        let mut q = Self::INFINITY;
         for (i, window) in tables.iter().enumerate() {
             let byte = n[n.len() - 1 - (i / 2)];
             let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
             let selected = Self::select_from_table(window, digit);
-            q = q.add_different_am3(&selected, curve);
+            q = q.add_different_am3::<C>(&selected);
         }
         q
     }
@@ -983,27 +971,24 @@ where
     pub fn add_or_double<'b, C: WeierstrassCurve<FieldElement = FE>>(
         &self,
         other: &'b Point<FE>,
-        curve: C,
     ) -> Point<FE> {
-        self.add_different(other, curve)
+        self.add_different::<C>(other)
     }
 
     #[inline]
     pub fn add_or_double_a0<'b, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
         other: &'b Point<FE>,
-        curve: C,
     ) -> Point<FE> {
-        self.add_different_a0(other, curve)
+        self.add_different_a0::<C>(other)
     }
 
     #[inline]
     pub fn add_or_double_am3<'b, C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
         other: &'b Point<FE>,
-        curve: C,
     ) -> Point<FE> {
-        self.add_different_am3(other, curve)
+        self.add_different_am3::<C>(other)
     }
 }
 
