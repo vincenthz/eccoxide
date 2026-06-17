@@ -9,7 +9,9 @@ use crate::curve::{
 };
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::params::sec2::p224k1::*;
-use crate::{fiat_define_weierstrass_curve, fiat_define_weierstrass_points};
+use crate::{
+    fiat_define_weierstrass_curve, fiat_define_weierstrass_curve_a0, fiat_define_weierstrass_points,
+};
 use crate::{fiat_field_montgomery_impl, fiat_field_sqrt_define};
 
 const GM_LIMBS_SIZE: usize = 4;
@@ -179,40 +181,8 @@ impl Scalar {
 }
 
 fiat_define_weierstrass_curve!(FieldElement);
+fiat_define_weierstrass_curve_a0!(FieldElement);
 fiat_define_weierstrass_points!(FieldElement);
-
-impl WeierstrassCurveA0 for Curve {}
-
-impl Point {
-    fn add_or_double<'b>(&self, other: &'b Point) -> Point {
-        Point(self.0.add_or_double_a0::<Curve>(&other.0))
-    }
-    fn scale<'b>(&self, other: &'b Scalar) -> Self {
-        Point(self.0.scale_a0_ct::<Curve>(&other.to_bytes()))
-    }
-
-    /// Constant-time multiplication of the curve generator: `scalar · G`.
-    ///
-    /// Uses the precomputed fixed-base comb table, which is substantially
-    /// faster than the general `&Point * &Scalar` path.
-    pub fn mul_base(scalar: &Scalar) -> Self {
-        #[cfg(feature = "table")]
-        return Point(projective::Point::<FieldElement>::mul_base_table_a0::<
-            _,
-            Curve,
-        >(generator_comb(), &scalar.to_bytes()));
-        #[cfg(not(feature = "table"))]
-        return &Point::GENERATOR * scalar;
-    }
-
-    /// Variable-time scalar multiplication.
-    ///
-    /// Faster than the constant-time `*` operator, but its running time depends
-    /// on the scalar; only use it when the scalar is public.
-    pub fn mul_vartime(&self, other: &Scalar) -> Self {
-        Point(self.0.scale_a0::<Curve>(&other.to_bytes()))
-    }
-}
 
 #[cfg(test)]
 mod tests {

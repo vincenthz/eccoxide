@@ -36,6 +36,84 @@ macro_rules! fiat_define_weierstrass_curve {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! fiat_define_weierstrass_curve_am3 {
+    ($FE:ident) => {
+        impl WeierstrassCurveAM3 for Curve {}
+
+        impl Point {
+            fn add_or_double<'b>(&self, other: &'b Point) -> Point {
+                Point(self.0.add_or_double_am3::<Curve>(&other.0))
+            }
+            fn scale<'b>(&self, other: &'b Scalar) -> Self {
+                Point(self.0.scale_am3_ct::<Curve>(&other.to_bytes()))
+            }
+
+            /// Constant-time multiplication of the curve generator: `scalar * G`.
+            ///
+            /// Uses the precomputed fixed-base comb table, which is substantially
+            /// faster than the general `&Point * &Scalar` path.
+            pub fn mul_base(scalar: &Scalar) -> Self {
+                #[cfg(feature = "table")]
+                return Point(projective::Point::<$FE>::mul_base_table_am3::<_, Curve>(
+                    generator_comb(),
+                    &scalar.to_bytes(),
+                ));
+                #[cfg(not(feature = "table"))]
+                return &Point::GENERATOR * scalar;
+            }
+
+            /// Variable-time scalar multiplication.
+            ///
+            /// Faster than the constant-time `*` operator, but its running time depends
+            /// on the scalar; only use it when the scalar is public.
+            pub fn mul_vartime(&self, other: &Scalar) -> Self {
+                Point(self.0.scale_am3::<Curve>(&other.to_bytes()))
+            }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_define_weierstrass_curve_a0 {
+    ($FE:ident) => {
+        impl WeierstrassCurveA0 for Curve {}
+
+        impl Point {
+            fn add_or_double<'b>(&self, other: &'b Point) -> Point {
+                Point(self.0.add_or_double_a0::<Curve>(&other.0))
+            }
+            fn scale<'b>(&self, other: &'b Scalar) -> Self {
+                Point(self.0.scale_a0_ct::<Curve>(&other.to_bytes()))
+            }
+
+            /// Constant-time multiplication of the curve generator: `scalar * G`.
+            ///
+            /// Uses the precomputed fixed-base comb table, which is substantially
+            /// faster than the general `&Point * &Scalar` path.
+            pub fn mul_base(scalar: &Scalar) -> Self {
+                #[cfg(feature = "table")]
+                return Point(projective::Point::<$FE>::mul_base_table_a0::<_, Curve>(
+                    generator_comb(),
+                    &scalar.to_bytes(),
+                ));
+                #[cfg(not(feature = "table"))]
+                return &Point::GENERATOR * scalar;
+            }
+
+            /// Variable-time scalar multiplication.
+            ///
+            /// Faster than the constant-time `*` operator, but its running time depends
+            /// on the scalar; only use it when the scalar is public.
+            pub fn mul_vartime(&self, other: &Scalar) -> Self {
+                Point(self.0.scale_a0::<Curve>(&other.to_bytes()))
+            }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! fiat_define_weierstrass_points {
     ($FE:ident) => {
         /// Affine Point on the curve of type (X,Y)
