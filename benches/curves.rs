@@ -27,7 +27,27 @@ fn main() {
 /// * `$curve` — the path to the curve module providing `FieldElement`,
 ///   `Scalar`, `Point`, `PointAffine` and `Curve`.
 macro_rules! curve_benches {
+    // Default: the field element is in Montgomery form and therefore exposes
+    // `inverse_safegcd`. Every SEC2 curve qualifies except the p521 field,
+    // which uses the unsaturated-Solinas representation (no divstep
+    // primitives); that one is invoked below with `field_safegcd: no`.
     ($feature:literal, $name:ident, $curve:path) => {
+        curve_benches!($feature, $name, $curve, field_safegcd: yes);
+    };
+
+    // Emit the field-level `inverse_safegcd` bench only when the field
+    // supports it. Expanded inside `mod field`, so `fe_a`, `Bencher` and
+    // `black_box` are in scope.
+    (@field_inv_safegcd yes) => {
+        #[divan::bench]
+        fn inverse_safegcd(bencher: Bencher) {
+            let a = fe_a();
+            bencher.bench(|| black_box(&a).inverse_safegcd());
+        }
+    };
+    (@field_inv_safegcd no) => {};
+
+    ($feature:literal, $name:ident, $curve:path, field_safegcd: $fsg:ident) => {
         #[cfg(feature = $feature)]
         mod $name {
             use $curve::*;
@@ -130,6 +150,9 @@ macro_rules! curve_benches {
                     bencher.bench(|| black_box(&a).inverse());
                 }
 
+                // Bernstein-Yang inverse, only when the field supports it.
+                curve_benches!(@field_inv_safegcd $fsg);
+
                 #[divan::bench]
                 fn sqrt(bencher: Bencher) {
                     // square first so the input is guaranteed to be a residue
@@ -183,6 +206,12 @@ macro_rules! curve_benches {
                 fn inverse(bencher: Bencher) {
                     let a = sc_a();
                     bencher.bench(|| black_box(&a).inverse());
+                }
+
+                #[divan::bench]
+                fn inverse_safegcd(bencher: Bencher) {
+                    let a = sc_a();
+                    bencher.bench(|| black_box(&a).inverse_safegcd());
                 }
 
                 #[divan::bench]
@@ -287,4 +316,6 @@ curve_benches!("p224r1", p224r1, eccoxide::curve::sec2::p224r1);
 curve_benches!("p256k1", p256k1, eccoxide::curve::sec2::p256k1);
 curve_benches!("p256r1", p256r1, eccoxide::curve::sec2::p256r1);
 curve_benches!("p384r1", p384r1, eccoxide::curve::sec2::p384r1);
-curve_benches!("p521r1", p521r1, eccoxide::curve::sec2::p521r1);
+// p521r1's field element uses the unsaturated-Solinas representation, which
+// has no `inverse_safegcd`; its scalar (Montgomery) still gets the bench.
+curve_benches!("p521r1", p521r1, eccoxide::curve::sec2::p521r1, field_safegcd: no);

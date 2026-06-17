@@ -149,7 +149,10 @@ fiat_field_montgomery_impl!(
     fiat_p521_scalar_montgomery_domain_field_element,
     fiat_p521_scalar_to_montgomery,
     fiat_p521_scalar_from_montgomery,
-    fiat_p521_scalar_selectznz
+    fiat_p521_scalar_selectznz,
+    fiat_p521_scalar_msat,
+    fiat_p521_scalar_divstep,
+    fiat_p521_scalar_divstep_precomp
 );
 
 impl Scalar {
@@ -256,5 +259,6 @@ mod tests {
         use super::super::Scalar;
         use crate::fiat_field_unittest;
         fiat_field_unittest!(Scalar);
+        crate::fiat_field_safegcd_unittest!(Scalar);
     }
 }

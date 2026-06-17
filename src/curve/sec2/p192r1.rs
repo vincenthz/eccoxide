@@ -36,7 +36,10 @@ fiat_field_montgomery_impl!(
     fiat_p192r1_montgomery_domain_field_element,
     fiat_p192r1_to_montgomery,
     fiat_p192r1_from_montgomery,
-    fiat_p192r1_selectznz
+    fiat_p192r1_selectznz,
+    fiat_p192r1_msat,
+    fiat_p192r1_divstep,
+    fiat_p192r1_divstep_precomp
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -100,7 +103,10 @@ fiat_field_montgomery_impl!(
     fiat_p192r1_scalar_montgomery_domain_field_element,
     fiat_p192r1_scalar_to_montgomery,
     fiat_p192r1_scalar_from_montgomery,
-    fiat_p192r1_scalar_selectznz
+    fiat_p192r1_scalar_selectznz,
+    fiat_p192r1_scalar_msat,
+    fiat_p192r1_scalar_divstep,
+    fiat_p192r1_scalar_divstep_precomp
 );
 
 impl Scalar {
@@ -162,11 +168,13 @@ mod tests {
         use crate::{fiat_field_sqrt_unittest, fiat_field_unittest};
 
         fiat_field_unittest!(FieldElement);
+        crate::fiat_field_safegcd_unittest!(FieldElement);
         fiat_field_sqrt_unittest!(FieldElement);
     }
     mod gm {
         use super::super::Scalar;
         use crate::fiat_field_unittest;
         fiat_field_unittest!(Scalar);
+        crate::fiat_field_safegcd_unittest!(Scalar);
     }
 }

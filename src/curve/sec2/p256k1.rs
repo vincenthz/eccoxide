@@ -37,7 +37,10 @@ fiat_field_montgomery_impl!(
     fiat_secp256k1_montgomery_montgomery_domain_field_element,
     fiat_secp256k1_montgomery_to_montgomery,
     fiat_secp256k1_montgomery_from_montgomery,
-    fiat_secp256k1_montgomery_selectznz
+    fiat_secp256k1_montgomery_selectznz,
+    fiat_secp256k1_montgomery_msat,
+    fiat_secp256k1_montgomery_divstep,
+    fiat_secp256k1_montgomery_divstep_precomp
 );
 fiat_field_sqrt_define!(FieldElement);
 
@@ -109,7 +112,10 @@ fiat_field_montgomery_impl!(
     fiat_secp256k1_montgomery_scalar_montgomery_domain_field_element,
     fiat_secp256k1_montgomery_scalar_to_montgomery,
     fiat_secp256k1_montgomery_scalar_from_montgomery,
-    fiat_secp256k1_montgomery_scalar_selectznz
+    fiat_secp256k1_montgomery_scalar_selectznz,
+    fiat_secp256k1_montgomery_scalar_msat,
+    fiat_secp256k1_montgomery_scalar_divstep,
+    fiat_secp256k1_montgomery_scalar_divstep_precomp
 );
 
 impl Scalar {
@@ -178,11 +184,13 @@ mod tests {
         use crate::{fiat_field_sqrt_unittest, fiat_field_unittest};
 
         fiat_field_unittest!(FieldElement);
+        crate::fiat_field_safegcd_unittest!(FieldElement);
         fiat_field_sqrt_unittest!(FieldElement);
     }
     mod gm {
         use super::super::Scalar;
         use crate::fiat_field_unittest;
         fiat_field_unittest!(Scalar);
+        crate::fiat_field_safegcd_unittest!(Scalar);
     }
 }
