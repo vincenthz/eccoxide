@@ -185,15 +185,27 @@ macro_rules! fiat_field_common_impl {
                 slice.copy_from_slice(&bytes[..]);
             }
 
-            // Initialize from a wide buffer of random data.
-            //
-            // The difference with 'from_bytes' or 'from_slice' is that it takes
-            // a random initialized buffer and used modulo operation to initialize
-            // as a field element, but due to inherent bias in modulo operation
-            // we take a double sized buffer.
-            //pub fn init_from_wide_bytes(_random: [u8; Self::SIZE_BYTES * 2]) -> Self {
-            //    todo!()
-            //}
+            /// Initialize from a wide buffer of random data.
+            ///
+            /// The difference with 'from_bytes' or 'from_slice' is that it takes
+            /// a random initialized buffer and used modulo operation to initialize
+            /// as a field element, but due to inherent bias in modulo operation
+            /// we take a double sized buffer.
+            ///
+            /// The buffer is interpreted as a big-endian integer and reduced
+            /// modulo the field characteristic.
+            ///
+            /// This runs in constant time with respect to the input
+            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                // Reduce the wide big-endian integer modulo p with Horner's
+                // method to rewrite the polynomial in nested form: acc = acc * 256 + byte.
+                let c256 = Self::from_u64(256);
+                let mut acc = Self::zero();
+                for b in random.iter() {
+                    acc = &acc * &c256 + Self::from_u64(*b as u64);
+                }
+                acc
+            }
         }
 
         impl std::ops::Neg for $FE {
@@ -744,6 +756,18 @@ macro_rules! fiat_field_unittest {
                 println!("{} * {} = {}", fe, fe.inverse(), r);
                 assert_eq!($FE::one(), r);
             }
+        }
+
+        #[test]
+        fn wide_bytes() {
+            assert_eq!(
+                $FE::init_from_wide_bytes([0u8; $FE::SIZE_BYTES * 2]),
+                $FE::zero()
+            );
+
+            let mut wide = [0u8; $FE::SIZE_BYTES * 2];
+            wide[$FE::SIZE_BYTES * 2 - 1] = 5;
+            assert_eq!($FE::init_from_wide_bytes(wide), $FE::from_u64(5));
         }
     };
 }
