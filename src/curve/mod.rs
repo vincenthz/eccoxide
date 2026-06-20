@@ -35,3 +35,7 @@ pub use field::Sign;
 
 // exports the SEC2 curves
 pub mod sec2;
+
+// curve25519 / edwards25519
+#[cfg(feature = "curve25519")]
+pub mod curve25519;

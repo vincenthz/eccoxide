@@ -16,6 +16,9 @@ repository = "https://github.com/vincenthz/eccoxide/"
 num-bigint = { version = "0.3", optional = true }
 num-traits = { version = "0.2", optional = true }
 
+# SHA-512 backend for the ed25519 signature scheme
+cryptoxide = { version = "0.5", optional = true }
+
 [dev-dependencies]
 divan = "0.1"
 
@@ -24,7 +27,7 @@ name = "curves"
 harness = false
 
 [features]
-default = ["sec2", "table"]
+default = ["sec2", "table", "curve25519"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
@@ -32,11 +35,21 @@ default = ["sec2", "table"]
 # back to a normal scalar multiplication of the generator.
 table = []
 
+################################
+#### Group of curves
+################################
+
 # SEC2 curves enabled by default (192, 224 are probably too small in 2020)
 sec2 = ["p192k1", "p192r1", "p224k1", "p224r1", "p256k1", "p256r1", "p384r1", "p521r1"]
 
 # This is not recommended to enable as the size is too small for cryptographic needs
 sec2-small = ["p112r1", "p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r2", "num-bigint", "num-traits"]
+
+################################
+#### all individual curves
+################################
+
+curve25519 = []
 
 p112r1 = []
 p112r2 = []
@@ -53,3 +66,12 @@ p256k1 = []
 p256r1 = []
 p384r1 = []
 p521r1 = []
+
+################################
+#### Protocols
+################################
+
+# Protocol built on top of curve25519: Montgomery ladder (X25519) and Signature (Ed25519)
+# Note that ed25519 pull cryptoxide for hashing with sha512
+x25519 = ["curve25519"]
+ed25519 = ["curve25519", "cryptoxide"]

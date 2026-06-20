@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
+#[cfg(feature = "curve25519")]
+pub mod curve25519_64;
+#[cfg(feature = "curve25519")]
+pub mod curve25519_scalar_64;
 pub mod p192k1_64;
 pub mod p192k1_scalar_64;
 pub mod p192r1_64;

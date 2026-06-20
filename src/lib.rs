@@ -59,6 +59,8 @@
 pub mod curve;
 pub(crate) mod mp;
 pub mod params;
+#[cfg(any(feature = "x25519", feature = "ed25519"))]
+pub mod protocol;
 
 #[cfg(test)]
 mod tests;
