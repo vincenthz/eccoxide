@@ -5,6 +5,8 @@
 //! * affine: Affine point on short weierstrass curve
 //! * projective: Projective point on short weierstrass curve
 //! * weierstrass: Abstraction for short weierstrass curve
+//! * montgomery: Abstraction for montgomery curve
+//! * edwards: Abstraction for (twisted) edwards curve
 //!
 //! For implementation of specific curve:
 //! * sec2 (e.g. p192r1, p5p256k1, p256k1, p384r1, p521r1)
@@ -23,7 +25,9 @@ pub(crate) mod bigint; // module used for compat and naive implementations
 pub(crate) mod fiat;
 
 pub mod affine;
+pub mod edwards;
 pub mod field;
+pub mod montgomery;
 pub mod projective;
 pub mod weierstrass;
 
