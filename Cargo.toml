@@ -38,6 +38,14 @@ harness = false
 name = "ed25519"
 harness = false
 
+[[bench]]
+name = "curve448"
+harness = false
+
+[[bench]]
+name = "x448"
+harness = false
+
 [features]
 default = ["sec2", "table", "curve25519"]
 
