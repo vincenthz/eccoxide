@@ -100,11 +100,11 @@ macro_rules! bigint_scalar_impl {
                 }
             }
 
-            /// Initialize a new scalar from its bytes representation
+            /// Initialize a new scalar from its big-endian bytes representation
             ///
             /// If the represented value overflow the field element size,
             /// then None is returned.
-            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+            pub fn from_bytes_be(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
                 let n = BigUint::from_bytes_be(bytes);
                 if &n >= $p {
                     None
@@ -113,10 +113,28 @@ macro_rules! bigint_scalar_impl {
                 }
             }
 
-            /// Similar to from_bytes but take values from a slice.
+            /// Initialize a new scalar from its little-endian bytes representation
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                let n = BigUint::from_bytes_le(bytes);
+                if &n >= $p {
+                    None
+                } else {
+                    Some(Self(n))
+                }
+            }
+
+            /// Initialize from the (default big-endian) bytes representation.
+            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                Self::from_bytes_be(bytes)
+            }
+
+            /// Similar to from_bytes_be but take values from a slice.
             ///
             /// If the slice is not of the right size, then None is returned
-            pub fn from_slice(slice: &[u8]) -> Option<Self> {
+            pub fn from_slice_be(slice: &[u8]) -> Option<Self> {
                 if slice.len() != Self::SIZE_BYTES {
                     return None;
                 }
@@ -128,8 +146,28 @@ macro_rules! bigint_scalar_impl {
                 }
             }
 
-            /// Output the scalar bytes representation
-            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+            /// Similar to from_bytes_le but take values from a slice.
+            ///
+            /// If the slice is not of the right size, then None is returned
+            pub fn from_slice_le(slice: &[u8]) -> Option<Self> {
+                if slice.len() != Self::SIZE_BYTES {
+                    return None;
+                }
+                let n = BigUint::from_bytes_le(slice);
+                if &n >= $p {
+                    None
+                } else {
+                    Some(Self(n))
+                }
+            }
+
+            /// Like [`Self::from_bytes`] (default big-endian) but from a slice.
+            pub fn from_slice(slice: &[u8]) -> Option<Self> {
+                Self::from_slice_be(slice)
+            }
+
+            /// Output the big-endian bytes representation
+            pub fn to_bytes_be(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out = [0u8; Self::SIZE_BYTES];
                 let bs = self.0.to_bytes_be();
                 let start: usize = Self::SIZE_BYTES - bs.len();
@@ -139,25 +177,61 @@ macro_rules! bigint_scalar_impl {
                 out
             }
 
-            /// Output the scalar bytes representation to the mutable slice
-            ///
-            /// the slice needs to be of the correct size
-            pub fn to_slice(&self, slice: &mut [u8]) {
-                assert_eq!(slice.len(), Self::SIZE_BYTES);
-
-                // TODO don't create temporary buffer
-                let bytes = self.to_bytes();
-                slice.copy_from_slice(&bytes[..]);
+            /// Output the little-endian bytes representation
+            pub fn to_bytes_le(&self) -> [u8; Self::SIZE_BYTES] {
+                let mut out = [0u8; Self::SIZE_BYTES];
+                let bs = self.0.to_bytes_le();
+                // 0-pad the high (trailing) bytes if necessary
+                out[..bs.len()].copy_from_slice(&bs);
+                out
             }
 
-            /// Initialize from a wide buffer of random data.
+            /// Output the (default big-endian) bytes representation.
+            pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+                self.to_bytes_be()
+            }
+
+            /// Output the big-endian bytes representation to the mutable slice
+            ///
+            /// the slice needs to be of the correct size
+            pub fn to_slice_be(&self, slice: &mut [u8]) {
+                assert_eq!(slice.len(), Self::SIZE_BYTES);
+                slice.copy_from_slice(&self.to_bytes_be()[..]);
+            }
+
+            /// Output the little-endian bytes representation to the mutable slice
+            ///
+            /// the slice needs to be of the correct size
+            pub fn to_slice_le(&self, slice: &mut [u8]) {
+                assert_eq!(slice.len(), Self::SIZE_BYTES);
+                slice.copy_from_slice(&self.to_bytes_le()[..]);
+            }
+
+            /// Output the (default big-endian) bytes representation to a slice.
+            pub fn to_slice(&self, slice: &mut [u8]) {
+                self.to_slice_be(slice)
+            }
+
+            /// Initialize from a wide buffer of random data, interpreted as a
+            /// big-endian integer and reduced modulo the field characteristic.
             ///
             /// The difference with 'from_bytes' or 'from_slice' is that it takes
             /// a random initialized buffer and used modulo operation to initialize
             /// as a field element, but due to inherent bias in modulo operation
             /// we take a double sized buffer.
-            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+            pub fn init_from_wide_bytes_be(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
                 Self(BigUint::from_bytes_be(&random) % $p)
+            }
+
+            /// Initialize from a wide buffer of random data, interpreted as a
+            /// little-endian integer and reduced modulo the field characteristic.
+            pub fn init_from_wide_bytes_le(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                Self(BigUint::from_bytes_le(&random) % $p)
+            }
+
+            /// Reduce a wide (default big-endian) random buffer into the field.
+            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                Self::init_from_wide_bytes_be(random)
             }
         }
 

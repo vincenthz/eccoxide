@@ -19,17 +19,14 @@ fn sha512(parts: &[&[u8]]) -> [u8; 64] {
 /// Reduce a 64-byte SHA-512 output, interpreted little-endian, modulo the group
 /// order `l`.
 fn reduce_wide_le(hash: &[u8; 64]) -> Scalar {
-    let mut be = *hash;
-    be.reverse(); // the wide reducer is big-endian
-    Scalar::init_from_wide_bytes(be)
+    Scalar::init_from_wide_bytes_le(*hash)
 }
 
 /// Encode a point to its 32-byte RFC 8032 representation: little-endian y with
 /// the low bit of x stored in the most significant bit.
 fn encode_point(p: &Point) -> [u8; 32] {
     let (x, y) = p.to_affine();
-    let mut out = y.to_bytes(); // big-endian
-    out.reverse(); // little-endian
+    let mut out = y.to_bytes_le(); // little-endian, the native field order
     if let Sign::Negative = x.sign() {
         // Sign::Negative means the low bit of x is set
         out[31] |= 0x80;
@@ -42,9 +39,8 @@ fn decode_point(bytes: &[u8; 32]) -> Option<Point> {
     let x_sign_bit = bytes[31] >> 7;
     let mut le = *bytes;
     le[31] &= 0x7f;
-    le.reverse(); // big-endian
-    // y must be a canonical field element (< p)
-    let y = FieldElement::from_bytes(&le)?;
+    // y must be a canonical field element (< p), little-endian on the wire
+    let y = FieldElement::from_bytes_le(&le)?;
     let want = if x_sign_bit == 1 {
         Sign::Negative
     } else {
@@ -69,12 +65,11 @@ fn expand_secret(seed: &[u8; 32]) -> (Scalar, [u8; 32]) {
     a_le[31] &= 127;
     a_le[31] |= 64;
 
-    // reduce the clamped little-endian scalar modulo l
-    let mut a_be = a_le;
-    a_be.reverse();
+    // reduce the clamped little-endian scalar modulo l: place it in the low
+    // half of the wide little-endian buffer (the high half stays zero)
     let mut wide = [0u8; 64];
-    wide[32..].copy_from_slice(&a_be);
-    let a = Scalar::init_from_wide_bytes(wide);
+    wide[..32].copy_from_slice(&a_le);
+    let a = Scalar::init_from_wide_bytes_le(wide);
 
     let mut prefix = [0u8; 32];
     prefix.copy_from_slice(&h[32..]);
@@ -83,24 +78,23 @@ fn expand_secret(seed: &[u8; 32]) -> (Scalar, [u8; 32]) {
 
 fn public_from_seed(seed: &[u8; 32]) -> [u8; 32] {
     let (a, _) = expand_secret(seed);
-    encode_point(&Point::GENERATOR.scale(&a))
+    encode_point(&Point::mul_base(&a))
 }
 
 fn sign(seed: &[u8; 32], message: &[u8]) -> [u8; 64] {
     let (a, prefix) = expand_secret(seed);
-    let public = encode_point(&Point::GENERATOR.scale(&a));
+    let public = encode_point(&Point::mul_base(&a));
 
     // r = H(prefix || M) mod l ; R = [r]B
     let r = reduce_wide_le(&sha512(&[&prefix[..], message]));
-    let r_encoded = encode_point(&Point::GENERATOR.scale(&r));
+    let r_encoded = encode_point(&Point::mul_base(&r));
 
     // k = H(R || A || M) mod l
     let k = reduce_wide_le(&sha512(&[&r_encoded[..], &public[..], message]));
 
     // S = (r + k·a) mod l
     let s = &r + &(&k * &a);
-    let mut s_le = s.to_bytes(); // big-endian
-    s_le.reverse(); // little-endian
+    let s_le = s.to_bytes_le(); // little-endian, the native scalar order
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&r_encoded);
@@ -120,11 +114,10 @@ fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
         None => return false,
     };
 
-    // S must be canonical (< l)
-    let mut s_be = [0u8; 32];
-    s_be.copy_from_slice(&sig[32..]);
-    s_be.reverse();
-    let s = match Scalar::from_bytes(&s_be) {
+    // S must be canonical (< l), little-endian on the wire
+    let mut s_le = [0u8; 32];
+    s_le.copy_from_slice(&sig[32..]);
+    let s = match Scalar::from_bytes_le(&s_le) {
         Some(s) => s,
         None => return false,
     };
@@ -133,7 +126,7 @@ fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
     let k = reduce_wide_le(&sha512(&[&r_encoded[..], &public[..], message]));
 
     // accept iff [S]B == R + [k]A
-    let lhs = Point::GENERATOR.scale(&s);
+    let lhs = Point::mul_base(&s);
     let rhs = &r_point + &a_point.scale(&k);
     lhs == rhs
 }

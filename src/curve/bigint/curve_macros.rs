@@ -500,6 +500,27 @@ macro_rules! test_scalar_arithmetic {
             let y = $scalar::one().sqrt().unwrap();
             assert_eq!(&y * &y, $scalar::one());
         }
+
+        #[test]
+        fn endianness() {
+            // le and be are exact reverses; both round-trip; default is be.
+            let mut v = $scalar::from_u64(0x0102_0304_0506_0708);
+            for _ in 0..4 {
+                let le = v.to_bytes_le();
+                let be = v.to_bytes_be();
+                let mut le_reversed = le;
+                le_reversed.reverse();
+                assert_eq!(le_reversed, be, "le.reverse() != be");
+
+                assert_eq!($scalar::from_bytes_le(&le).expect("le roundtrip"), v);
+                assert_eq!($scalar::from_bytes_be(&be).expect("be roundtrip"), v);
+
+                // default is big-endian for the SEC2 small curves
+                assert_eq!(v.to_bytes(), be);
+
+                v = &v * &v;
+            }
+        }
     };
 }
 

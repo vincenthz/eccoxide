@@ -24,8 +24,8 @@ fn clamp(mut k: [u8; 32]) -> [u8; 32] {
 fn decode_u(u: &[u8; 32]) -> FieldElement {
     let mut le = *u;
     le[31] &= 0x7f;
-    le.reverse(); // the field element decoder is big-endian
-    FieldElement::from_bytes_unchecked(&le)
+    // curve25519 field elements are little-endian, matching the wire format
+    FieldElement::from_bytes_unchecked_le(&le)
 }
 
 /// The raw X25519 function: multiply the u-coordinate point `u` by the (clamped)
@@ -40,9 +40,8 @@ pub fn x25519(scalar: &[u8; 32], u: &[u8; 32]) -> [u8; 32] {
     let point = MontgomeryPoint::from_u(&decode_u(u));
     let result = point.scale_bytes(&k_be).u();
 
-    let mut out = result.to_bytes(); // big-endian
-    out.reverse(); // little-endian wire format
-    out
+    // little-endian wire format, matching the native field byte order
+    result.to_bytes_le()
 }
 
 /// X25519 against the standard base point: computes the public u-coordinate for

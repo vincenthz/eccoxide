@@ -1,7 +1,91 @@
+/// Emit the unsuffixed `from_bytes` / `to_bytes` / `from_bytes_unchecked`
+/// aliases that point at the native default byte order (`be` or `le`).
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_field_serde_default_bytes {
+    ($FE:ident, be) => {
+        impl $FE {
+            /// Initialize from the (default big-endian) bytes representation
+            /// without size check. See [`Self::from_bytes_unchecked_be`].
+            pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+                Self::from_bytes_unchecked_be(bytes)
+            }
+            /// Initialize from the (default big-endian) bytes representation.
+            /// See [`Self::from_bytes_be`].
+            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                Self::from_bytes_be(bytes)
+            }
+            /// Output the (default big-endian) bytes representation.
+            /// See [`Self::to_bytes_be`].
+            pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+                self.to_bytes_be()
+            }
+        }
+    };
+    ($FE:ident, le) => {
+        impl $FE {
+            /// Initialize from the (default little-endian) bytes representation
+            /// without size check. See [`Self::from_bytes_unchecked_le`].
+            pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+                Self::from_bytes_unchecked_le(bytes)
+            }
+            /// Initialize from the (default little-endian) bytes representation.
+            /// See [`Self::from_bytes_le`].
+            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                Self::from_bytes_le(bytes)
+            }
+            /// Output the (default little-endian) bytes representation.
+            /// See [`Self::to_bytes_le`].
+            pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+                self.to_bytes_le()
+            }
+        }
+    };
+}
+
+/// Emit the unsuffixed `from_slice` / `to_slice` / `init_from_wide_bytes`
+/// aliases that point at the native default byte order (`be` or `le`).
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_field_serde_default_slice {
+    ($FE:ident, be) => {
+        impl $FE {
+            /// Like [`Self::from_bytes`] (default big-endian) but from a slice.
+            pub fn from_slice(slice: &[u8]) -> Option<Self> {
+                Self::from_slice_be(slice)
+            }
+            /// Output the (default big-endian) bytes representation to a slice.
+            pub fn to_slice(&self, slice: &mut [u8]) {
+                self.to_slice_be(slice)
+            }
+            /// Reduce a wide (default big-endian) random buffer into the field.
+            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                Self::init_from_wide_bytes_be(random)
+            }
+        }
+    };
+    ($FE:ident, le) => {
+        impl $FE {
+            /// Like [`Self::from_bytes`] (default little-endian) but from a slice.
+            pub fn from_slice(slice: &[u8]) -> Option<Self> {
+                Self::from_slice_le(slice)
+            }
+            /// Output the (default little-endian) bytes representation to a slice.
+            pub fn to_slice(&self, slice: &mut [u8]) {
+                self.to_slice_le(slice)
+            }
+            /// Reduce a wide (default little-endian) random buffer into the field.
+            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                Self::init_from_wide_bytes_le(random)
+            }
+        }
+    };
+}
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_common_impl {
-    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident, $fiat_selectznz:ident) => {
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_nonzero:ident, $fiat_selectznz:ident, $endian:ident) => {
         $(#[$outer])*
         #[derive(Clone)]
         pub struct $FE($fiat_constr);
@@ -162,41 +246,56 @@ macro_rules! fiat_field_common_impl {
                 q
             }
 
-            /// Similar to 'from_bytes' but take values from a slice.
+            /// Similar to 'from_bytes_be' but take values from a slice.
             ///
             /// If the slice is not of the right size, then None is returned
-            pub fn from_slice(slice: &[u8]) -> Option<Self> {
+            pub fn from_slice_be(slice: &[u8]) -> Option<Self> {
                 if slice.len() != Self::SIZE_BYTES {
                     return None;
                 }
                 let mut buf = [0u8; Self::SIZE_BYTES];
                 buf.copy_from_slice(slice);
-                Self::from_bytes(&buf)
+                Self::from_bytes_be(&buf)
             }
 
-            /// Output the scalar bytes representation to the mutable slice
+            /// Similar to 'from_bytes_le' but take values from a slice.
+            ///
+            /// If the slice is not of the right size, then None is returned
+            pub fn from_slice_le(slice: &[u8]) -> Option<Self> {
+                if slice.len() != Self::SIZE_BYTES {
+                    return None;
+                }
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(slice);
+                Self::from_bytes_le(&buf)
+            }
+
+            /// Output the big-endian bytes representation to the mutable slice
             ///
             /// the slice needs to be of the correct size
-            pub fn to_slice(&self, slice: &mut [u8]) {
+            pub fn to_slice_be(&self, slice: &mut [u8]) {
                 assert_eq!(slice.len(), Self::SIZE_BYTES);
-
-                // TODO don't create temporary buffer
-                let bytes = self.to_bytes();
-                slice.copy_from_slice(&bytes[..]);
+                slice.copy_from_slice(&self.to_bytes_be()[..]);
             }
 
-            /// Initialize from a wide buffer of random data.
+            /// Output the little-endian bytes representation to the mutable slice
+            ///
+            /// the slice needs to be of the correct size
+            pub fn to_slice_le(&self, slice: &mut [u8]) {
+                assert_eq!(slice.len(), Self::SIZE_BYTES);
+                slice.copy_from_slice(&self.to_bytes_le()[..]);
+            }
+
+            /// Initialize from a wide buffer of random data, interpreted as a
+            /// big-endian integer and reduced modulo the field characteristic.
             ///
             /// The difference with 'from_bytes' or 'from_slice' is that it takes
             /// a random initialized buffer and used modulo operation to initialize
             /// as a field element, but due to inherent bias in modulo operation
             /// we take a double sized buffer.
             ///
-            /// The buffer is interpreted as a big-endian integer and reduced
-            /// modulo the field characteristic.
-            ///
             /// This runs in constant time with respect to the input
-            pub fn init_from_wide_bytes(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+            pub fn init_from_wide_bytes_be(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
                 // Reduce the wide big-endian integer modulo p with Horner's
                 // method to rewrite the polynomial in nested form: acc = acc * 256 + byte.
                 let c256 = Self::from_u64(256);
@@ -206,7 +305,20 @@ macro_rules! fiat_field_common_impl {
                 }
                 acc
             }
+
+            /// Initialize from a wide buffer of random data, interpreted as a
+            /// little-endian integer and reduced modulo the field characteristic.
+            ///
+            /// See [`Self::init_from_wide_bytes_be`].
+            pub fn init_from_wide_bytes_le(mut random: [u8; Self::SIZE_BYTES * 2]) -> Self {
+                random.reverse();
+                Self::init_from_wide_bytes_be(random)
+            }
         }
+
+        // unsuffixed `from_slice` / `to_slice` / `init_from_wide_bytes` aliases,
+        // pointing at the native default for this field ($endian)
+        $crate::fiat_field_serde_default_slice!($FE, $endian);
 
         impl std::ops::Neg for $FE {
             type Output = $FE;
@@ -380,7 +492,20 @@ macro_rules! fiat_field_common_impl {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_montgomery_impl {
+    // Backward-compatible arm: no explicit default endianness defaults to
+    // big-endian (the native wire order for the SEC2 curves).
     ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_constr_montgomery:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident, $fiat_selectznz:ident, $fiat_msat:ident, $fiat_divstep:ident, $fiat_divstep_precomp:ident) => {
+        crate::fiat_field_montgomery_impl!(
+            $(#[$outer])* $FE, $SIZE_BITS, $FIELD_P_LIMBS, $FE_LIMBS_SIZE,
+            $fiat_constr, $fiat_nonzero, $fiat_add, $fiat_sub, $fiat_mul,
+            $fiat_square, $fiat_opp, $fiat_to_bytes, $fiat_from_bytes,
+            $fiat_constr_montgomery, $fiat_to_montgomery, $fiat_from_montgomery,
+            $fiat_selectznz, $fiat_msat, $fiat_divstep, $fiat_divstep_precomp,
+            be
+        );
+    };
+
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_LIMBS:expr, $FE_LIMBS_SIZE:expr, $fiat_constr:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_constr_montgomery:ident, $fiat_to_montgomery:ident, $fiat_from_montgomery:ident, $fiat_selectznz:ident, $fiat_msat:ident, $fiat_divstep:ident, $fiat_divstep_precomp:ident, $endian:ident) => {
         crate::fiat_field_common_impl!(
             $(#[$outer])*
             $FE,
@@ -393,7 +518,8 @@ macro_rules! fiat_field_montgomery_impl {
             $fiat_square,
             $fiat_opp,
             $fiat_nonzero,
-            $fiat_selectznz
+            $fiat_selectznz,
+            $endian
         );
 
         impl $FE {
@@ -428,38 +554,41 @@ macro_rules! fiat_field_montgomery_impl {
                 (out[0] & 1) != 0
             }
 
-            /// Initialize a new scalar from its bytes representation (BE) without size check
+            /// Initialize a new scalar from its little-endian bytes representation
+            /// without size check.
             ///
-            /// This doesn't verify if the element represented fits in the field,
-            /// so that run the risk of having elements that are greater or equal
-            /// to the order of the field
-            pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
-                let mut buf = [0u8; Self::SIZE_BYTES];
-                buf.copy_from_slice(bytes);
-                buf.reverse(); // swap endianness
-
+            /// This is the native byte order of the underlying fiat-crypto
+            /// representation. It doesn't verify if the element represented fits
+            /// in the field, so it runs the risk of having elements that are
+            /// greater or equal to the order of the field.
+            pub const fn from_bytes_unchecked_le(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
                 let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 let mut out_mont = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
-                $fiat_from_bytes(&mut out.0, &buf);
+                $fiat_from_bytes(&mut out.0, bytes);
                 $fiat_to_montgomery(&mut out_mont, &out);
                 $FE(out_mont)
             }
 
-            /// Initialize a new scalar from its bytes representation (BE)
+            /// Initialize a new scalar from its big-endian bytes representation
+            /// without size check. See [`Self::from_bytes_unchecked_le`].
+            pub const fn from_bytes_unchecked_be(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness to the native little-endian
+                Self::from_bytes_unchecked_le(&buf)
+            }
+
+            /// Initialize a new scalar from its little-endian bytes representation.
             ///
             /// If the represented value overflow the field element size,
             /// then None is returned.
-            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
                 use crate::mp::ct::CtLesser;
                 use crate::mp::limbs::LimbsLE;
 
-                let mut buf = [0u8; Self::SIZE_BYTES];
-                buf.copy_from_slice(bytes);
-                buf.reverse(); // swap endianness
-
                 let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 let mut out_mont = $fiat_constr_montgomery([0u64; $FE_LIMBS_SIZE]);
-                $fiat_from_bytes(&mut out.0, &buf);
+                $fiat_from_bytes(&mut out.0, bytes);
 
                 // modulus limbs, least-significant first
                 let mut p = [0u64; $FE_LIMBS_SIZE];
@@ -476,12 +605,29 @@ macro_rules! fiat_field_montgomery_impl {
                 }
             }
 
-            /// Output the scalar bytes representation (BE)
-            pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+            /// Initialize a new scalar from its big-endian bytes representation.
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes_be(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness to the native little-endian
+                Self::from_bytes_le(&buf)
+            }
+
+            /// Output the little-endian bytes representation (the native order).
+            pub const fn to_bytes_le(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out_normal = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 let mut out = [0u8; Self::SIZE_BYTES];
                 $fiat_from_montgomery(&mut out_normal, &self.0);
                 $fiat_to_bytes(&mut out, &out_normal.0);
+                out
+            }
+
+            /// Output the big-endian bytes representation.
+            pub const fn to_bytes_be(&self) -> [u8; Self::SIZE_BYTES] {
+                let mut out = self.to_bytes_le();
                 out.reverse(); // swap endianness
                 out
             }
@@ -581,13 +727,29 @@ macro_rules! fiat_field_montgomery_impl {
                 &v_signed * &precomp_fe
             }
         }
+
+        // unsuffixed `from_bytes` / `to_bytes` / `from_bytes_unchecked` aliases,
+        // pointing at the native default for this field ($endian)
+        $crate::fiat_field_serde_default_bytes!($FE, $endian);
     };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fiat_field_solinas_impl {
+    // Backward-compatible arm: no explicit default endianness defaults to
+    // big-endian (the native wire order for the SEC2 curves).
     ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_tight_constr:ident, $fiat_loose_constr:ident, $fiat_tighten:ident, $fiat_relax:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_selectznz:ident) => {
+        crate::fiat_field_solinas_impl!(
+            $(#[$outer])* $FE, $SIZE_BITS, $FIELD_P_BYTES, $FE_LIMBS_SIZE,
+            $fiat_tight_constr, $fiat_loose_constr, $fiat_tighten, $fiat_relax,
+            $fiat_nonzero, $fiat_add, $fiat_sub, $fiat_mul, $fiat_square,
+            $fiat_opp, $fiat_to_bytes, $fiat_from_bytes, $fiat_selectznz,
+            be
+        );
+    };
+
+    ($(#[$outer:meta])* $FE:ident, $SIZE_BITS:expr, $FIELD_P_BYTES:expr, $FE_LIMBS_SIZE:expr, $fiat_tight_constr:ident, $fiat_loose_constr:ident, $fiat_tighten:ident, $fiat_relax:ident, $fiat_nonzero:ident, $fiat_add:ident, $fiat_sub:ident, $fiat_mul:ident, $fiat_square:ident, $fiat_opp:ident, $fiat_to_bytes:ident, $fiat_from_bytes:ident, $fiat_selectznz:ident, $endian:ident) => {
         crate::fiat_field_common_impl!(
             $FE,
             $SIZE_BITS,
@@ -599,7 +761,8 @@ macro_rules! fiat_field_solinas_impl {
             $fiat_square,
             $fiat_opp,
             $fiat_nonzero,
-            $fiat_selectznz
+            $fiat_selectznz,
+            $endian
         );
 
         impl $FE {
@@ -625,7 +788,7 @@ macro_rules! fiat_field_solinas_impl {
                 bytes[Self::SIZE_BYTES - 2] = n6;
                 bytes[Self::SIZE_BYTES - 1] = n7;
                 //bytes[Self::SIZE_BYTES - 8..].copy_from_slice(&n.to_be_bytes());
-                Self::from_bytes_unchecked(&bytes)
+                Self::from_bytes_unchecked_be(&bytes)
             }
 
             /// Get the sign of the field element
@@ -644,51 +807,80 @@ macro_rules! fiat_field_solinas_impl {
                 (out[0] & 1) != 0
             }
 
-            /// Initialize a new scalar from its bytes representation (BE)
+            /// Initialize a new scalar from its little-endian bytes representation
+            /// without size check.
             ///
-            /// This doesn't verify if the element represented fits in the field,
-            /// so that run the run of having elements that are greater or equal
-            /// than the order of the field
-            pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
-                let mut buf = [0u8; Self::SIZE_BYTES];
-                buf.copy_from_slice(bytes);
-                buf.reverse(); // swap endianness
-
+            /// This is the native byte order of the underlying fiat-crypto
+            /// representation. It doesn't verify if the element represented fits
+            /// in the field, so it runs the risk of having elements that are
+            /// greater or equal than the order of the field.
+            pub const fn from_bytes_unchecked_le(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
                 let mut out = $fiat_tight_constr([0u64; $FE_LIMBS_SIZE]);
-                $fiat_from_bytes(&mut out, &buf);
+                $fiat_from_bytes(&mut out, bytes);
                 $FE(out)
             }
 
-            /// Initialize a new scalar from its bytes representation (BE)
+            /// Initialize a new scalar from its big-endian bytes representation
+            /// without size check. See [`Self::from_bytes_unchecked_le`].
+            pub const fn from_bytes_unchecked_be(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness to the native little-endian
+                Self::from_bytes_unchecked_le(&buf)
+            }
+
+            /// Initialize a new scalar from its little-endian bytes representation.
             ///
             /// If the represented value overflow the field element size,
             /// then None is returned.
-            pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
                 use crate::mp::ct::CtLesser;
 
-                let mut buf = [0u8; Self::SIZE_BYTES];
-                buf.copy_from_slice(bytes);
-                buf.reverse(); // swap endianness
-
                 let mut out = $fiat_tight_constr([0u64; $FE_LIMBS_SIZE]);
-                $fiat_from_bytes(&mut out, &buf);
+                $fiat_from_bytes(&mut out, bytes);
+
+                // the canonical check compares against the big-endian modulus
+                let mut be = [0u8; Self::SIZE_BYTES];
+                be.copy_from_slice(bytes);
+                be.reverse();
 
                 // TODO: non constant
-                if <&[u8; Self::SIZE_BYTES]>::ct_lt(bytes, &$FIELD_P_BYTES).is_true() {
+                if <&[u8; Self::SIZE_BYTES]>::ct_lt(&be, &$FIELD_P_BYTES).is_true() {
                     Some($FE(out))
                 } else {
                     None
                 }
             }
 
-            /// Output the scalar bytes representation (BE)
-            pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
+            /// Initialize a new scalar from its big-endian bytes representation.
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes_be(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness to the native little-endian
+                Self::from_bytes_le(&buf)
+            }
+
+            /// Output the little-endian bytes representation (the native order).
+            pub const fn to_bytes_le(&self) -> [u8; Self::SIZE_BYTES] {
                 let mut out = [0u8; Self::SIZE_BYTES];
                 $fiat_to_bytes(&mut out, &self.0);
+                out
+            }
+
+            /// Output the big-endian bytes representation.
+            pub const fn to_bytes_be(&self) -> [u8; Self::SIZE_BYTES] {
+                let mut out = self.to_bytes_le();
                 out.reverse(); // swap endianness
                 out
             }
         }
+
+        // unsuffixed `from_bytes` / `to_bytes` / `from_bytes_unchecked` aliases,
+        // pointing at the native default for this field ($endian)
+        $crate::fiat_field_serde_default_bytes!($FE, $endian);
     };
 }
 
@@ -728,7 +920,9 @@ macro_rules! fiat_field_unittest {
             x8[$FE::SIZE_BYTES - 2] = b1;
             x8[$FE::SIZE_BYTES - 1] = b0;
 
-            $FE::from_bytes(&x8).expect("working fe_u64")
+            // x8 is laid out big-endian, so decode it as such regardless of
+            // the type's default byte order.
+            $FE::from_bytes_be(&x8).expect("working fe_u64")
         }
 
         fn random_fe_small() -> [$FE; 4] {
@@ -854,15 +1048,51 @@ macro_rules! fiat_field_unittest {
         }
 
         #[test]
+        fn endianness() {
+            // le and be are exact reverses; both round-trip; cross-decode agrees.
+            for i in [1u64, 2, 255, 256, 0x0102_0304_0506_0708] {
+                let a = fe_u64(i);
+
+                let le = a.to_bytes_le();
+                let be = a.to_bytes_be();
+                let mut le_reversed = le;
+                le_reversed.reverse();
+                assert_eq!(le_reversed, be, "le.reverse() != be for {}", i);
+
+                assert_eq!($FE::from_bytes_le(&le).expect("le roundtrip"), a);
+                assert_eq!($FE::from_bytes_be(&be).expect("be roundtrip"), a);
+                assert_eq!($FE::from_bytes_unchecked_le(&le), a);
+                assert_eq!($FE::from_bytes_unchecked_be(&be), a);
+
+                // from_bytes_be(b) == from_bytes_le(reverse(b))
+                let mut be_reversed = be;
+                be_reversed.reverse();
+                assert_eq!(
+                    $FE::from_bytes_be(&be).unwrap(),
+                    $FE::from_bytes_le(&be_reversed).unwrap()
+                );
+
+                // slice variants round-trip too
+                let mut sl = [0u8; $FE::SIZE_BYTES];
+                a.to_slice_le(&mut sl);
+                assert_eq!($FE::from_slice_le(&sl).expect("le slice"), a);
+                a.to_slice_be(&mut sl);
+                assert_eq!($FE::from_slice_be(&sl).expect("be slice"), a);
+            }
+        }
+
+        #[test]
         fn wide_bytes() {
+            // the test buffers are laid out big-endian, so reduce them as such
+            // regardless of the type's default byte order.
             assert_eq!(
-                $FE::init_from_wide_bytes([0u8; $FE::SIZE_BYTES * 2]),
+                $FE::init_from_wide_bytes_be([0u8; $FE::SIZE_BYTES * 2]),
                 $FE::zero()
             );
 
             let mut wide = [0u8; $FE::SIZE_BYTES * 2];
             wide[$FE::SIZE_BYTES * 2 - 1] = 5;
-            assert_eq!($FE::init_from_wide_bytes(wide), $FE::from_u64(5));
+            assert_eq!($FE::init_from_wide_bytes_be(wide), $FE::from_u64(5));
         }
     };
 }
@@ -884,9 +1114,10 @@ macro_rules! fiat_field_safegcd_unittest {
             }
 
             // also exercise some large/structured values built from bytes
+            // (big-endian, top byte zeroed to stay below the modulus)
             let mut bytes = [0xa5u8; $FE::SIZE_BYTES];
             bytes[0] = 0; // keep it below the modulus
-            let fe = $FE::from_bytes(&bytes).expect("below modulus");
+            let fe = $FE::from_bytes_be(&bytes).expect("below modulus");
             assert_eq!(fe.inverse(), fe.inverse_safegcd());
             assert_eq!(&fe * &fe.inverse_safegcd(), $FE::one());
         }

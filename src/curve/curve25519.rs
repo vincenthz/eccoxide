@@ -24,6 +24,10 @@ use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::montgomery::{MontgomeryCurve, MontgomeryCurveB1};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
 use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
+#[cfg(feature = "table")]
+use crate::params::curve25519::{COMB_TABLE, COMB_WINDOWS};
+#[cfg(feature = "table")]
+use std::convert::TryFrom;
 use std::ops::{Add, Mul, Neg, Sub};
 
 const FE_LIMBS_SIZE: usize = 5;
@@ -127,7 +131,8 @@ fiat_field_solinas_impl!(
     fiat_25519_carry_opp,
     fiat_25519_to_bytes,
     fiat_25519_from_bytes,
-    fiat_25519_selectznz
+    fiat_25519_selectznz,
+    le
 );
 
 /// sqrt(-1) mod p, the principal square root of -1 (big-endian)
@@ -137,7 +142,7 @@ const SQRT_M1_BYTES: [u8; 32] = [
 ];
 
 impl FieldElement {
-    const SQRT_M1: FieldElement = FieldElement::from_bytes_unchecked(&SQRT_M1_BYTES);
+    const SQRT_M1: FieldElement = FieldElement::from_bytes_unchecked_be(&SQRT_M1_BYTES);
 
     /// Returns `(self^(2^250 - 1), self^11)`.
     ///
@@ -227,7 +232,8 @@ fiat_field_montgomery_impl!(
     fiat_25519_scalar_selectznz,
     fiat_25519_scalar_msat,
     fiat_25519_scalar_divstep,
-    fiat_25519_scalar_divstep_precomp
+    fiat_25519_scalar_divstep_precomp,
+    le
 );
 
 // l - 2, big-endian, for the Fermat scalar inversion
@@ -338,7 +344,7 @@ const MAP_C_BYTES: [u8; 32] = [
     0x70, 0xd9, 0x12, 0x0b, 0x9f, 0x5f, 0xf9, 0x44, 0x2d, 0x84, 0xf7, 0x23, 0xfc, 0x03, 0xb0, 0x81,
     0x3a, 0x5e, 0x2c, 0x2e, 0xb4, 0x82, 0xe5, 0x7d, 0x33, 0x91, 0xfb, 0x55, 0x00, 0xba, 0x81, 0xe7,
 ];
-const MAP_C: FieldElement = FieldElement::from_bytes_unchecked(&MAP_C_BYTES);
+const MAP_C: FieldElement = FieldElement::from_bytes_unchecked_be(&MAP_C_BYTES);
 
 /// The Montgomery curve `y^2 = x^3 + 486662 x^2 + x` (curve25519)
 #[derive(Debug, Clone, Copy)]
@@ -346,9 +352,9 @@ pub struct Curve;
 
 impl MontgomeryCurve for Curve {
     type FieldElement = FieldElement;
-    const A: FieldElement = FieldElement::from_bytes_unchecked(&MONT_A_BYTES);
-    const B: FieldElement = FieldElement::from_bytes_unchecked(&MONT_B_BYTES);
-    const A24: FieldElement = FieldElement::from_bytes_unchecked(&MONT_A24_BYTES);
+    const A: FieldElement = FieldElement::from_bytes_unchecked_be(&MONT_A_BYTES);
+    const B: FieldElement = FieldElement::from_bytes_unchecked_be(&MONT_B_BYTES);
+    const A24: FieldElement = FieldElement::from_bytes_unchecked_be(&MONT_A24_BYTES);
 }
 impl MontgomeryCurveB1 for Curve {}
 
@@ -358,9 +364,9 @@ pub struct EdCurve;
 
 impl EdwardsCurve for EdCurve {
     type FieldElement = FieldElement;
-    const A: FieldElement = FieldElement::from_bytes_unchecked(&ED_A_BYTES);
-    const D: FieldElement = FieldElement::from_bytes_unchecked(&ED_D_BYTES);
-    const D2: FieldElement = FieldElement::from_bytes_unchecked(&ED_D2_BYTES);
+    const A: FieldElement = FieldElement::from_bytes_unchecked_be(&ED_A_BYTES);
+    const D: FieldElement = FieldElement::from_bytes_unchecked_be(&ED_D_BYTES);
+    const D2: FieldElement = FieldElement::from_bytes_unchecked_be(&ED_D2_BYTES);
 }
 impl EdwardsCurveAM1 for EdCurve {}
 
@@ -432,7 +438,7 @@ fn ladder(base_u: &FieldElement, k_be: &[u8]) -> FieldElement {
 impl MontgomeryPoint {
     /// Base point with u-coordinate 9
     pub const GENERATOR: Self = MontgomeryPoint {
-        x: FieldElement::from_bytes_unchecked(&MONT_GU_BYTES),
+        x: FieldElement::from_bytes_unchecked_be(&MONT_GU_BYTES),
         z: FieldElement::one(),
     };
 
@@ -459,7 +465,7 @@ impl MontgomeryPoint {
 
     /// Scalar multiplication by a [`Scalar`] using the Montgomery ladder.
     pub fn scale(&self, k: &Scalar) -> Self {
-        self.scale_bytes(&k.to_bytes())
+        self.scale_bytes(&k.to_bytes_be())
     }
 
     /// Map this Montgomery point to a twisted Edwards point, picking the
@@ -524,10 +530,10 @@ impl Point {
 
     /// Curve generator (base point)
     pub const GENERATOR: Self = Point {
-        x: FieldElement::from_bytes_unchecked(&ED_GX_BYTES),
-        y: FieldElement::from_bytes_unchecked(&ED_GY_BYTES),
+        x: FieldElement::from_bytes_unchecked_be(&ED_GX_BYTES),
+        y: FieldElement::from_bytes_unchecked_be(&ED_GY_BYTES),
         z: FieldElement::one(),
-        t: FieldElement::from_bytes_unchecked(&ED_GT_BYTES),
+        t: FieldElement::from_bytes_unchecked_be(&ED_GT_BYTES),
     };
 
     fn from_affine(x: &FieldElement, y: &FieldElement) -> Self {
@@ -635,7 +641,7 @@ impl Point {
 
     /// Constant-time scalar multiplication by a [`Scalar`].
     pub fn scale(&self, k: &Scalar) -> Point {
-        self.scale_bytes(&k.to_bytes())
+        self.scale_bytes(&k.to_bytes_be())
     }
 
     /// Point compression: the y-coordinate together with the sign of x.
@@ -709,6 +715,78 @@ impl Point {
         let x = &(&MAP_C * u) * &v.inverse();
         Point::from_coordinate(&x, &y)
     }
+
+    /// Constant-time fixed-base scalar multiplication: `scalar · B`, where `B`
+    /// is the curve generator.
+    ///
+    /// With the `table` feature this uses a precomputed comb table for the
+    /// generator (built once on first use), which is several times faster than
+    /// the general [`Point::scale`] since it needs no point doublings: just one
+    /// constant-time table lookup and one complete addition per 4-bit window of
+    /// the scalar. Without the feature it falls back to `scale`.
+    #[cfg(feature = "table")]
+    pub fn mul_base(scalar: &Scalar) -> Point {
+        let tables = generator_comb();
+        let n = scalar.to_bytes_be(); // big-endian: 32 bytes = 64 nibbles
+        let mut q = Point::IDENTITY;
+        for (i, window) in tables.iter().enumerate() {
+            let byte = n[n.len() - 1 - (i / 2)];
+            let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
+            let selected = Self::select_from_table(window, digit);
+            q = q.add(&selected);
+        }
+        q
+    }
+
+    /// Fixed-base scalar multiplication `scalar · B` (no precomputation).
+    #[cfg(not(feature = "table"))]
+    pub fn mul_base(scalar: &Scalar) -> Point {
+        Point::GENERATOR.scale(scalar)
+    }
+
+    /// Constant-time lookup of `table[index]`: the whole window is scanned so
+    /// the memory access pattern does not depend on the (secret) `index`.
+    #[cfg(feature = "table")]
+    fn select_from_table(table: &[Point; 16], index: u8) -> Point {
+        let mut acc = Point::IDENTITY;
+        for (j, t) in table.iter().enumerate() {
+            let take = (j as u64).ct_eq(&(index as u64));
+            acc = Point::ct_select(take, t, &acc);
+        }
+        acc
+    }
+}
+
+/// The fixed-base comb table for the generator, parsed once on first use from
+/// the statically embedded [`COMB_TABLE`] (generated by `sage/comb.sage`).
+///
+/// `COMB_TABLE[i][d]` holds the affine `(x, y)` of `(d + 1) · 16^i · B`; the
+/// runtime table places those at window indices `1..=15`, with index `0` set to
+/// the identity so a zero digit selects the neutral element. `n · B` is then one
+/// constant-time table lookup and one complete addition per 4-bit window of `n`,
+/// with no point doublings.
+#[cfg(feature = "table")]
+fn generator_comb() -> &'static [[Point; 16]; COMB_WINDOWS] {
+    static V: std::sync::OnceLock<Box<[[Point; 16]; COMB_WINDOWS]>> = std::sync::OnceLock::new();
+    &**V.get_or_init(build_comb_table)
+}
+
+#[cfg(feature = "table")]
+fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
+    let mut windows: Vec<[Point; 16]> = Vec::with_capacity(COMB_WINDOWS);
+    for row in COMB_TABLE.iter() {
+        let mut window: [Point; 16] = core::array::from_fn(|_| Point::IDENTITY);
+        for (slot, (x, y)) in window.iter_mut().skip(1).zip(row.iter()) {
+            *slot = Point::from_affine(
+                &FieldElement::from_bytes_unchecked_le(x),
+                &FieldElement::from_bytes_unchecked_le(y),
+            );
+        }
+        windows.push(window);
+    }
+    <Box<[[Point; 16]; COMB_WINDOWS]>>::try_from(windows.into_boxed_slice())
+        .ok()
+        .expect("comb window count matches COMB_WINDOWS")
 }
 
 impl PartialEq for Point {
@@ -786,8 +864,9 @@ mod tests {
             0x5c, 0xf5, 0xd3, 0xed,
         ];
 
+        // the in-module test vectors are big-endian
         fn fe(bytes: &[u8; 32]) -> FieldElement {
-            FieldElement::from_bytes(bytes).expect("valid field element")
+            FieldElement::from_bytes_be(bytes).expect("valid field element")
         }
 
         #[test]
@@ -818,6 +897,22 @@ mod tests {
         fn edwards_generator_has_order_l() {
             // l * G == identity, and (l - 1)*G == -G
             assert_eq!(Point::GENERATOR.scale_bytes(&ORDER_BYTES), Point::IDENTITY);
+        }
+
+        #[test]
+        fn mul_base_matches_scale() {
+            // the fixed-base comb must agree with the generic scalar mult
+            assert_eq!(Point::mul_base(&Scalar::from_u64(0)), Point::IDENTITY);
+            for k in [1u64, 2, 9, 16, 255, 256, 1234567, 0x0123_4567_89ab_cdef] {
+                let s = Scalar::from_u64(k);
+                assert_eq!(Point::mul_base(&s), Point::GENERATOR.scale(&s), "k={}", k);
+            }
+            // a full-width scalar too
+            let mut s = Scalar::from_u64(0x0123_4567_89ab_cdef);
+            for _ in 0..5 {
+                s = s.square();
+            }
+            assert_eq!(Point::mul_base(&s), Point::GENERATOR.scale(&s));
         }
 
         #[test]
@@ -900,6 +995,19 @@ mod tests {
         fn scalar_inverse() {
             let s = Scalar::from_u64(123456789);
             assert_eq!(&s * &s.inverse(), Scalar::one());
+        }
+
+        #[test]
+        fn default_endianness_is_le() {
+            // curve25519's field and scalar default to little-endian
+            let x = fe(&super::super::ED_GX_BYTES);
+            assert_eq!(x.to_bytes(), x.to_bytes_le());
+            assert_ne!(x.to_bytes(), x.to_bytes_be());
+            assert_eq!(FieldElement::from_bytes(&x.to_bytes_le()).unwrap(), x);
+
+            let s = Scalar::from_u64(0x1234_5678_9abc_def0);
+            assert_eq!(s.to_bytes(), s.to_bytes_le());
+            assert_eq!(Scalar::from_bytes(&s.to_bytes_le()).unwrap(), s);
         }
     }
 }

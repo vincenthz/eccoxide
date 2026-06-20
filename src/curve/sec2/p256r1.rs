@@ -192,4 +192,21 @@ mod tests {
         fiat_field_unittest!(Scalar);
         crate::fiat_field_safegcd_unittest!(Scalar);
     }
+
+    mod endian {
+        use super::super::{FieldElement, Scalar};
+
+        #[test]
+        fn default_endianness_is_be() {
+            // SEC2 curves default to big-endian
+            let x = FieldElement::from_u64(0x1234_5678_9abc_def0);
+            assert_eq!(x.to_bytes(), x.to_bytes_be());
+            assert_ne!(x.to_bytes(), x.to_bytes_le());
+            assert_eq!(FieldElement::from_bytes(&x.to_bytes_be()).unwrap(), x);
+
+            let s = Scalar::from_u64(0x0fed_cba9_8765_4321);
+            assert_eq!(s.to_bytes(), s.to_bytes_be());
+            assert_eq!(Scalar::from_bytes(&s.to_bytes_be()).unwrap(), s);
+        }
+    }
 }
