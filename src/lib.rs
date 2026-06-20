@@ -59,7 +59,7 @@
 pub mod curve;
 pub(crate) mod mp;
 pub mod params;
-#[cfg(any(feature = "x25519", feature = "ed25519"))]
+#[cfg(any(feature = "x25519", feature = "ed25519", feature = "x448"))]
 pub mod protocol;
 
 #[cfg(test)]

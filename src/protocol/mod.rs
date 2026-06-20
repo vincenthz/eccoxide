@@ -8,3 +8,5 @@
 pub mod ed25519;
 #[cfg(feature = "x25519")]
 pub mod x25519;
+#[cfg(feature = "x448")]
+pub mod x448;

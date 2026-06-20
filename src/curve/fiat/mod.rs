@@ -17,6 +17,8 @@ pub mod p256_64;
 pub mod p256_scalar_64;
 pub mod p384_64;
 pub mod p384_scalar_64;
+#[cfg(feature = "curve448")]
+pub mod p448_solinas_64;
 pub mod p521_64;
 pub mod p521_scalar_64;
 pub mod secp256k1_montgomery_64;

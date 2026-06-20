@@ -39,3 +39,7 @@ pub mod sec2;
 // curve25519 / edwards25519
 #[cfg(feature = "curve25519")]
 pub mod curve25519;
+
+// curve448 ("Goldilocks")
+#[cfg(feature = "curve448")]
+pub mod curve448;

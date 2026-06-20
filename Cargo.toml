@@ -62,6 +62,7 @@ sec2-small = ["p112r1", "p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r
 ################################
 
 curve25519 = []
+curve448 = []
 
 p112r1 = []
 p112r2 = []
@@ -87,3 +88,6 @@ p521r1 = []
 # Note that ed25519 pull cryptoxide for hashing with sha512
 x25519 = ["curve25519"]
 ed25519 = ["curve25519", "cryptoxide"]
+
+# Protocol built on top of curve448: Montgomery ladder (X448)
+x448 = ["curve448"]
