@@ -26,6 +26,18 @@ divan = "0.1"
 name = "curves"
 harness = false
 
+[[bench]]
+name = "curve25519"
+harness = false
+
+[[bench]]
+name = "x25519"
+harness = false
+
+[[bench]]
+name = "ed25519"
+harness = false
+
 [features]
 default = ["sec2", "table", "curve25519"]
 
