@@ -107,6 +107,7 @@ pub trait CtZero {
 /// Check in constant time if the left object is greater than right object
 ///
 /// This equivalent to the > operator found in the core library.
+#[allow(unused)]
 pub trait CtGreater: Sized {
     fn ct_gt(a: Self, b: Self) -> Choice;
     fn ct_le(a: Self, b: Self) -> Choice {
@@ -119,6 +120,7 @@ pub trait CtGreater: Sized {
 /// This equivalent to the < operator found in the core library.
 pub trait CtLesser: Sized {
     fn ct_lt(a: Self, b: Self) -> Choice;
+    #[allow(unused)]
     fn ct_ge(a: Self, b: Self) -> Choice {
         Self::ct_lt(b, a)
     }
