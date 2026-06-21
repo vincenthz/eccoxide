@@ -11,10 +11,7 @@
 * Scalar to FieldElement
 * NonZeroScalar to NonZeroFieldElement
 * audit function for CT
-* init from wide binary : remove bias
-  * need barrett reduction 
 * "hash"-to-curve (point)
-* add ECDH/ECDSA
-* fence bigint implementation behind a rust package flag
+* ECDSA on the weierstrass curves
+* Ed448 signatures on curve448
 * special weirstrass curves : A=0, A=-3
-* non weirstrass curves
