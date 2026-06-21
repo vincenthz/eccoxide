@@ -81,10 +81,14 @@ fn public_from_seed(seed: &[u8; 32]) -> [u8; 32] {
     encode_point(&Point::mul_base(&a))
 }
 
-fn sign(seed: &[u8; 32], message: &[u8]) -> [u8; 64] {
-    let (a, prefix) = expand_secret(seed);
-    let public = encode_point(&Point::mul_base(&a));
-
+/// Core signing, given the expanded secret scalar `a`, the nonce `prefix`, and
+/// the *already-encoded* public key `public` (A).
+///
+/// The signature only needs A inside the `k = H(R || A || M)` hash (A is not
+/// part of the 64-byte `R || S` output), so when the public key is already known
+/// — as it is for a [`Keypair`] — this avoids the extra fixed-base scalar
+/// multiplication that recomputing A would cost.
+fn sign_with_public(a: &Scalar, prefix: &[u8; 32], public: &[u8; 32], message: &[u8]) -> [u8; 64] {
     // r = H(prefix || M) mod l ; R = [r]B
     let r = reduce_wide_le(&sha512(&[&prefix[..], message]));
     let r_encoded = encode_point(&Point::mul_base(&r));
@@ -93,13 +97,20 @@ fn sign(seed: &[u8; 32], message: &[u8]) -> [u8; 64] {
     let k = reduce_wide_le(&sha512(&[&r_encoded[..], &public[..], message]));
 
     // S = (r + k·a) mod l
-    let s = &r + &(&k * &a);
+    let s = r + &(&k * a);
     let s_le = s.to_bytes_le(); // little-endian, the native scalar order
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&r_encoded);
     sig[32..].copy_from_slice(&s_le);
     sig
+}
+
+fn sign(seed: &[u8; 32], message: &[u8]) -> [u8; 64] {
+    // A bare seed has no cached public key, so A must be derived here.
+    let (a, prefix) = expand_secret(seed);
+    let public = encode_point(&Point::mul_base(&a));
+    sign_with_public(&a, &prefix, &public, message)
 }
 
 fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
@@ -144,10 +155,17 @@ pub struct PublicKey([u8; 32]);
 pub struct Signature([u8; 64]);
 
 /// An Ed25519 keypair.
+///
+/// Holds the expanded secret (the scalar and nonce prefix) and the public key,
+/// all derived once at construction, so [`Keypair::sign`] needs neither to
+/// re-hash the seed nor to recompute the public key.
 #[derive(Clone)]
 pub struct Keypair {
     secret: SecretKey,
     public: PublicKey,
+    // expanded secret, cached for fast repeated signing
+    scalar: Scalar,
+    prefix: [u8; 32],
 }
 
 impl SecretKey {
@@ -192,9 +210,16 @@ impl Signature {
 impl Keypair {
     /// Build a keypair from a 32-byte seed.
     pub fn from_seed(seed: [u8; 32]) -> Self {
-        let secret = SecretKey::from_bytes(seed);
-        let public = secret.public_key();
-        Keypair { secret, public }
+        // expand the seed once, reusing it for both the public key and the
+        // cached signing material
+        let (scalar, prefix) = expand_secret(&seed);
+        let public = PublicKey(encode_point(&Point::mul_base(&scalar)));
+        Keypair {
+            secret: SecretKey::from_bytes(seed),
+            public,
+            scalar,
+            prefix,
+        }
     }
     pub fn public(&self) -> &PublicKey {
         &self.public
@@ -202,8 +227,18 @@ impl Keypair {
     pub fn secret(&self) -> &SecretKey {
         &self.secret
     }
+    /// Sign a message.
+    ///
+    /// Uses the cached expanded secret and public key, so this performs a single
+    /// fixed-base scalar multiplication (for the nonce point R) instead of the
+    /// two that signing from a bare seed would need.
     pub fn sign(&self, message: &[u8]) -> Signature {
-        self.secret.sign(message)
+        Signature(sign_with_public(
+            &self.scalar,
+            &self.prefix,
+            &self.public.0,
+            message,
+        ))
     }
 }
 
@@ -272,6 +307,26 @@ mod tests {
             assert_eq!(sig.to_bytes(), expected_sig, "signature mismatch");
 
             assert!(pk.verify(&message, &sig), "valid signature rejected");
+        }
+    }
+
+    #[test]
+    fn keypair_sign_matches_secretkey_and_rfc() {
+        // The cached-public-key Keypair path must produce byte-identical
+        // signatures to the from-seed SecretKey path (Ed25519 is deterministic),
+        // and both must match the RFC 8032 vectors.
+        for v in VECTORS {
+            let seed: [u8; 32] = hex(v.seed);
+            let expected_sig: [u8; 64] = hex(v.signature);
+            let message = hex_vec(v.message);
+
+            let kp = Keypair::from_seed(seed);
+            let sk = SecretKey::from_bytes(seed);
+
+            assert_eq!(kp.public().to_bytes(), hex::<32>(v.public));
+            let kp_sig = kp.sign(&message);
+            assert_eq!(kp_sig.to_bytes(), sk.sign(&message).to_bytes());
+            assert_eq!(kp_sig.to_bytes(), expected_sig, "keypair sig != RFC");
         }
     }
 

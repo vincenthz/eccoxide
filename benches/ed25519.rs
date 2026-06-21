@@ -44,11 +44,13 @@ mod sign {
     use super::{MESSAGE, SEED};
     use divan::{black_box, Bencher};
 
+    // Both sides sign from a precomputed keypair (cached public key), so this is
+    // an apples-to-apples comparison of the per-signature cost.
     #[divan::bench]
     fn eccoxide(bencher: Bencher) {
-        use ::eccoxide::protocol::ed25519::SecretKey;
-        let sk = SecretKey::from_bytes(SEED);
-        bencher.bench(|| black_box(&sk).sign(black_box(MESSAGE)));
+        use ::eccoxide::protocol::ed25519::Keypair;
+        let kp = Keypair::from_seed(SEED);
+        bencher.bench(|| black_box(&kp).sign(black_box(MESSAGE)));
     }
 
     #[divan::bench]
