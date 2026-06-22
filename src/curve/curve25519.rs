@@ -13,6 +13,9 @@
 //!   scalar multiplication
 //! * the birational map between the two forms
 //!
+//! The [`ristretto255`] submodule (feature `ristretto255`) builds the
+//! prime-order ristretto255 group (RFC 9496) on top of [`Point`].
+//!
 //! The base field uses the fiat-crypto unsaturated-solinas backend, and the
 //! scalar field the word-by-word Montgomery backend, in the same fashion as the
 //! curves in [`crate::curve::sec2`].
@@ -22,7 +25,7 @@ use crate::curve::fiat::curve25519_64::*;
 use crate::curve::fiat::curve25519_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::montgomery::{MontgomeryCurve, MontgomeryCurveB1};
-use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
+use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
 use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
 #[cfg(feature = "table")]
 use crate::params::curve25519::{COMB_TABLE, COMB_WINDOWS};
@@ -142,7 +145,7 @@ const SQRT_M1_BYTES: [u8; 32] = [
 ];
 
 impl FieldElement {
-    const SQRT_M1: FieldElement = FieldElement::from_bytes_unchecked_be(&SQRT_M1_BYTES);
+    pub(crate) const SQRT_M1: FieldElement = FieldElement::from_bytes_unchecked_be(&SQRT_M1_BYTES);
 
     /// Returns `(self^(2^250 - 1), self^11)`.
     ///
@@ -175,6 +178,15 @@ impl FieldElement {
         (t, z11)
     }
 
+    /// Returns `self^((p-5)/8) = self^(2^252 - 3)`.
+    ///
+    /// The core exponentiation shared by the square root and the ristretto255
+    /// [`Self::sqrt_ratio_m1`] primitive.
+    fn pow_p58(&self) -> FieldElement {
+        let (t, _z11) = self.pow_2_250_m1();
+        &t.square_rep(2) * self
+    }
+
     /// Multiplicative inverse without the non-zero precondition: returns 0 for 0.
     fn invert_or_zero(&self) -> Self {
         // p - 2 = 2^255 - 21
@@ -196,9 +208,8 @@ impl FieldElement {
     /// `self^((p+3)/8)`, corrected by `sqrt(-1)` when it is a root of `-self`
     /// instead. `None` is returned when `self` is not a quadratic residue.
     pub fn sqrt(&self) -> CtOption<Self> {
-        let (t, _z11) = self.pow_2_250_m1();
-        // self^(2^252 - 3) = (2^250 - 1) doubled twice, times self
-        let p58 = &t.square_rep(2) * self;
+        // self^((p-5)/8) = self^(2^252 - 3)
+        let p58 = self.pow_p58();
         // candidate = self^((p+3)/8) = self^(2^252 - 2)
         let cand = &p58 * self;
         let cand2 = &cand * &Self::SQRT_M1;
@@ -207,6 +218,51 @@ impl FieldElement {
         let r = Self::ct_select(is_root, &cand, &cand2);
         let present = r.square().ct_eq(self);
         CtOption::from((present, r))
+    }
+
+    /// Constant-time "is negative" test using the *canonical* least-significant
+    /// bit: the parity of the reduced little-endian encoding. This is the sign
+    /// convention used by ristretto255 (RFC 9496).
+    ///
+    /// Unlike [`Self::is_negative`], this reduces to canonical form first, so it
+    /// is also correct when the internal (unsaturated solinas) representation is
+    /// not the unique canonical one.
+    #[cfg(feature = "ristretto255")]
+    pub(crate) fn is_negative_ct(&self) -> Choice {
+        Choice((self.to_bytes_le()[0] & 1) as u64)
+    }
+
+    /// Returns the non-negative representative among `self` and `-self` (the one
+    /// whose canonical encoding is even), selected in constant time.
+    #[cfg(feature = "ristretto255")]
+    pub(crate) fn abs(&self) -> FieldElement {
+        FieldElement::ct_select(self.is_negative_ct(), &(-self), self)
+    }
+
+    /// The `SQRT_RATIO_M1` primitive of RFC 9496.
+    ///
+    /// Given `u` and `v`, returns `(was_square, r)` where:
+    /// * if `u/v` is a non-zero square, `was_square` is true and `r = +sqrt(u/v)`;
+    /// * if `u/v` is a non-zero non-square, `was_square` is false and
+    ///   `r = +sqrt(i*u/v)` where `i = sqrt(-1)`;
+    /// * if `u == 0`, `was_square` is true and `r = 0`.
+    ///
+    /// `r` is always the non-negative root (its canonical encoding is even).
+    #[cfg(feature = "ristretto255")]
+    pub(crate) fn sqrt_ratio_m1(u: &FieldElement, v: &FieldElement) -> (Choice, FieldElement) {
+        let v3 = &v.square() * v;
+        let v7 = &v3.square() * v;
+        // r = (u * v3) * (u * v7)^((p-5)/8)
+        let r = &(u * &v3) * &(u * &v7).pow_p58();
+        let check = v * &r.square();
+        let neg_u = -u;
+        let i = &Self::SQRT_M1;
+        let correct_sign = check.ct_eq(u);
+        let flipped_sign = check.ct_eq(&neg_u);
+        let flipped_sign_i = check.ct_eq(&(&neg_u * i));
+        let r_prime = i * &r;
+        let r = Self::ct_select(flipped_sign | flipped_sign_i, &r_prime, &r);
+        (correct_sign | flipped_sign, r.abs())
     }
 }
 fiat_field_sqrt_define!(FieldElement);
@@ -612,15 +668,6 @@ impl Point {
         }
     }
 
-    fn ct_select(cond: Choice, a: &Point, b: &Point) -> Point {
-        Point {
-            x: FieldElement::ct_select(cond, &a.x, &b.x),
-            y: FieldElement::ct_select(cond, &a.y, &b.y),
-            z: FieldElement::ct_select(cond, &a.z, &b.z),
-            t: FieldElement::ct_select(cond, &a.t, &b.t),
-        }
-    }
-
     /// Constant-time scalar multiplication by a big-endian scalar.
     ///
     /// A simple double-and-add over the complete addition formula: the optional
@@ -789,6 +836,20 @@ fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
         .expect("comb window count matches COMB_WINDOWS")
 }
 
+impl CtSelect for Point {
+    fn ct_select(cond: Choice, a: &Point, b: &Point) -> Point {
+        Point {
+            x: FieldElement::ct_select(cond, &a.x, &b.x),
+            y: FieldElement::ct_select(cond, &a.y, &b.y),
+            z: FieldElement::ct_select(cond, &a.z, &b.z),
+            t: FieldElement::ct_select(cond, &a.t, &b.t),
+        }
+    }
+    fn ct_assign(&mut self, cond: Choice, other: &Point) {
+        *self = Self::ct_select(cond, other, self);
+    }
+}
+
 impl PartialEq for Point {
     fn eq(&self, other: &Self) -> bool {
         // (X1:Y1:Z1) == (X2:Y2:Z2) iff X1 * Z2 == X2 * Z1 and Y1 * Z2 == Y2 * Z1
@@ -839,6 +900,10 @@ impl<'a, 'b> Mul<&'b Point> for &'a Scalar {
         p.scale(self)
     }
 }
+
+/// ristretto255 prime-order group (RFC 9496), built on edwards25519.
+#[cfg(feature = "ristretto255")]
+pub mod ristretto255;
 
 #[cfg(test)]
 mod tests {

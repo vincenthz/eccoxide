@@ -194,20 +194,6 @@ macro_rules! fiat_field_common_impl {
                 $FE(out)
             }
 
-            /// Constant-time select: returns `a` if `cond` is true, otherwise `b`.
-            ///
-            /// Delegates to the fiat-crypto `selectznz` routine, which performs
-            /// a branch-free limb-by-limb conditional move. This works whatever
-            /// the internal representation is, as a field element and its limbs
-            /// are in a one-to-one correspondence.
-            pub fn ct_select(cond: Choice, a: &Self, b: &Self) -> Self {
-                // selectznz(out, c, x, y) computes `out = if c == 0 { x } else { y }`,
-                // so pass `b` then `a` to return `a` when `cond` is true.
-                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
-                $fiat_selectznz(&mut out.0, cond.to_u1(), &b.0 .0, &a.0 .0);
-                $FE(out)
-            }
-
             /// Compute the field element raised to a power of n, modulus p
             pub fn power_u64(&self, n: u64) -> Self {
                 if n == 0 {
@@ -482,8 +468,24 @@ macro_rules! fiat_field_common_impl {
             fn cube(&self) -> $FE {
                 self.square() * self
             }
+        }
+
+        impl crate::mp::ct::CtSelect for $FE {
+            /// Constant-time select: returns `a` if `cond` is true, otherwise `b`.
+            ///
+            /// Delegates to the fiat-crypto `selectznz` routine, which performs
+            /// a branch-free limb-by-limb conditional move. This works whatever
+            /// the internal representation is, as a field element and its limbs
+            /// are in a one-to-one correspondence.
             fn ct_select(cond: Choice, a: &$FE, b: &$FE) -> $FE {
-                $FE::ct_select(cond, a, b)
+                // selectznz(out, c, x, y) computes `out = if c == 0 { x } else { y }`,
+                // so pass `b` then `a` to return `a` when `cond` is true.
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
+                $fiat_selectznz(&mut out.0, cond.to_u1(), &b.0 .0, &a.0 .0);
+                $FE(out)
+            }
+            fn ct_assign(&mut self, cond: Choice, other: &$FE) {
+                *self = Self::ct_select(cond, other, self);
             }
         }
     };
@@ -716,7 +718,8 @@ macro_rules! fiat_field_montgomery_impl {
                 let v_fe = $FE($fiat_constr_montgomery(v));
                 let neg_v = -&v_fe;
                 let f_is_negative = (f[SAT_LIMBS - 1] >> 63).ct_nonzero();
-                let v_signed = $FE::ct_select(f_is_negative, &neg_v, &v_fe);
+                let v_signed =
+                    <$FE as crate::mp::ct::CtSelect>::ct_select(f_is_negative, &neg_v, &v_fe);
 
                 // multiply by the precomputed constant ((m-1)/2)^iterations to
                 // undo the factor of 2 accumulated at every divstep.

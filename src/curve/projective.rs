@@ -12,7 +12,7 @@
 use super::affine;
 use super::field::Field;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
-use crate::mp::ct::{Choice, CtEqual};
+use crate::mp::ct::{Choice, CtEqual, CtSelect};
 use std::convert::TryFrom;
 use std::ops::{Add, Mul, Neg, Sub};
 
@@ -419,16 +419,6 @@ impl<FE: Field> Point<FE> {
             x: x3,
             y: y3,
             z: z3,
-        }
-    }
-
-    /// Constant-time select between two points: returns `a` if `cond` is true,
-    /// otherwise `b`, without branching on `cond`.
-    fn ct_select(cond: Choice, a: &Point<FE>, b: &Point<FE>) -> Point<FE> {
-        Point {
-            x: FE::ct_select(cond, &a.x, &b.x),
-            y: FE::ct_select(cond, &a.y, &b.y),
-            z: FE::ct_select(cond, &a.z, &b.z),
         }
     }
 
@@ -989,6 +979,23 @@ where
         other: &'b Point<FE>,
     ) -> Point<FE> {
         self.add_different_am3::<C>(other)
+    }
+}
+
+impl<FE: Field> CtSelect for Point<FE> {
+    /// Constant-time select between two points: returns `a` if `cond` is true,
+    /// otherwise `b`, without branching on `cond`.
+    fn ct_select(cond: Choice, a: &Point<FE>, b: &Point<FE>) -> Point<FE> {
+        Point {
+            x: FE::ct_select(cond, &a.x, &b.x),
+            y: FE::ct_select(cond, &a.y, &b.y),
+            z: FE::ct_select(cond, &a.z, &b.z),
+        }
+    }
+    fn ct_assign(&mut self, cond: Choice, other: &Point<FE>) {
+        self.x.ct_assign(cond, &other.x);
+        self.y.ct_assign(cond, &other.y);
+        self.z.ct_assign(cond, &other.z);
     }
 }
 

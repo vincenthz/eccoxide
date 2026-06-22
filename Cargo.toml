@@ -47,7 +47,7 @@ name = "x448"
 harness = false
 
 [features]
-default = ["sec2", "table", "curve25519"]
+default = ["sec2", "table", "curve25519", "ristretto255"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
@@ -99,3 +99,6 @@ ed25519 = ["curve25519", "cryptoxide"]
 
 # Protocol built on top of curve448: Montgomery ladder (X448)
 x448 = ["curve448"]
+
+# ristretto255 prime-order group (RFC 9496) built on top of edwards25519
+ristretto255 = ["curve25519"]
