@@ -128,7 +128,7 @@ pub trait CtZero {
 pub trait CtGreater: Sized {
     fn ct_gt(a: Self, b: Self) -> Choice;
     fn ct_le(a: Self, b: Self) -> Choice {
-        Self::ct_gt(b, a)
+        Self::ct_gt(a, b).negate()
     }
 }
 
@@ -139,7 +139,7 @@ pub trait CtLesser: Sized {
     fn ct_lt(a: Self, b: Self) -> Choice;
     #[allow(unused)]
     fn ct_ge(a: Self, b: Self) -> Choice {
-        Self::ct_lt(b, a)
+        Self::ct_lt(a, b).negate()
     }
 }
 
@@ -190,7 +190,7 @@ impl CtEqual for u64 {
 
 impl CtLesser for u64 {
     fn ct_lt(a: Self, b: Self) -> Choice {
-        Choice((a ^ ((a ^ b) | ((a - b) ^ b))) >> 63)
+        Choice((a ^ ((a ^ b) | (a.wrapping_sub(b) ^ b))) >> 63)
     }
 }
 
