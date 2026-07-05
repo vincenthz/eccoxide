@@ -103,15 +103,12 @@ impl RistrettoPoint {
     /// ristretto255 encoding; non-canonical field encodings, negative `s`, and
     /// the other ill-formed cases of RFC 9496 are rejected.
     pub fn decompress(bytes: &[u8; 32]) -> CtOption<RistrettoPoint> {
-        // s must be a canonical field element (< p) ...
-        let s = match FieldElement::from_bytes_le(bytes) {
-            Some(s) => s,
-            None => return CtOption::from((Choice::FALSE, RistrettoPoint::IDENTITY)),
-        };
-        // ... and non-negative (even canonical encoding).
-        if s.is_negative_ct().is_true() {
-            return CtOption::from((Choice::FALSE, RistrettoPoint::IDENTITY));
-        }
+        // s must be a canonical field element (< p): when it is not, the
+        // computation carries on with the zero placeholder and the result is
+        // marked absent ...
+        let (s_canonical, s) = FieldElement::from_bytes_le_ct(bytes).into_parts();
+        // ... and s must be non-negative (even canonical encoding)
+        let s_nonnegative = s.is_negative_ct().negate();
 
         let one = FieldElement::one();
         let ss = s.square();
@@ -130,7 +127,11 @@ impl RistrettoPoint {
         let y = &u1 * &den_y;
         let t = &x * &y;
 
-        let ok = was_square & t.is_negative_ct().negate() & y.ct_nonzero();
+        let ok = s_canonical
+            & s_nonnegative
+            & was_square
+            & t.is_negative_ct().negate()
+            & y.ct_nonzero();
         CtOption::from((ok, RistrettoPoint(Point::from_affine(&x, &y))))
     }
 
