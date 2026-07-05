@@ -580,12 +580,16 @@ macro_rules! fiat_field_montgomery_impl {
                 Self::from_bytes_unchecked_le(&buf)
             }
 
-            /// Initialize a new scalar from its little-endian bytes representation.
+            /// Initialize a new scalar from its little-endian bytes
+            /// representation, in constant time.
             ///
-            /// If the represented value overflow the field element size,
-            /// then None is returned.
-            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
-                use crate::mp::ct::CtLesser;
+            /// The returned [`crate::mp::ct::CtOption`] is marked absent when
+            /// the represented value is not canonical (greater or equal to
+            /// the field order); the carried element is then zero.
+            pub fn from_bytes_le_ct(
+                bytes: &[u8; Self::SIZE_BYTES],
+            ) -> crate::mp::ct::CtOption<Self> {
+                use crate::mp::ct::{CtLesser, CtSelect};
                 use crate::mp::limbs::LimbsLE;
 
                 let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
@@ -598,13 +602,33 @@ macro_rules! fiat_field_montgomery_impl {
                     *dst = *src;
                 }
 
-                // TODO: non constant
-                if LimbsLE::ct_lt(LimbsLE(&out.0), LimbsLE(&p[..])).is_true() {
-                    $fiat_to_montgomery(&mut out_mont, &out);
-                    Some($FE(out_mont))
-                } else {
-                    None
-                }
+                // canonical when strictly less than the modulus
+                let valid = LimbsLE::ct_lt(LimbsLE(&out.0), LimbsLE(&p));
+
+                // conversion below always runs on an in-range value
+                out.0.ct_assign(valid.negate(), &[0u64; $FE_LIMBS_SIZE]);
+                $fiat_to_montgomery(&mut out_mont, &out);
+                crate::mp::ct::CtOption::from((valid, $FE(out_mont)))
+            }
+
+            /// Initialize a new scalar from its big-endian bytes
+            /// representation, in constant time.
+            /// See [`Self::from_bytes_le_ct`].
+            pub fn from_bytes_be_ct(
+                bytes: &[u8; Self::SIZE_BYTES],
+            ) -> crate::mp::ct::CtOption<Self> {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness to the native little-endian
+                Self::from_bytes_le_ct(&buf)
+            }
+
+            /// Initialize a new scalar from its little-endian bytes representation.
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                Self::from_bytes_le_ct(bytes).into_option()
             }
 
             /// Initialize a new scalar from its big-endian bytes representation.
@@ -832,27 +856,53 @@ macro_rules! fiat_field_solinas_impl {
                 Self::from_bytes_unchecked_le(&buf)
             }
 
-            /// Initialize a new scalar from its little-endian bytes representation.
+            /// Initialize a new scalar from its little-endian bytes
+            /// representation, in constant time.
             ///
-            /// If the represented value overflow the field element size,
-            /// then None is returned.
-            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
-                use crate::mp::ct::CtLesser;
-
-                let mut out = $fiat_tight_constr([0u64; $FE_LIMBS_SIZE]);
-                $fiat_from_bytes(&mut out, bytes);
+            /// The returned [`crate::mp::ct::CtOption`] is marked absent when
+            /// the represented value is not canonical (greater or equal to
+            /// the field order); the carried element is then zero.
+            pub fn from_bytes_le_ct(
+                bytes: &[u8; Self::SIZE_BYTES],
+            ) -> crate::mp::ct::CtOption<Self> {
+                use crate::mp::ct::{CtLesser, CtSelect};
 
                 // the canonical check compares against the big-endian modulus
                 let mut be = [0u8; Self::SIZE_BYTES];
                 be.copy_from_slice(bytes);
                 be.reverse();
+                let valid = <&[u8; Self::SIZE_BYTES]>::ct_lt(&be, &$FIELD_P_BYTES);
 
-                // TODO: non constant
-                if <&[u8; Self::SIZE_BYTES]>::ct_lt(&be, &$FIELD_P_BYTES).is_true() {
-                    Some($FE(out))
-                } else {
-                    None
-                }
+                // decode an in-range value whatever the outcome: the input
+                // bytes when canonical, zero otherwise
+                let safe = <[u8; Self::SIZE_BYTES]>::ct_select(
+                    valid,
+                    bytes,
+                    &[0u8; Self::SIZE_BYTES],
+                );
+                let mut out = $fiat_tight_constr([0u64; $FE_LIMBS_SIZE]);
+                $fiat_from_bytes(&mut out, &safe);
+                crate::mp::ct::CtOption::from((valid, $FE(out)))
+            }
+
+            /// Initialize a new scalar from its big-endian bytes
+            /// representation, in constant time.
+            /// See [`Self::from_bytes_le_ct`].
+            pub fn from_bytes_be_ct(
+                bytes: &[u8; Self::SIZE_BYTES],
+            ) -> crate::mp::ct::CtOption<Self> {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf.copy_from_slice(bytes);
+                buf.reverse(); // swap endianness to the native little-endian
+                Self::from_bytes_le_ct(&buf)
+            }
+
+            /// Initialize a new scalar from its little-endian bytes representation.
+            ///
+            /// If the represented value overflow the field element size,
+            /// then None is returned.
+            pub fn from_bytes_le(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+                Self::from_bytes_le_ct(bytes).into_option()
             }
 
             /// Initialize a new scalar from its big-endian bytes representation.
@@ -1096,6 +1146,39 @@ macro_rules! fiat_field_unittest {
             let mut wide = [0u8; $FE::SIZE_BYTES * 2];
             wide[$FE::SIZE_BYTES * 2 - 1] = 5;
             assert_eq!($FE::init_from_wide_bytes_be(wide), $FE::from_u64(5));
+        }
+
+        #[test]
+        fn from_bytes_ct() {
+            // a canonical value (large: p - constant) roundtrips as present
+            let x = -$FE::from_u64(0x1234_5678_9abc_def0);
+            let (present, y) = $FE::from_bytes_le_ct(&x.to_bytes_le()).into_parts();
+            assert!(present.is_true());
+            assert_eq!(y, x);
+            let (present, y) = $FE::from_bytes_be_ct(&x.to_bytes_be()).into_parts();
+            assert!(present.is_true());
+            assert_eq!(y, x);
+
+            // the modulus itself must be rejected: take the encoding of -1
+            // (p - 1) and add one to its little-endian bytes
+            let mut p_le = (-$FE::one()).to_bytes_le();
+            for b in p_le.iter_mut() {
+                let (v, carry) = b.overflowing_add(1);
+                *b = v;
+                if !carry {
+                    break;
+                }
+            }
+            let opt = $FE::from_bytes_le_ct(&p_le);
+            assert!(opt.is_present().is_false(), "p itself must be rejected");
+            // the carried placeholder must be the (safe) zero element
+            assert_eq!(opt.into_parts().1, $FE::zero());
+            // and the Option variant built on top must agree
+            assert!($FE::from_bytes_le(&p_le).is_none());
+
+            // all-ones is >= p for any field whose modulus fits SIZE_BYTES
+            let ff = [0xffu8; $FE::SIZE_BYTES];
+            assert!($FE::from_bytes_le_ct(&ff).is_present().is_false());
         }
     };
 }
