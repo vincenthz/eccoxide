@@ -368,11 +368,76 @@ impl<const N: usize> CtLesser for &[u8; N] {
 mod tests {
     use super::*;
 
+    /// u64 values picked to stress carries, sign bits and boundaries
+    const U64S: &[u64] = &[
+        0,
+        1,
+        2,
+        3,
+        0x7f,
+        0x80,
+        0xff,
+        0xdead_beef,
+        1 << 31,
+        (1 << 32) - 1,
+        1 << 32,
+        (1 << 63) - 1,
+        1 << 63,
+        (1 << 63) + 1,
+        !0 - 1,
+        !0,
+    ];
+
     #[test]
-    fn ct_zero() {
-        assert_eq!(0u64.ct_zero().is_true(), true);
-        assert_eq!(1u64.ct_zero().is_false(), true);
+    fn choice_constants_and_predicates() {
+        assert!(Choice::TRUE.is_true());
+        assert!(!Choice::TRUE.is_false());
+        assert!(Choice::FALSE.is_false());
+        assert!(!Choice::FALSE.is_true());
     }
+
+    #[test]
+    fn choice_negate() {
+        assert!(Choice::TRUE.negate().is_false());
+        assert!(Choice::FALSE.negate().is_true());
+        assert!(Choice::TRUE.negate().negate().is_true());
+    }
+
+    #[test]
+    fn choice_into_bool() {
+        assert_eq!(bool::from(Choice::TRUE), true);
+        assert_eq!(bool::from(Choice::FALSE), false);
+    }
+
+    #[test]
+    fn choice_bit_ops() {
+        // truth tables of & and |
+        for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
+            let ca = if a { Choice::TRUE } else { Choice::FALSE };
+            let cb = if b { Choice::TRUE } else { Choice::FALSE };
+            assert_eq!(bool::from(ca & cb), a && b, "and {} {}", a, b);
+            assert_eq!(bool::from(ca | cb), a || b, "or {} {}", a, b);
+        }
+    }
+
+    #[test]
+    fn ct_zero_u64() {
+        for &v in U64S {
+            assert_eq!(v.ct_zero().is_true(), v == 0, "ct_zero {}", v);
+            assert_eq!(v.ct_nonzero().is_true(), v != 0, "ct_nonzero {}", v);
+        }
+    }
+
+    #[test]
+    fn ct_eq_u64() {
+        for &a in U64S {
+            for &b in U64S {
+                assert_eq!(a.ct_eq(&b).is_true(), a == b, "ct_eq {} {}", a, b);
+                assert_eq!(a.ct_ne(&b).is_true(), a != b, "ct_ne {} {}", a, b);
+            }
+        }
+    }
+
 
     #[test]
     fn test_ct_less() {
