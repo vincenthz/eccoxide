@@ -110,6 +110,24 @@ impl<T> CtOption<T> {
             None
         }
     }
+
+    /// Whether the value is present, as a constant time [`Choice`].
+    ///
+    /// Unlike [`Self::into_option`] this does not leave the constant time
+    /// domain, so it can be folded into a larger validity computation.
+    pub fn is_present(&self) -> Choice {
+        self.present
+    }
+
+    /// Decompose into the presence [`Choice`] and the carried value.
+    ///
+    /// The value is always returned: when the choice is false it is a
+    /// placeholder that must be treated as invalid, but it can still be fed
+    /// through a constant-time computation whose result is discarded based
+    /// on the choice, instead of branching early.
+    pub fn into_parts(self) -> (Choice, T) {
+        (self.present, self.t)
+    }
 }
 
 /// Check in constant time if the object is zero or non-zero
