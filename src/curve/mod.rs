@@ -2,6 +2,7 @@
 //!
 //! For the generic mathematic:
 //! * field: Field abstractions
+//! * group: Curve point group abstraction
 //! * affine: Affine point on short weierstrass curve
 //! * projective: Projective point on short weierstrass curve
 //! * weierstrass: Abstraction for short weierstrass curve
@@ -27,11 +28,13 @@ pub(crate) mod fiat;
 pub mod affine;
 pub mod edwards;
 pub mod field;
+pub mod group;
 pub mod montgomery;
 pub mod projective;
 pub mod weierstrass;
 
 pub use field::Sign;
+pub use group::CurveGroup;
 
 // exports the SEC2 curves
 pub mod sec2;
