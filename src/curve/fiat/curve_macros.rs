@@ -70,6 +70,23 @@ macro_rules! fiat_define_weierstrass_curve_am3 {
                 Point(self.0.scale_am3::<Curve>(&other.to_bytes()))
             }
         }
+
+        impl $crate::curve::group::CurveGroup for Point {
+            type Scalar = Scalar;
+
+            const IDENTITY: Self = Point::INFINITY;
+            const GENERATOR: Self = Point::GENERATOR;
+
+            fn double(&self) -> Self {
+                Point(self.0.double_am3::<Curve>())
+            }
+            fn mul_base(scalar: &Scalar) -> Self {
+                Point::mul_base(scalar)
+            }
+            fn mul_vartime(&self, scalar: &Scalar) -> Self {
+                Point::mul_vartime(self, scalar)
+            }
+        }
     };
 }
 
@@ -107,6 +124,23 @@ macro_rules! fiat_define_weierstrass_curve_a0 {
             /// on the scalar; only use it when the scalar is public.
             pub fn mul_vartime(&self, other: &Scalar) -> Self {
                 Point(self.0.scale_a0::<Curve>(&other.to_bytes()))
+            }
+        }
+
+        impl $crate::curve::group::CurveGroup for Point {
+            type Scalar = Scalar;
+
+            const IDENTITY: Self = Point::INFINITY;
+            const GENERATOR: Self = Point::GENERATOR;
+
+            fn double(&self) -> Self {
+                Point(self.0.double_a0::<Curve>())
+            }
+            fn mul_base(scalar: &Scalar) -> Self {
+                Point::mul_base(scalar)
+            }
+            fn mul_vartime(&self, scalar: &Scalar) -> Self {
+                Point::mul_vartime(self, scalar)
             }
         }
     };
@@ -275,6 +309,14 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
+        impl<'b> std::ops::Mul<&'b Scalar> for Point {
+            type Output = Point;
+
+            fn mul(self, other: &'b Scalar) -> Point {
+                self.scale(other)
+            }
+        }
+
         impl<'a, 'b> std::ops::Mul<&'b Point> for &'a Scalar {
             type Output = Point;
 
@@ -324,6 +366,22 @@ macro_rules! fiat_define_weierstrass_points {
 
             fn sub(self, other: &'b Point) -> Point {
                 self + (-other)
+            }
+        }
+
+        impl<'b> std::ops::Sub<&'b Point> for Point {
+            type Output = Point;
+
+            fn sub(self, other: &'b Point) -> Point {
+                &self - other
+            }
+        }
+
+        impl<'a> std::ops::Sub<Point> for &'a Point {
+            type Output = Point;
+
+            fn sub(self, other: Point) -> Point {
+                self - &other
             }
         }
 

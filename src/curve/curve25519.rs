@@ -26,9 +26,9 @@ use crate::curve::fiat::curve25519_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::montgomery::{MontgomeryCurve, MontgomeryCurveB1};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
-use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
 #[cfg(feature = "table")]
 use crate::params::curve25519::{COMB_TABLE, COMB_WINDOWS};
+use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
 #[cfg(feature = "table")]
 use std::convert::TryFrom;
 use std::ops::{Add, Mul, Neg, Sub};
@@ -679,7 +679,7 @@ impl Point {
             for i in (0..8).rev() {
                 q = q.double();
                 let bit = (byte >> i) & 1;
-                let added = q.add(self);
+                let added = Point::add(&q, self);
                 q = Point::ct_select(Choice((bit as u64) & 1), &added, &q);
             }
         }
@@ -881,10 +881,46 @@ impl<'a, 'b> Add<&'b Point> for &'a Point {
         Point::add(self, other)
     }
 }
+impl<'b> Add<&'b Point> for Point {
+    type Output = Point;
+    fn add(self, other: &'b Point) -> Point {
+        &self + other
+    }
+}
+impl<'a> Add<Point> for &'a Point {
+    type Output = Point;
+    fn add(self, other: Point) -> Point {
+        self + &other
+    }
+}
+impl Add<Point> for Point {
+    type Output = Point;
+    fn add(self, other: Point) -> Point {
+        &self + &other
+    }
+}
 impl<'a, 'b> Sub<&'b Point> for &'a Point {
     type Output = Point;
     fn sub(self, other: &'b Point) -> Point {
         Point::add(self, &other.negate())
+    }
+}
+impl<'b> Sub<&'b Point> for Point {
+    type Output = Point;
+    fn sub(self, other: &'b Point) -> Point {
+        &self - other
+    }
+}
+impl<'a> Sub<Point> for &'a Point {
+    type Output = Point;
+    fn sub(self, other: Point) -> Point {
+        self - &other
+    }
+}
+impl Sub<Point> for Point {
+    type Output = Point;
+    fn sub(self, other: Point) -> Point {
+        &self - &other
     }
 }
 
@@ -894,10 +930,33 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Point {
         self.scale(k)
     }
 }
+impl<'b> Mul<&'b Scalar> for Point {
+    type Output = Point;
+    fn mul(self, k: &'b Scalar) -> Point {
+        self.scale(k)
+    }
+}
 impl<'a, 'b> Mul<&'b Point> for &'a Scalar {
     type Output = Point;
     fn mul(self, p: &'b Point) -> Point {
         p.scale(self)
+    }
+}
+
+impl crate::curve::group::CurveGroup for Point {
+    type Scalar = Scalar;
+
+    const IDENTITY: Self = Point::IDENTITY;
+    const GENERATOR: Self = Point::GENERATOR;
+
+    fn double(&self) -> Self {
+        Point::double(self)
+    }
+    fn mul_base(scalar: &Scalar) -> Self {
+        Point::mul_base(scalar)
+    }
+    fn mul_vartime(&self, scalar: &Scalar) -> Self {
+        self.scale(scalar)
     }
 }
 

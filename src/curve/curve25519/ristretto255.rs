@@ -127,11 +127,8 @@ impl RistrettoPoint {
         let y = &u1 * &den_y;
         let t = &x * &y;
 
-        let ok = s_canonical
-            & s_nonnegative
-            & was_square
-            & t.is_negative_ct().negate()
-            & y.ct_nonzero();
+        let ok =
+            s_canonical & s_nonnegative & was_square & t.is_negative_ct().negate() & y.ct_nonzero();
         CtOption::from((ok, RistrettoPoint(Point::from_affine(&x, &y))))
     }
 
@@ -236,13 +233,49 @@ impl<'a> Neg for &'a RistrettoPoint {
 impl<'a, 'b> Add<&'b RistrettoPoint> for &'a RistrettoPoint {
     type Output = RistrettoPoint;
     fn add(self, other: &'b RistrettoPoint) -> RistrettoPoint {
-        RistrettoPoint(self.0.add(&other.0))
+        RistrettoPoint(Point::add(&self.0, &other.0))
+    }
+}
+impl<'b> Add<&'b RistrettoPoint> for RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn add(self, other: &'b RistrettoPoint) -> RistrettoPoint {
+        &self + other
+    }
+}
+impl<'a> Add<RistrettoPoint> for &'a RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn add(self, other: RistrettoPoint) -> RistrettoPoint {
+        self + &other
+    }
+}
+impl Add<RistrettoPoint> for RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn add(self, other: RistrettoPoint) -> RistrettoPoint {
+        &self + &other
     }
 }
 impl<'a, 'b> Sub<&'b RistrettoPoint> for &'a RistrettoPoint {
     type Output = RistrettoPoint;
     fn sub(self, other: &'b RistrettoPoint) -> RistrettoPoint {
         RistrettoPoint(&self.0 - &other.0)
+    }
+}
+impl<'b> Sub<&'b RistrettoPoint> for RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn sub(self, other: &'b RistrettoPoint) -> RistrettoPoint {
+        &self - other
+    }
+}
+impl<'a> Sub<RistrettoPoint> for &'a RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn sub(self, other: RistrettoPoint) -> RistrettoPoint {
+        self - &other
+    }
+}
+impl Sub<RistrettoPoint> for RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn sub(self, other: RistrettoPoint) -> RistrettoPoint {
+        &self - &other
     }
 }
 
@@ -252,10 +285,33 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a RistrettoPoint {
         self.scale(k)
     }
 }
+impl<'b> Mul<&'b Scalar> for RistrettoPoint {
+    type Output = RistrettoPoint;
+    fn mul(self, k: &'b Scalar) -> RistrettoPoint {
+        self.scale(k)
+    }
+}
 impl<'a, 'b> Mul<&'b RistrettoPoint> for &'a Scalar {
     type Output = RistrettoPoint;
     fn mul(self, p: &'b RistrettoPoint) -> RistrettoPoint {
         p.scale(self)
+    }
+}
+
+impl crate::curve::group::CurveGroup for RistrettoPoint {
+    type Scalar = Scalar;
+
+    const IDENTITY: Self = RistrettoPoint::IDENTITY;
+    const GENERATOR: Self = RistrettoPoint::BASEPOINT;
+
+    fn double(&self) -> Self {
+        RistrettoPoint::double(self)
+    }
+    fn mul_base(scalar: &Scalar) -> Self {
+        RistrettoPoint::mul_base(scalar)
+    }
+    fn mul_vartime(&self, scalar: &Scalar) -> Self {
+        RistrettoPoint::scale(self, scalar)
     }
 }
 
