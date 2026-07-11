@@ -60,13 +60,23 @@ each behind its own cargo feature:
 
 ## Features
 
+Curves:
+
 * `sec2` (default): all SEC2 curves from 192 bits and up
 * `sec2-small`: the smaller SEC2 curves (112 to 160 bits), via the generic bigint backend
 * `table` (default): embed fixed-base precomputation tables so `Point::mul_base` uses a
   constant-time comb (~4x faster); adds static data to the binary
 * `curve25519` (default), `curve448`: the Edwards/Montgomery curves
-* `x25519`, `ed25519`, `x448`, `ristretto255`, `ecdsa`: the protocols/groups above
+* `ristretto255`
 * individual SEC2 curves (e.g. `p256r1`) can be enabled one at a time
+
+Protocols:
+
+* `protocols`: to enable all protocols in this crates
+* `x25519`: enable X25519 (DH)
+* `ed25519`: enable Ed25519 signature
+* `x448`: enable X448 (DH)
+* `ecdsa`: enable ECDSA for many SEC2 curves
 
 ## Future plans
 
