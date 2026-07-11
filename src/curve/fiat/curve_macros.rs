@@ -253,6 +253,21 @@ macro_rules! fiat_define_weierstrass_points {
                 self.0.to_affine().map(PointAffine)
             }
 
+            /// Constant-time variant of [`Self::to_affine`]: returns a
+            /// `CtOption` marked not-present for the point at infinity,
+            /// without branching on the point value
+            pub fn to_affine_ct(&self) -> $crate::mp::ct::CtOption<PointAffine> {
+                let (present, p) = self.0.to_affine_ct().into_parts();
+                $crate::mp::ct::CtOption::from((present, PointAffine(p)))
+            }
+
+            /// Constant-time affine x-coordinate: like [`Self::to_affine_ct`]
+            /// but computes only `x/z`, skipping the y-coordinate. Marked
+            /// not-present for the point at infinity.
+            pub fn to_affine_x_ct(&self) -> $crate::mp::ct::CtOption<FieldElement> {
+                self.0.to_affine_x_ct()
+            }
+
             /// Normalize the point, keeping the same representation
             ///
             /// In projective coordinate it means, (X:Y:Z) => (X/Z:Y/Z:1)
