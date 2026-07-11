@@ -12,7 +12,7 @@
 use super::affine;
 use super::field::Field;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
-use crate::mp::ct::{Choice, CtEqual, CtSelect};
+use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect};
 use std::convert::TryFrom;
 use std::ops::{Add, Mul, Neg, Sub};
 
@@ -644,22 +644,51 @@ where
         }
     }
 
+    /// Presence choice `z != 0` together with `1/z`.
+    ///
+    /// For the point at infinity (`z == 0`) the inversion input is
+    /// substituted with 1 so that it stays defined; the returned inverse is
+    /// then a placeholder to be discarded through the false choice. Shared by
+    /// the constant-time affine conversions.
+    #[inline]
+    fn z_inverse_ct(&self) -> (Choice, FE) {
+        let z_nonzero = self.z.ct_ne(&FE::ZERO);
+        let z = FE::ct_select(z_nonzero, &self.z, &FE::ONE);
+        (z_nonzero, z.inverse())
+    }
+
+    /// Try to return the affine Point for this projective point
+    ///
+    /// If Self represent the point at infinity then None is return.
+    ///
+    /// For a constant-time variant of this, use [`Self::to_affine_ct`]
     pub fn to_affine(&self) -> Option<affine::Point<FE>> {
-        if self.z == FE::ONE {
-            return Some(affine::Point {
-                x: self.x.clone(),
-                y: self.y.clone(),
-            });
-        }
-        if self.z.is_zero() {
-            None
-        } else {
-            let inv = self.z.inverse();
-            Some(affine::Point {
-                x: &self.x * &inv,
-                y: &self.y * &inv,
-            })
-        }
+        self.to_affine_ct().into_option()
+    }
+
+    /// Constant-time variant of [`Self::to_affine`]: no branch on the point
+    /// value.
+    ///
+    /// The presence choice is `z != 0`; for the point at infinity the carried
+    /// coordinates are placeholders to be discarded (see [`Self::z_inverse_ct`]).
+    pub fn to_affine_ct(&self) -> CtOption<affine::Point<FE>> {
+        let (z_nonzero, inv) = self.z_inverse_ct();
+        let p = affine::Point {
+            x: &self.x * &inv,
+            y: &self.y * &inv,
+        };
+        CtOption::from((z_nonzero, p))
+    }
+
+    /// Constant-time affine x-coordinate: like [`Self::to_affine_ct`] but
+    /// computes only `x/z`, skipping the `y/z` multiplication when the
+    /// y-coordinate is not needed.
+    ///
+    /// The presence choice is `z != 0`; for the point at infinity the carried
+    /// x is a placeholder to be discarded (see [`Self::z_inverse_ct`]).
+    pub fn to_affine_x_ct(&self) -> CtOption<FE> {
+        let (z_nonzero, inv) = self.z_inverse_ct();
+        CtOption::from((z_nonzero, &self.x * &inv))
     }
 
     /// Width of the signed window used by the variable-time wNAF scalar
