@@ -266,11 +266,27 @@ macro_rules! curve_benches {
 
                 #[divan::bench]
                 fn to_affine(bencher: Bencher) {
-                    // G + 2G = 3G is a genuine projective point (z != 1), so the
-                    // benchmark exercises the modular inversion rather than the
-                    // `z == 1` fast path.
+                    // `to_affine` delegates to the constant-time conversion, so
+                    // it always performs the modular inversion regardless of z
                     let p = &point() + &point2();
                     bencher.bench(|| black_box(&p).to_affine());
+                }
+
+                #[divan::bench]
+                fn to_affine_ct(bencher: Bencher) {
+                    // The constant-time variant has no `z == 1` fast path: it
+                    // always performs the inversion, so a single (z != 1) input
+                    // is representative.
+                    let p = &point() + &point2();
+                    bencher.bench(|| black_box(&p).to_affine_ct());
+                }
+
+                #[divan::bench]
+                fn to_affine_x_ct(bencher: Bencher) {
+                    // x-only constant-time conversion: one field multiplication
+                    // cheaper than `to_affine_ct` (no `y/z`).
+                    let p = &point() + &point2();
+                    bencher.bench(|| black_box(&p).to_affine_x_ct());
                 }
 
                 #[divan::bench]
