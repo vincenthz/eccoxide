@@ -53,6 +53,10 @@ each behind its own cargo feature:
 * `x448`: X448 Diffie-Hellman key agreement (RFC 7748), on Curve448
 * `ristretto255`: the ristretto255 prime-order group (RFC 9496), on edwards25519,
   with canonical encoding/decoding and a uniform-bytes one-way map
+* `ecdsa`: ECDSA digital signatures (SEC1), on any of the SEC2 weierstrass curves;
+  sign/verify are generic over an `EcdsaOperations` trait bundling the curve
+  group (a `CurveGroup`) with the message-to-scalar hashing, with SHA-2
+  instantiations provided for every curve and any other hash pluggable
 
 ## Features
 
@@ -61,13 +65,13 @@ each behind its own cargo feature:
 * `table` (default): embed fixed-base precomputation tables so `Point::mul_base` uses a
   constant-time comb (~4x faster); adds static data to the binary
 * `curve25519` (default), `curve448`: the Edwards/Montgomery curves
-* `x25519`, `ed25519`, `x448`, `ristretto255`: the protocols/groups above
+* `x25519`, `ed25519`, `x448`, `ristretto255`, `ecdsa`: the protocols/groups above
 * individual SEC2 curves (e.g. `p256r1`) can be enabled one at a time
 
 ## Future plans
 
-Future plans include Ed448 signatures, curve9767, hash-to-curve, ECDSA on the
-Weierstrass curves, and other curves.
+Future plans include Ed448 signatures, curve9767, hash-to-curve, and other
+curves.
 
 ## FAQ
 

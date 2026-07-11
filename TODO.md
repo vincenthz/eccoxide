@@ -12,6 +12,6 @@
 * NonZeroScalar to NonZeroFieldElement
 * audit function for CT
 * "hash"-to-curve (point)
-* ECDSA on the weierstrass curves
+* RFC 6979 deterministic nonce generation for ECDSA
 * Ed448 signatures on curve448
 * special weirstrass curves : A=0, A=-3

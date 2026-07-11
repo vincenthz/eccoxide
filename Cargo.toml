@@ -16,11 +16,14 @@ repository = "https://github.com/vincenthz/eccoxide/"
 num-bigint = { version = "0.3", optional = true }
 num-traits = { version = "0.2", optional = true }
 
-# SHA-512 backend for the ed25519 signature scheme
+# SHA-512 backend for the ed25519 signature scheme, and the SHA-2 backends
+# for the provided ecdsa schemes
 cryptoxide = { version = "0.5", optional = true }
 
 [dev-dependencies]
 divan = "0.1"
+# hash functions for the ecdsa tests, and comparison benchmarks
+cryptoxide = "0.5"
 
 [[bench]]
 name = "curves"
@@ -47,7 +50,7 @@ name = "x448"
 harness = false
 
 [features]
-default = ["sec2", "table", "curve25519", "ristretto255"]
+default = ["sec2", "table", "curve25519", "ristretto255", "protocols"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
@@ -72,6 +75,8 @@ sec2-small = ["p112r1", "p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r
 curve25519 = []
 curve448 = []
 
+ristretto255 = ["curve25519"] # built on top of curve25519
+
 p112r1 = []
 p112r2 = []
 p128r1 = []
@@ -91,6 +96,7 @@ p521r1 = []
 ################################
 #### Protocols
 ################################
+protocols = ["x25519", "ed25519", "x448", "ecdsa"]
 
 # Protocol built on top of curve25519: Montgomery ladder (X25519) and Signature (Ed25519)
 # Note that ed25519 pull cryptoxide for hashing with sha512
@@ -100,5 +106,5 @@ ed25519 = ["curve25519", "cryptoxide"]
 # Protocol built on top of curve448: Montgomery ladder (X448)
 x448 = ["curve448"]
 
-# ristretto255 prime-order group (RFC 9496) built on top of edwards25519
-ristretto255 = ["curve25519"]
+# ECDSA signatures on the sec2 weierstrass curves.
+ecdsa = ["cryptoxide"]
