@@ -50,7 +50,7 @@ name = "x448"
 harness = false
 
 [features]
-default = ["sec2", "table", "curve25519", "ristretto255", "protocols"]
+default = ["sec2", "table", "curve25519", "ristretto255", "bls12-381", "protocols"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
@@ -74,6 +74,7 @@ sec2-small = ["p112r1", "p112r2", "p128r1", "p128r2", "p160k1", "p160r1", "p160r
 
 curve25519 = []
 curve448 = []
+bls12-381 = []
 
 ristretto255 = ["curve25519"] # built on top of curve25519
 

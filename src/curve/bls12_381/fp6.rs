@@ -1,0 +1,213 @@
+//! BLS12-381 cubic extension field `Fp6`
+//!
+//! `Fp6 = Fp2[v]/(v^3 - ξ)` with `ξ = 1 + u`, so elements are
+//! `c0 + c1*v + c2*v^2` with `c0, c1, c2 ∈ Fp2` and `v^3 = ξ`. This is the
+//! middle layer of the `Fp12` tower used by the pairing.
+//!
+//! Only the arithmetic needed by the pairing is provided (add/sub/neg, mul,
+//! square, multiply-by-`v`, inverse); it is deliberately kept internal and does
+//! not implement the [`Field`](crate::curve::field::Field) trait, since `Fp6`
+//! is never used as a curve base field.
+
+use super::fp2::Fp2;
+use std::ops::{Add, Mul, Neg, Sub};
+
+/// Element `c0 + c1*v + c2*v^2` of `Fp6 = Fp2[v]/(v^3 - (1 + u))`.
+#[derive(Clone)]
+pub struct Fp6 {
+    pub c0: Fp2,
+    pub c1: Fp2,
+    pub c2: Fp2,
+}
+
+impl Fp6 {
+    pub const fn new(c0: Fp2, c1: Fp2, c2: Fp2) -> Self {
+        Fp6 { c0, c1, c2 }
+    }
+
+    pub const ZERO: Self = Fp6 {
+        c0: Fp2::ZERO,
+        c1: Fp2::ZERO,
+        c2: Fp2::ZERO,
+    };
+
+    pub const ONE: Self = Fp6 {
+        c0: Fp2::ONE,
+        c1: Fp2::ZERO,
+        c2: Fp2::ZERO,
+    };
+
+    /// Embed an `Fp2` element as `c0 + 0*v + 0*v^2`.
+    pub const fn from_fp2(c0: Fp2) -> Self {
+        Fp6 {
+            c0,
+            c1: Fp2::ZERO,
+            c2: Fp2::ZERO,
+        }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.c0.is_zero() && self.c1.is_zero() && self.c2.is_zero()
+    }
+
+    /// Multiply by `v` (the non-residue of the `Fp12/Fp6` extension).
+    ///
+    /// `(c0 + c1 v + c2 v^2) * v = c2*v^3 + c0*v + c1*v^2 = c2*ξ + c0*v + c1*v^2`.
+    pub fn mul_by_nonresidue(&self) -> Self {
+        Fp6 {
+            c0: self.c2.mul_by_nonresidue(),
+            c1: self.c0.clone(),
+            c2: self.c1.clone(),
+        }
+    }
+
+    pub fn square(&self) -> Self {
+        self * self
+    }
+
+    /// The multiplicative inverse (panics on zero).
+    pub fn inverse(&self) -> Self {
+        // Standard cubic-extension inversion:
+        //   t0 = c0^2 - ξ·(c1·c2)
+        //   t1 = ξ·c2^2 - (c0·c1)
+        //   t2 = c1^2 - (c0·c2)
+        //   f  = c0·t0 + ξ·c2·t1 + ξ·c1·t2         (in Fp2)
+        //   result = (t0, t1, t2) · f^{-1}
+        let t0 = &self.c0.square() - &(&self.c1 * &self.c2).mul_by_nonresidue();
+        let t1 = &self.c2.square().mul_by_nonresidue() - &(&self.c0 * &self.c1);
+        let t2 = &self.c1.square() - &(&self.c0 * &self.c2);
+
+        let f = &(&self.c0 * &t0) + &(&(&(&self.c2 * &t1) + &(&self.c1 * &t2))).mul_by_nonresidue();
+        let f_inv = f.inverse();
+
+        Fp6 {
+            c0: &t0 * &f_inv,
+            c1: &t1 * &f_inv,
+            c2: &t2 * &f_inv,
+        }
+    }
+}
+
+impl std::fmt::Debug for Fp6 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}) + ({})*v + ({})*v^2", self.c0, self.c1, self.c2)
+    }
+}
+
+impl PartialEq for Fp6 {
+    fn eq(&self, other: &Self) -> bool {
+        self.c0 == other.c0 && self.c1 == other.c1 && self.c2 == other.c2
+    }
+}
+impl Eq for Fp6 {}
+
+impl Neg for &Fp6 {
+    type Output = Fp6;
+    fn neg(self) -> Fp6 {
+        Fp6 {
+            c0: -&self.c0,
+            c1: -&self.c1,
+            c2: -&self.c2,
+        }
+    }
+}
+
+impl<'a, 'b> Add<&'b Fp6> for &'a Fp6 {
+    type Output = Fp6;
+    fn add(self, other: &'b Fp6) -> Fp6 {
+        Fp6 {
+            c0: &self.c0 + &other.c0,
+            c1: &self.c1 + &other.c1,
+            c2: &self.c2 + &other.c2,
+        }
+    }
+}
+
+impl<'a, 'b> Sub<&'b Fp6> for &'a Fp6 {
+    type Output = Fp6;
+    fn sub(self, other: &'b Fp6) -> Fp6 {
+        Fp6 {
+            c0: &self.c0 - &other.c0,
+            c1: &self.c1 - &other.c1,
+            c2: &self.c2 - &other.c2,
+        }
+    }
+}
+
+impl<'a, 'b> Mul<&'b Fp6> for &'a Fp6 {
+    type Output = Fp6;
+    fn mul(self, other: &'b Fp6) -> Fp6 {
+        // Karatsuba over Fp2 with v^3 = ξ.
+        let v0 = &self.c0 * &other.c0;
+        let v1 = &self.c1 * &other.c1;
+        let v2 = &self.c2 * &other.c2;
+
+        // c0 = v0 + ξ·((c1+c2)(o1+o2) - v1 - v2)
+        let t = &(&(&self.c1 + &self.c2) * &(&other.c1 + &other.c2)) - &(&v1 + &v2);
+        let c0 = &v0 + &t.mul_by_nonresidue();
+
+        // c1 = (c0+c1)(o0+o1) - v0 - v1 + ξ·v2
+        let t = &(&(&self.c0 + &self.c1) * &(&other.c0 + &other.c1)) - &(&v0 + &v1);
+        let c1 = &t + &v2.mul_by_nonresidue();
+
+        // c2 = (c0+c2)(o0+o2) - v0 - v2 + v1
+        let t = &(&(&self.c0 + &self.c2) * &(&other.c0 + &other.c2)) - &(&v0 + &v2);
+        let c2 = &t + &v1;
+
+        Fp6 { c0, c1, c2 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Fp6;
+    use crate::curve::bls12_381::fp::Fp;
+    use crate::curve::bls12_381::fp2::Fp2;
+
+    fn e(a: u64, b: u64, c: u64, d: u64, f: u64, g: u64) -> Fp6 {
+        Fp6::new(
+            Fp2::new(Fp::from_u64(a), Fp::from_u64(b)),
+            Fp2::new(Fp::from_u64(c), Fp::from_u64(d)),
+            Fp2::new(Fp::from_u64(f), Fp::from_u64(g)),
+        )
+    }
+
+    #[test]
+    fn add_sub() {
+        let a = e(1, 2, 3, 4, 5, 6);
+        let b = e(7, 8, 9, 10, 11, 12);
+        assert_eq!(&(&a + &b) - &b, a);
+        assert_eq!(&a - &a, Fp6::ZERO);
+    }
+
+    #[test]
+    fn mul_one() {
+        let a = e(1, 2, 3, 4, 5, 6);
+        assert_eq!(&a * &Fp6::ONE, a);
+    }
+
+    #[test]
+    fn v_cubed_is_nonresidue() {
+        // v * v * v == ξ (embedded in Fp6 as its constant term)
+        let v = Fp6::new(Fp2::ZERO, Fp2::ONE, Fp2::ZERO);
+        let xi = Fp2::ONE.mul_by_nonresidue(); // ξ = 1 + u
+        assert_eq!(&(&v * &v) * &v, Fp6::from_fp2(xi));
+    }
+
+    #[test]
+    fn square_matches_mul() {
+        let a = e(1, 2, 3, 4, 5, 6);
+        assert_eq!(a.square(), &a * &a);
+    }
+
+    #[test]
+    fn inverse_roundtrip() {
+        for a in [
+            e(1, 2, 3, 4, 5, 6),
+            e(0, 1, 0, 0, 2, 0),
+            e(9, 0, 0, 7, 0, 3),
+        ] {
+            assert_eq!(&a * &a.inverse(), Fp6::ONE);
+        }
+    }
+}

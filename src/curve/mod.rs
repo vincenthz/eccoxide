@@ -46,3 +46,7 @@ pub mod curve25519;
 // curve448 ("Goldilocks")
 #[cfg(feature = "curve448")]
 pub mod curve448;
+
+// bls12-381
+#[cfg(feature = "bls12-381")]
+pub mod bls12_381;

@@ -126,6 +126,18 @@ mod tests {
         group_laws::<crate::curve::curve25519::Point>()
     }
 
+    #[cfg(feature = "bls12-381")]
+    #[test]
+    fn bls12_381_g1() {
+        group_laws::<crate::curve::bls12_381::g1::Point>()
+    }
+
+    #[cfg(feature = "bls12-381")]
+    #[test]
+    fn bls12_381_g2() {
+        group_laws::<crate::curve::bls12_381::g2::Point>()
+    }
+
     #[cfg(feature = "ristretto255")]
     #[test]
     fn ristretto255() {

@@ -179,6 +179,11 @@ macro_rules! fiat_field_common_impl {
             }
 
             /// Repeadtly square
+            ///
+            /// This is a helper for hand-written Fermat inversion / square-root
+            /// addition chains; fields that rely on the generic safegcd
+            /// inversion instead may legitimately never use it.
+            #[allow(dead_code)]
             fn square_rep(&self, count: usize) -> Self {
                 let mut x = self.square();
                 for _ in 1..count {
