@@ -1,6 +1,6 @@
 [package]
 name = "eccoxide"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Vincent Hanquez <vincent@typed.io>"]
 edition = "2018"
 keywords = [ "Crypto", "Cryptography", "ECC", "Elliptic", "Curve" ]
