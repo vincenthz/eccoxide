@@ -42,6 +42,8 @@ and num-bigint, which is not particularly fast, nor secure.
 
 * curve25519: Montgomery Curve25519 and Twisted Edwards Ed25519
 * curve448: The Goldilocks Curve448 (Montgomery) and edwards448 (Edwards) curves
+* jubjub: the twisted Edwards curve `-x^2 + y^2 = 1 + d*x^2*y^2` over the
+  BLS12-381 scalar field (the `bls12-381` feature provides the base field).
 
 ## Protocols
 
@@ -67,6 +69,7 @@ Curves:
 * `table` (default): embed fixed-base precomputation tables so `Point::mul_base` uses a
   constant-time comb (~4x faster); adds static data to the binary
 * `curve25519` (default), `curve448`: the Edwards/Montgomery curves
+* `jubjub`: the Jubjub twisted Edwards curve over BLS12-381 `Fr`
 * `ristretto255`
 * individual SEC2 curves (e.g. `p256r1`) can be enabled one at a time
 

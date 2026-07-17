@@ -1,10 +1,16 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
+#[cfg(feature = "bls12-381")]
+pub mod bls12_381_64;
+#[cfg(feature = "bls12-381")]
+pub mod bls12_381_scalar_64;
 #[cfg(feature = "curve25519")]
 pub mod curve25519_64;
 #[cfg(feature = "curve25519")]
 pub mod curve25519_scalar_64;
+#[cfg(feature = "jubjub")]
+pub mod jubjub_scalar_64;
 pub mod p192k1_64;
 pub mod p192k1_scalar_64;
 pub mod p192r1_64;
