@@ -50,3 +50,7 @@ pub mod curve448;
 // bls12-381
 #[cfg(feature = "bls12-381")]
 pub mod bls12_381;
+
+// jubjub (twisted Edwards curve over the BLS12-381 scalar field)
+#[cfg(feature = "jubjub")]
+pub mod jubjub;

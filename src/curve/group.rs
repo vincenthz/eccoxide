@@ -138,6 +138,12 @@ mod tests {
         group_laws::<crate::curve::bls12_381::g2::Point>()
     }
 
+    #[cfg(feature = "jubjub")]
+    #[test]
+    fn jubjub() {
+        group_laws::<crate::curve::jubjub::Point>()
+    }
+
     #[cfg(feature = "ristretto255")]
     #[test]
     fn ristretto255() {
