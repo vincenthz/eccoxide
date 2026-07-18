@@ -447,6 +447,7 @@ impl<FE: Field> Point<FE> {
     /// stack would overflow it in unoptimized builds. We grow a `Vec` one window
     /// at a time — only a single 16-point window is ever on the stack — and then
     /// reuse that allocation as the boxed array (no copy of the bulk data).
+    #[cfg(feature = "table")]
     pub(crate) fn build_comb_table<const NW: usize, const FS: usize>(
         table: &[[([u8; FS], [u8; FS]); 15]; NW],
         parse: fn(&[u8; FS]) -> FE,
