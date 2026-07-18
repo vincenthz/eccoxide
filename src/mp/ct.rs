@@ -79,6 +79,15 @@ impl From<Choice> for bool {
     }
 }
 
+impl From<bool> for Choice {
+    /// Build a [`Choice`] from a boolean without branching (`true` -> `1`,
+    /// `false` -> `0`). The caller is responsible for the boolean itself
+    /// having been computed in constant time.
+    fn from(b: bool) -> Choice {
+        Choice(b as u64)
+    }
+}
+
 impl core::ops::BitAnd for Choice {
     type Output = Choice;
     fn bitand(self, b: Choice) -> Choice {
@@ -127,6 +136,18 @@ impl<T> CtOption<T> {
     /// on the choice, instead of branching early.
     pub fn into_parts(self) -> (Choice, T) {
         (self.present, self.t)
+    }
+
+    /// Transform the carried value while preserving the presence [`Choice`].
+    ///
+    /// The closure is always applied, whether the value is present or a
+    /// placeholder, so the closure cannot fail on the possible placeholder
+    /// and need to remain constant time related to the value.
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> CtOption<U> {
+        CtOption {
+            present: self.present,
+            t: f(self.t),
+        }
     }
 }
 
@@ -437,7 +458,6 @@ mod tests {
             }
         }
     }
-
 
     #[test]
     fn test_ct_less() {
