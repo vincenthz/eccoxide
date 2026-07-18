@@ -215,8 +215,10 @@ macro_rules! fiat_define_weierstrass_points {
             /// Try to create an affine point given a X component and the sign
             /// of the Y component.
             ///
-            /// This is often refered as point decompression
-            pub fn decompress(x: &FieldElement, sign: Sign) -> Option<Self> {
+            /// This is often refered as point decompression.
+            ///
+            /// It is done in constant time and does not branch on the recovered point value
+            pub fn decompress(x: &FieldElement, sign: Sign) -> $crate::mp::ct::CtOption<Self> {
                 affine::Point::decompress::<Curve>(x, sign).map(PointAffine)
             }
         }
@@ -406,6 +408,69 @@ macro_rules! fiat_define_weierstrass_points {
             fn sub(self, other: Point) -> Point {
                 &self - &other
             }
+        }
+    };
+}
+
+/// Emit the point compression / decompression unit tests for a fiat curve.
+///
+/// Just like [`fiat_field_unittest`](crate::fiat_field_unittest) factors the
+/// field-element tests, this factors the affine-point tests so every curve
+/// gets the same coverage. Invoke it from inside a `mod point { ... }` of the
+/// curve's `tests` module; it pulls `PointAffine`/`FieldElement` from the
+/// enclosing curve module and `Sign` from the crate.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! fiat_curve_point_unittest {
+    () => {
+        use super::super::{FieldElement, PointAffine};
+        use $crate::curve::field::Sign;
+
+        /// `compress` followed by `decompress` recovers the original point for
+        /// both possible y-signs; requesting the opposite sign yields the
+        /// negated point.
+        #[test]
+        fn compress_decompress_roundtrip() {
+            for p in [PointAffine::GENERATOR, PointAffine::GENERATOR.double()] {
+                let (x, sign) = p.compress();
+                let x = x.clone();
+
+                let recovered = PointAffine::decompress(&x, sign)
+                    .into_option()
+                    .expect("valid x must decompress");
+                assert_eq!(recovered, p);
+
+                let other = if sign == Sign::Positive {
+                    Sign::Negative
+                } else {
+                    Sign::Positive
+                };
+                let neg = PointAffine::decompress(&x, other)
+                    .into_option()
+                    .expect("valid x must decompress");
+                assert_eq!(neg.to_coordinate().1, &(-recovered.to_coordinate().1));
+            }
+        }
+
+        /// An `x` that is not a valid compressed x-coordinate must decompress
+        /// to a not-present `CtOption`.
+        #[test]
+        fn decompress_rejects_invalid_x() {
+            // find the first small x that is not on the curve
+            let mut i = 0u64;
+            let x = loop {
+                let x = FieldElement::from_u64(i);
+                if PointAffine::decompress(&x, Sign::Positive)
+                    .into_option()
+                    .is_none()
+                {
+                    break x;
+                }
+                i += 1;
+            };
+            assert!(PointAffine::decompress(&x, Sign::Positive)
+                .into_option()
+                .is_none());
         }
     };
 }

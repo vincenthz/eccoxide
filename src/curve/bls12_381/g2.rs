@@ -99,7 +99,7 @@ mod tests {
         let p = (Point::GENERATOR * &s(12345)).to_affine().unwrap();
         let (x, sign) = p.compress();
         let x = x.clone();
-        let recovered = PointAffine::decompress(&x, sign).unwrap();
+        let recovered = PointAffine::decompress(&x, sign).into_option().unwrap();
         assert_eq!(recovered, p);
     }
 

@@ -213,4 +213,8 @@ mod tests {
         fiat_field_unittest!(Scalar);
         crate::fiat_field_safegcd_unittest!(Scalar);
     }
+
+    mod point {
+        crate::fiat_curve_point_unittest!();
+    }
 }

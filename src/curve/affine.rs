@@ -5,6 +5,7 @@
 //! Some other operations (negation, sub, etc) are also possible but this is not exhaustive
 use super::weierstrass::WeierstrassCurve;
 use crate::curve::field::{Field, FieldSqrt, Sign};
+use crate::mp::ct::{Choice, CtOption};
 use core::ops::{Add, Mul, Sub};
 
 /// Affine point operation over Field element FE
@@ -31,27 +32,29 @@ where
     for<'a, 'b> &'a FE: Mul<&'b FE, Output = FE>,
     for<'a, 'b> &'a FE: Sub<&'b FE, Output = FE>,
 {
+    /// Recover the point from its x-coordinate and the requested sign of the
+    /// y-coordinate (point decompression), in constant time.
+    ///
+    /// The recovery does not branch on the (secret) recovered value: the
+    /// square-root presence is carried as a `Choice` rather than matched on,
+    /// and the choice between `y` and `-y` is a branch-free constant-time
+    /// select.
+    ///
+    /// The returned `CtOption` is present exactly when `x` is a valid
+    /// compressed x-coordinate, i.e. when `x^3 + A*x + B` is a quadratic
+    /// residue. When it is not present the carried point is a placeholder
+    /// derived from the square-root candidate and must be discarded based on
+    /// the presence choice.
     pub fn decompress<C: WeierstrassCurve<FieldElement = FE>>(
         x: &FE,
         y_sign: Sign,
-    ) -> Option<Self> {
-        // Y^2 = X^3 - A*X + b
+    ) -> CtOption<Self> {
         let yy = x.square() * x + (&C::A * &x) + C::B;
-        match yy.sqrt().into_option() {
-            None => None,
-            Some(y) => {
-                let found_sign = y.sign();
-                let ny = -y.clone();
-                if found_sign == y_sign {
-                    Some(Point { x: x.clone(), y })
-                } else {
-                    Some(Point {
-                        x: x.clone(),
-                        y: ny,
-                    })
-                }
-            }
-        }
+        let (present, y) = yy.sqrt().into_parts();
+        let ny = -y.clone();
+        let matches = Choice::from(y.sign() == y_sign);
+        let y = FE::ct_select(matches, &y, &ny);
+        CtOption::from((present, Point { x: x.clone(), y }))
     }
 }
 

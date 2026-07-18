@@ -209,4 +209,8 @@ mod tests {
             assert_eq!(Scalar::from_bytes(&s.to_bytes_be()).unwrap(), s);
         }
     }
+
+    mod point {
+        crate::fiat_curve_point_unittest!();
+    }
 }
