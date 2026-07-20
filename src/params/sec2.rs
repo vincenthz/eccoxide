@@ -1,6 +1,7 @@
 //! SEC 2 : Recommended Elliptic Curve Domain Parameters
 
 /// Elliptic curve parameters for p112r1 over Fp (112 bits)
+#[cfg(feature = "p112r1")]
 pub mod p112r1 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 14] = [
@@ -65,6 +66,7 @@ pub mod p112r1 {
 }
 
 /// Elliptic curve parameters for p112r2 over Fp (112 bits)
+#[cfg(feature = "p112r2")]
 pub mod p112r2 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 14] = [
@@ -129,6 +131,7 @@ pub mod p112r2 {
 }
 
 /// Elliptic curve parameters for p128r1 over Fp (128 bits)
+#[cfg(feature = "p128r1")]
 pub mod p128r1 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 16] = [
@@ -202,6 +205,7 @@ pub mod p128r1 {
 }
 
 /// Elliptic curve parameters for p128r2 over Fp (128 bits)
+#[cfg(feature = "p128r2")]
 pub mod p128r2 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 16] = [
@@ -275,6 +279,7 @@ pub mod p128r2 {
 }
 
 /// Elliptic curve parameters for p160k1 over Fp (160 bits)
+#[cfg(feature = "p160k1")]
 pub mod p160k1 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 20] = [
@@ -349,6 +354,7 @@ pub mod p160k1 {
 }
 
 /// Elliptic curve parameters for p160r1 over Fp (160 bits)
+#[cfg(feature = "p160r1")]
 pub mod p160r1 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 20] = [
@@ -423,6 +429,7 @@ pub mod p160r1 {
 }
 
 /// Elliptic curve parameters for p160r2 over Fp (160 bits)
+#[cfg(feature = "p160r2")]
 pub mod p160r2 {
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 20] = [
@@ -497,6 +504,7 @@ pub mod p160r2 {
 }
 
 /// Elliptic curve parameters for p192k1 over Fp (192 bits)
+#[cfg(feature = "p192k1")]
 pub mod p192k1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -576,6 +584,7 @@ pub mod p192k1 {
 }
 
 /// Elliptic curve parameters for p192r1 over Fp (192 bits)
+#[cfg(feature = "p192r1")]
 pub mod p192r1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -655,6 +664,7 @@ pub mod p192r1 {
 }
 
 /// Elliptic curve parameters for p224k1 over Fp (224 bits)
+#[cfg(feature = "p224k1")]
 pub mod p224k1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -775,6 +785,7 @@ pub mod p224k1 {
 }
 
 /// Elliptic curve parameters for p224r1 over Fp (224 bits)
+#[cfg(feature = "p224r1")]
 pub mod p224r1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -895,6 +906,7 @@ pub mod p224r1 {
 }
 
 /// Elliptic curve parameters for p256k1 over Fp (256 bits)
+#[cfg(feature = "p256k1")]
 pub mod p256k1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -1025,6 +1037,7 @@ pub mod p256k1 {
 }
 
 /// Elliptic curve parameters for p256r1 over Fp (256 bits)
+#[cfg(feature = "p256r1")]
 pub mod p256r1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -1155,6 +1168,7 @@ pub mod p256r1 {
 }
 
 /// Elliptic curve parameters for p384r1 over Fp (384 bits)
+#[cfg(feature = "p384r1")]
 pub mod p384r1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
@@ -1315,6 +1329,7 @@ pub mod p384r1 {
 }
 
 /// Elliptic curve parameters for p521r1 over Fp (521 bits)
+#[cfg(feature = "p521r1")]
 pub mod p521r1 {
     // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
