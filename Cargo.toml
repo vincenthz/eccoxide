@@ -50,7 +50,7 @@ name = "x448"
 harness = false
 
 [features]
-default = ["sec2", "table", "curve25519", "ristretto255", "bls12-381", "jubjub", "protocols"]
+default = ["sec2", "sm2", "table", "curve25519", "ristretto255", "bls12-381", "jubjub", "protocols"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
@@ -94,6 +94,11 @@ p256k1 = []
 p256r1 = []
 p384r1 = []
 p521r1 = []
+
+# SM2: the recommended 256-bit prime-field curve of the Chinese SM2 standard
+# (GB/T 32918 / GM/T 0003). A short Weierstrass curve with a = -3, wired like
+# the SEC2 `r1` curves.
+sm2 = []
 
 ################################
 #### Protocols

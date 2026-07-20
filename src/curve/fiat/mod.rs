@@ -29,6 +29,10 @@ pub mod p521_64;
 pub mod p521_scalar_64;
 pub mod secp256k1_montgomery_64;
 pub mod secp256k1_montgomery_scalar_64;
+#[cfg(feature = "sm2")]
+pub mod sm2_64;
+#[cfg(feature = "sm2")]
+pub mod sm2_scalar_64;
 
 mod curve_macros;
 mod field_macros;

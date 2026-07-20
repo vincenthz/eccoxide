@@ -39,6 +39,10 @@ pub use group::CurveGroup;
 // exports the SEC2 curves
 pub mod sec2;
 
+// SM2 (GB/T 32918 / GM/T 0003): 256-bit prime-field Weierstrass curve, a = -3
+#[cfg(feature = "sm2")]
+pub mod sm2;
+
 // curve25519 / edwards25519
 #[cfg(feature = "curve25519")]
 pub mod curve25519;

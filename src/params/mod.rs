@@ -2,6 +2,9 @@
 
 pub mod sec2;
 
+#[cfg(feature = "sm2")]
+pub mod sm2;
+
 #[cfg(feature = "bls12-381")]
 pub mod bls12_381;
 
