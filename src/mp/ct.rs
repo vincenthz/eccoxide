@@ -62,7 +62,7 @@ impl Choice {
 
     // Return the choice as a `0`/`1` bit, in the shape expected by fiat-crypto
     // `*_selectznz` / `*_cmovznz` routines which use a u1
-    #[cfg(feature = "table")]
+    #[allow(dead_code)]
     pub(crate) const fn to_u1(self) -> u8 {
         self.0 as u8
     }
