@@ -54,6 +54,30 @@ impl Fp2 {
         }
     }
 
+    /// The `p`-power Frobenius endomorphism, i.e. `self^p`.
+    ///
+    /// The non-trivial automorphism of `Fp2/Fp` is the conjugation
+    /// `c0 + c1 u -> c0 - c1 u`, and by Frobenius that is exactly the `p`-th
+    /// power.
+    pub fn frobenius_map(&self) -> Self {
+        Fp2 {
+            c0: self.c0.clone(),
+            c1: -&self.c1,
+        }
+    }
+
+    /// Multiply by a base field element: `(c0 + c1 u) * a`.
+    ///
+    /// Two [`Fp`] multiplications instead of the three a full `Fp2`
+    /// multiplication would need; used by the pairing line functions, whose
+    /// evaluation point comes from `G1` and therefore has `Fp` coordinates.
+    pub fn mul_by_fp(&self, a: &Fp) -> Self {
+        Fp2 {
+            c0: &self.c0 * a,
+            c1: &self.c1 * a,
+        }
+    }
+
     /// Multiply by the non-residue `ξ = 1 + u` used to build the `Fp6`/`Fp12`
     /// tower on top of `Fp2`.
     pub fn mul_by_nonresidue(&self) -> Self {

@@ -10,7 +10,13 @@
 //! is never used as a curve base field.
 
 use super::fp2::Fp2;
+use crate::params::bls12_381::{FROBENIUS_FP6_C1_BYTES, FROBENIUS_FP6_C2_BYTES};
 use std::ops::{Add, Mul, Neg, Sub};
+
+/// `ξ^((p-1)/3)`, so that `v^p = v · FROBENIUS_C1`.
+const FROBENIUS_C1: Fp2 = Fp2::from_bytes_unchecked(&FROBENIUS_FP6_C1_BYTES);
+/// `ξ^(2(p-1)/3)`, so that `(v²)^p = v² · FROBENIUS_C2`.
+const FROBENIUS_C2: Fp2 = Fp2::from_bytes_unchecked(&FROBENIUS_FP6_C2_BYTES);
 
 /// Element `c0 + c1*v + c2*v^2` of `Fp6 = Fp2[v]/(v^3 - (1 + u))`.
 #[derive(Clone)]
@@ -63,6 +69,61 @@ impl Fp6 {
 
     pub fn square(&self) -> Self {
         self * self
+    }
+
+    /// The `p`-power Frobenius endomorphism, i.e. `self^p`.
+    ///
+    /// Frobenius is a field automorphism fixing `Fp`, so it acts coefficient-wise
+    /// on the `Fp2` components and on the basis: `v^p = v·ξ^((p-1)/3)` and
+    /// `(v²)^p = v²·ξ^(2(p-1)/3)`, since `v³ = ξ`.
+    pub fn frobenius_map(&self) -> Self {
+        Fp6 {
+            c0: self.c0.frobenius_map(),
+            c1: &self.c1.frobenius_map() * &FROBENIUS_C1,
+            c2: &self.c2.frobenius_map() * &FROBENIUS_C2,
+        }
+    }
+
+    /// Multiply by the sparse element `c0 + c1*v` (i.e. with a zero `v²`
+    /// coefficient).
+    ///
+    /// Five `Fp2` multiplications instead of the six of a full `Fp6`
+    /// multiplication. Used by [`Fp12::mul_by_014`](super::fp12::Fp12::mul_by_014).
+    pub fn mul_by_01(&self, c0: &Fp2, c1: &Fp2) -> Self {
+        // Same Karatsuba as the general multiplication, with the terms that
+        // involve the zero `v²` coefficient of the operand dropped:
+        //   r0 = a0·c0 + ξ·(a2·c1)
+        //   r1 = (a0+a1)(c0+c1) - a0·c0 - a1·c1
+        //   r2 = a2·c0 + a1·c1
+        let v0 = &self.c0 * c0;
+        let v1 = &self.c1 * c1;
+
+        let t = &(&(&self.c1 + &self.c2) * c1) - &v1; // a2·c1
+        let r0 = &v0 + &t.mul_by_nonresidue();
+
+        let r1 = &(&(&self.c0 + &self.c1) * &(c0 + c1)) - &(&v0 + &v1);
+
+        let t = &(&(&self.c0 + &self.c2) * c0) - &v0; // a2·c0
+        let r2 = &t + &v1;
+
+        Fp6 {
+            c0: r0,
+            c1: r1,
+            c2: r2,
+        }
+    }
+
+    /// Multiply by the sparse element `c1*v` (only the `v` coefficient is
+    /// non-zero).
+    ///
+    /// `(a0 + a1 v + a2 v²)·c1·v = ξ·(a2·c1) + (a0·c1)·v + (a1·c1)·v²`, i.e.
+    /// three `Fp2` multiplications.
+    pub fn mul_by_1(&self, c1: &Fp2) -> Self {
+        Fp6 {
+            c0: (&self.c2 * c1).mul_by_nonresidue(),
+            c1: &self.c0 * c1,
+            c2: &self.c1 * c1,
+        }
     }
 
     /// The multiplicative inverse (panics on zero).
@@ -209,5 +270,59 @@ mod tests {
         ] {
             assert_eq!(&a * &a.inverse(), Fp6::ONE);
         }
+    }
+
+    fn f2(a: u64, b: u64) -> Fp2 {
+        Fp2::new(Fp::from_u64(a), Fp::from_u64(b))
+    }
+
+    #[test]
+    fn frobenius_map_is_an_automorphism() {
+        // Frobenius fixes Fp, is multiplicative, and has order 6 on Fp6
+        let a = e(1, 2, 3, 4, 5, 6);
+        let b = e(7, 8, 9, 10, 11, 12);
+        assert_eq!(
+            (&a * &b).frobenius_map(),
+            &a.frobenius_map() * &b.frobenius_map()
+        );
+        assert_eq!(
+            (&a + &b).frobenius_map(),
+            &a.frobenius_map() + &b.frobenius_map()
+        );
+        assert_eq!(Fp6::ONE.frobenius_map(), Fp6::ONE);
+
+        let mut f = a.clone();
+        for _ in 0..6 {
+            f = f.frobenius_map();
+        }
+        assert_eq!(f, a);
+    }
+
+    #[test]
+    fn frobenius_coefficients_are_consistent() {
+        // C1 = xi^((p-1)/3) and C2 = xi^(2(p-1)/3), so C2 = C1^2 and
+        // C1^3 = xi^(p-1) = xi^p / xi = conj(xi) / xi
+        let c1 = super::FROBENIUS_C1;
+        let c2 = super::FROBENIUS_C2;
+        let xi = Fp2::ONE.mul_by_nonresidue();
+        assert_eq!(c1.square(), c2);
+        assert_eq!(&c1.square() * &c1, &xi.frobenius_map() * &xi.inverse());
+    }
+
+    #[test]
+    fn mul_by_01_matches_mul() {
+        let a = e(1, 2, 3, 4, 5, 6);
+        let c0 = f2(7, 8);
+        let c1 = f2(9, 10);
+        let sparse = Fp6::new(c0.clone(), c1.clone(), Fp2::ZERO);
+        assert_eq!(a.mul_by_01(&c0, &c1), &a * &sparse);
+    }
+
+    #[test]
+    fn mul_by_1_matches_mul() {
+        let a = e(1, 2, 3, 4, 5, 6);
+        let c1 = f2(9, 10);
+        let sparse = Fp6::new(Fp2::ZERO, c1.clone(), Fp2::ZERO);
+        assert_eq!(a.mul_by_1(&c1), &a * &sparse);
     }
 }

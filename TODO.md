@@ -32,11 +32,13 @@ features:
 * [ ] multi-pairing / pairing product: accumulate several Miller loops then a
   single final exponentiation
 
-optimisation (pairing is currently correctness-first, not fast):
-* [ ] projective coordinates + sparse line functions (mul_by_014) in the Miller loop
-* [ ] Frobenius-based final exponentiation (easy + hard part) instead of the single
-  square-and-multiply by (p^12-1)/r ; precompute the Frobenius coefficients
-* [ ] cyclotomic squaring in the final exponentiation
+optimisation
+* [ ] windowed / NAF exponentiation for the 126-bit lambda3 step, whose 48 set bits
+  cost ~47 of the hard part's ~68 Fp12 multiplications
+* [ ] cheaper tower squarings: Fp6::square is currently `self * self`
+  (6 Fp2 muls instead of the 2M+3S of CH-SQR), and Fp12::square uses 3 Fp6 muls
+  instead of the complex method's 2
+* [ ] compressed cyclotomic squaring (Karabina) for the exp-by-x chains
 * [ ] GLV endomorphism on G1 (and psi on G2) for faster scalar multiplication
 * [ ] multi-scalar multiplication (Pippenger / wNAF)
 * [ ] hand-written Fermat addition chains for Fp / Fr / Fp2 inverse (currently
