@@ -42,6 +42,10 @@ name = "ed25519"
 harness = false
 
 [[bench]]
+name = "bls12_381"
+harness = false
+
+[[bench]]
 name = "curve448"
 harness = false
 
