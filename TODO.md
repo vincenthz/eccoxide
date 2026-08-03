@@ -29,8 +29,6 @@ features:
   formats (the infinity / compression / sort flag bits)
 * [ ] BLS signatures (min-pk and min-sig variants), signature aggregation and
   proof-of-possession
-* [ ] multi-pairing / pairing product: accumulate several Miller loops then a
-  single final exponentiation
 
 optimisation
 * [ ] windowed / NAF exponentiation for the 126-bit lambda3 step, whose 48 set bits
