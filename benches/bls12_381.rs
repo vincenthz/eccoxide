@@ -475,16 +475,49 @@ mod bls12_381 {
     mod pairing {
         use super::*;
         use divan::{black_box, Bencher};
-        use eccoxide::curve::bls12_381::pairing::pairing;
+        use eccoxide::curve::bls12_381::pairing::{miller_loop, multi_miller_loop, pairing};
         use eccoxide::curve::bls12_381::{g1, g2};
+
+        /// A non-generator G1 point, and a second one distinct from it.
+        fn points(i: u64) -> (g1::PointAffine, g2::PointAffine) {
+            let s = &sc_a() + &Scalar::from_u64(i);
+            let t = &sc_b() + &Scalar::from_u64(i);
+            (
+                g1::Point::mul_base(&s).to_affine().unwrap(),
+                g2::Point::mul_base(&t).to_affine().unwrap(),
+            )
+        }
 
         /// `e(P, Q)` for non-generator points: the Miller loop over `E'(Fp2)` in
         /// projective coordinates plus the easy/hard final exponentiation.
         #[divan::bench(sample_count = 20, sample_size = 1)]
         fn pairing_full(bencher: Bencher) {
-            let p = g1::Point::mul_base(&sc_a()).to_affine().unwrap();
-            let q = g2::Point::mul_base(&sc_b()).to_affine().unwrap();
+            let (p, q) = points(0);
             bencher.bench(|| pairing(black_box(&p), black_box(&q)));
+        }
+
+        /// The Miller loop alone, without the final exponentiation.
+        #[divan::bench(sample_count = 20, sample_size = 1)]
+        fn miller(bencher: Bencher) {
+            let (p, q) = points(0);
+            bencher.bench(|| miller_loop(black_box(&p), black_box(&q)));
+        }
+
+        /// The final exponentiation alone.
+        #[divan::bench(sample_count = 20, sample_size = 1)]
+        fn final_exponentiation(bencher: Bencher) {
+            let (p, q) = points(0);
+            let m = miller_loop(&p, &q);
+            bencher.bench(|| black_box(&m).final_exponentiation());
+        }
+
+        /// The shared Miller loop of a product of `N` pairings: compare with `N`
+        /// times [`miller`] to see the saved `Fp12` squarings.
+        #[divan::bench(sample_count = 20, sample_size = 1, consts = [2, 4])]
+        fn multi_miller<const N: u64>(bencher: Bencher) {
+            let pairs: Vec<_> = (0..N).map(points).collect();
+            let terms: Vec<_> = pairs.iter().map(|(p, q)| (p, q)).collect();
+            bencher.bench(|| multi_miller_loop(black_box(&terms)));
         }
     }
 }

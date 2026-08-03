@@ -13,7 +13,11 @@
 //!
 //! The full extension tower ([`Fp2`](fp2::Fp2), [`Fp6`](fp6::Fp6),
 //! [`Fp12`](fp12::Fp12)) is built up on top of the base field, and [`pairing`]
-//! provides the optimal-ate pairing `e: G1 × G2 → Fp12`.
+//! provides the optimal-ate pairing `e: G1 × G2 → Fp12`, both as the single
+//! [`pairing`](pairing::pairing) function and split into its
+//! [`miller_loop`](pairing::miller_loop) /
+//! [`final_exponentiation`](pairing::MillerLoopResult::final_exponentiation)
+//! halves, so that a product of pairings costs one final exponentiation.
 
 pub mod fp;
 pub mod fp12;

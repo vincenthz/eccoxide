@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **BLS12-381**: the two halves of the pairing are now public API: `miller_loop`
+  returns a `MillerLoopResult` (which multiplies) and
+  `MillerLoopResult::final_exponentiation` completes it.
+
 ## 0.4.3 - 2026-08-01
 
 - **SM2**: the recommended 256-bit prime-field curve of the Chinese SM2 standard
