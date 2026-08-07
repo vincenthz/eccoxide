@@ -75,18 +75,32 @@ where
     }
 
     pub fn from_coordinate<C: WeierstrassCurve<FieldElement = FE>>(x: &FE, y: &FE) -> Option<Self> {
+        Self::from_coordinate_ct::<C>(x, y).into_option()
+    }
+
+    /// Constant-time variant of [`Self::from_coordinate`]: the curve equation
+    /// is checked without branching on the coordinates.
+    ///
+    /// The returned `CtOption` is present exactly when `(x, y)` satisfies
+    /// `y^2 = x^3 + A*x + B`. The carried point holds the coordinates as they
+    /// were given, so when the choice is false it is a point off the curve and
+    /// must be discarded through that choice.
+    pub fn from_coordinate_ct<C: WeierstrassCurve<FieldElement = FE>>(
+        x: &FE,
+        y: &FE,
+    ) -> CtOption<Self> {
         let y2 = y.square();
         let x3 = x.square() * x;
         let ax = C::A * x;
 
-        if y2 == x3 + ax + C::B {
-            Some(Point {
+        let on_curve = y2.ct_eq(&(x3 + ax + C::B));
+        CtOption::from((
+            on_curve,
+            Point {
                 x: x.clone(),
                 y: y.clone(),
-            })
-        } else {
-            None
-        }
+            },
+        ))
     }
 
     pub fn double<C: WeierstrassCurve<FieldElement = FE>>(&self) -> Self {
