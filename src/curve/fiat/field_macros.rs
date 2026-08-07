@@ -15,6 +15,11 @@ macro_rules! fiat_field_serde_default_bytes {
             pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
                 Self::from_bytes_be(bytes)
             }
+            /// Initialize from the (default big-endian) bytes representation,
+            /// in constant time. See [`Self::from_bytes_be_ct`].
+            pub fn from_bytes_ct(bytes: &[u8; Self::SIZE_BYTES]) -> crate::mp::ct::CtOption<Self> {
+                Self::from_bytes_be_ct(bytes)
+            }
             /// Output the (default big-endian) bytes representation.
             /// See [`Self::to_bytes_be`].
             pub const fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
@@ -33,6 +38,11 @@ macro_rules! fiat_field_serde_default_bytes {
             /// See [`Self::from_bytes_le`].
             pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
                 Self::from_bytes_le(bytes)
+            }
+            /// Initialize from the (default little-endian) bytes representation,
+            /// in constant time. See [`Self::from_bytes_le_ct`].
+            pub fn from_bytes_ct(bytes: &[u8; Self::SIZE_BYTES]) -> crate::mp::ct::CtOption<Self> {
+                Self::from_bytes_le_ct(bytes)
             }
             /// Output the (default little-endian) bytes representation.
             /// See [`Self::to_bytes_le`].
