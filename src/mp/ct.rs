@@ -210,6 +210,12 @@ pub trait CtSelect: Sized {
     fn ct_select(cond: Choice, a: &Self, b: &Self) -> Self;
 }
 
+impl CtEqual for Choice {
+    fn ct_eq(&self, b: &Self) -> Choice {
+        (*self & *b) | (self.negate() & b.negate())
+    }
+}
+
 impl CtZero for u64 {
     fn ct_zero(&self) -> Choice {
         Choice(1 ^ ((self | self.wrapping_neg()) >> 63))
