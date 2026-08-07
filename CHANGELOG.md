@@ -5,6 +5,27 @@
 - **BLS12-381**: the two halves of the pairing are now public API: `miller_loop`
   returns a `MillerLoopResult` (which multiplies) and
   `MillerLoopResult::final_exponentiation` completes it.
+- **BLS12-381**: G1 and G2 points serialize to the standard zcash/IETF
+  compressed and uncompressed encodings, through `to_compressed` /
+  `from_compressed` / `to_uncompressed` / `from_uncompressed` on `Point` and
+  `PointAffine`. Encoding is constant time, the identity included. Decoding
+  validates the flag bits, the canonicity of each coordinate and the curve
+  equation;
+- **Breaking**: `Fp2::to_bytes` and `Fp2::from_bytes_unchecked` now use the
+  `c1 || c0` component order, the imaginary part first, instead of `c0 || c1`.
+  This is the order the standard BLS12-381 encodings use, so `Fp2` bytes are now
+  directly comparable with published constants and test vectors. The change is
+  silent for code that only round-trips through the crate, but bytes persisted
+  by an earlier version decode to the conjugate-swapped element and have to be
+  swapped on read. The BLS12-381 parameters and the G2 comb table were re-encoded
+  accordingly; no other API is affected.
+- `Fp2` gained `from_bytes` (the canonicity-checking counterpart of
+  `from_bytes_unchecked`), plus the `from_slice` / `to_slice` pair and the
+  constant-time `from_bytes_ct`, mirroring what `Fp` already provides.
+- Every fiat field element gained `from_bytes_ct`, the constant-time
+  counterpart of `from_bytes` in the type's default byte order, and affine
+  points gained `from_coordinate_ct`, which checks the curve equation without
+  branching on the coordinates.
 
 ## 0.4.3 - 2026-08-01
 
