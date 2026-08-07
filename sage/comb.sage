@@ -234,7 +234,7 @@ def gen_bls12_381_g2(out_dir):
     # so its coordinates are pairs (c0, c1). The short-Weierstrass twist is
     # y^2 = x^3 + 4(1 + u). Only +/-/*/pow are used, so this also runs under
     # plain python3. Scalars are 32 bytes -> 64 four-bit windows, and each
-    # coordinate is stored `c0 || c1`, big-endian over 48 bytes each.
+    # coordinate is stored `c1 || c0`, big-endian over 48 bytes each.
     p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
     b = (4, 4)
     gx = (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8,
@@ -278,7 +278,8 @@ def gen_bls12_381_g2(out_dir):
         return (x3, y3)
 
     def coord(e):
-        raw = int(e[0]).to_bytes(field_bytes, "big") + int(e[1]).to_bytes(field_bytes, "big")
+        # the imaginary component leads, as `Fp2::to_bytes` does
+        raw = int(e[1]).to_bytes(field_bytes, "big") + int(e[0]).to_bytes(field_bytes, "big")
         return "[" + ",".join("0x%02x" % b for b in raw) + "]"
 
     lines = []
@@ -287,7 +288,7 @@ def gen_bls12_381_g2(out_dir):
     lines.append("// Fixed-base (generator) precomputation table for bls12_381 G2 (over Fp2).")
     lines.append("// Per-position 4-bit window: COMB_TABLE[i][j] = (j + 1) * 16^i * G as the")
     lines.append("// affine coordinates (x, y). Each coordinate is an Fp2 element encoded as")
-    lines.append("// `c0 || c1`, each big-endian over %d bytes (so %d bytes total). Window i" % (field_bytes, 2 * field_bytes))
+    lines.append("// `c1 || c0`, each big-endian over %d bytes (so %d bytes total). Window i" % (field_bytes, 2 * field_bytes))
     lines.append("// carries weight 16^i (low-weight first); j in 0..15 covers the digits 1..=15.")
     lines.append("pub const COMB_WINDOWS: usize = %d;" % windows)
     lines.append("pub static COMB_TABLE: [[([u8; %d], [u8; %d]); 15]; COMB_WINDOWS] = [" % (2 * field_bytes, 2 * field_bytes))

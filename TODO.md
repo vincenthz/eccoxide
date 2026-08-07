@@ -25,8 +25,6 @@ features:
 * [ ] hash-to-curve (RFC 9380) for G1 and G2: SSWU map-to-curve + isogeny maps,
   expand_message_xmd, and the encode/hash variants
 * [ ] subgroup membership checks (is-in-G1 / is-in-G2) and cofactor clearing
-* [ ] point serialization in the standard zcash/IETF compressed & uncompressed
-  formats (the infinity / compression / sort flag bits)
 * [ ] BLS signatures (min-pk and min-sig variants), signature aggregation and
   proof-of-possession
 

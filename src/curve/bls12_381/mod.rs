@@ -18,6 +18,11 @@
 //! [`miller_loop`](pairing::miller_loop) /
 //! [`final_exponentiation`](pairing::MillerLoopResult::final_exponentiation)
 //! halves, so that a product of pairings costs one final exponentiation.
+//!
+//! Points of either group serialize to the standard zcash/IETF compressed and
+//! uncompressed encodings through the `to_compressed` / `from_compressed` /
+//! `to_uncompressed` / `from_uncompressed` methods of their `Point` and
+//! `PointAffine` types.
 
 pub mod fp;
 pub mod fp12;
@@ -27,6 +32,7 @@ pub mod g1;
 pub mod g2;
 pub mod pairing;
 pub mod scalar;
+mod serialize;
 
 pub use fp::Fp;
 pub use fp12::Fp12;

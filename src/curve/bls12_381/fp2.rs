@@ -12,13 +12,36 @@ use super::fp::Fp;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
 use crate::params::bls12_381::{P_MINUS1_DIV2_BYTES, P_MINUS3_DIV4_BYTES};
-use std::ops::{Add, Mul, Neg, Sub};
+use core::convert::TryInto;
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// Element `c0 + c1*u` of the quadratic extension field `Fp2 = Fp[u]/(u^2 + 1)`.
 #[derive(Clone)]
 pub struct Fp2 {
     pub c0: Fp,
     pub c1: Fp,
+}
+
+// Basic helper to split a fixed size array of 2*N into 2 arrays of N bytes
+//
+// it cannot fail, but cannot be expressed at the rust level yet
+#[inline]
+fn split_fp2_bytes_into_fp(
+    bytes: &[u8; 2 * Fp::SIZE_BYTES],
+) -> (&[u8; Fp::SIZE_BYTES], &[u8; Fp::SIZE_BYTES]) {
+    let (c1, c0) = bytes.split_at(Fp::SIZE_BYTES);
+    (c1.try_into().unwrap(), c0.try_into().unwrap())
+}
+
+// Basic helper to split a fixed size mut array of 2*N into 2 mut arrays of N bytes
+//
+// it cannot fail, but cannot be expressed at the rust level yet
+#[inline]
+fn split_fp2_bytes_into_fp_mut(
+    bytes: &mut [u8; 2 * Fp::SIZE_BYTES],
+) -> (&mut [u8; Fp::SIZE_BYTES], &mut [u8; Fp::SIZE_BYTES]) {
+    let (c1, c0) = bytes.split_at_mut(Fp::SIZE_BYTES);
+    (c1.try_into().unwrap(), c0.try_into().unwrap())
 }
 
 impl Fp2 {
@@ -168,15 +191,19 @@ impl Fp2 {
         CtOption::from((ok, root))
     }
 
-    /// Initialize from the `c0 || c1` big-endian bytes representation, without
+    /// Initialize from the `c1 || c0` big-endian bytes representation, without
     /// checking the components are canonical.
+    ///
+    /// See [`Self::to_bytes`] about the component order.
     pub const fn from_bytes_unchecked(bytes: &[u8; Self::SIZE_BYTES]) -> Self {
-        let mut c0 = [0u8; Fp::SIZE_BYTES];
+        // in a hopefully future rust version, we don't have to jump through copying bytes
+        // to be able to use const, and instead have a const version of "split array at a const index"
         let mut c1 = [0u8; Fp::SIZE_BYTES];
+        let mut c0 = [0u8; Fp::SIZE_BYTES];
         let mut i = 0;
         while i < Fp::SIZE_BYTES {
-            c0[i] = bytes[i];
-            c1[i] = bytes[Fp::SIZE_BYTES + i];
+            c1[i] = bytes[i];
+            c0[i] = bytes[Fp::SIZE_BYTES + i];
             i += 1;
         }
         Fp2 {
@@ -185,12 +212,56 @@ impl Fp2 {
         }
     }
 
-    /// Output the `c0 || c1` big-endian bytes representation.
+    /// Initialize from the `c1 || c0` big-endian bytes representation.
+    ///
+    /// `None` is returned unless both components are canonical, i.e. each is
+    /// the representative of its class that is less than `p`.
+    pub fn from_bytes(bytes: &[u8; Self::SIZE_BYTES]) -> Option<Self> {
+        let (c1, c0) = split_fp2_bytes_into_fp(bytes);
+        Some(Fp2 {
+            c0: Fp::from_bytes(c0)?,
+            c1: Fp::from_bytes(c1)?,
+        })
+    }
+
+    /// Like [`Self::from_bytes`] but from a slice, which must be of the right size.
+    pub fn from_slice(slice: &[u8]) -> Option<Self> {
+        match slice.try_into() {
+            Err(_) => None,
+            Ok(bytes) => Self::from_bytes(bytes),
+        }
+    }
+
+    /// Constant-time variant of [`Self::from_bytes`]: no branch is taken on the
+    /// bytes, so a rejection does not show in the running time.
+    ///
+    /// The returned [`CtOption`] is marked absent when either component is not
+    /// canonical, and the element it carries is then zero in that component.
+    pub fn from_bytes_ct(bytes: &[u8; Self::SIZE_BYTES]) -> CtOption<Self> {
+        let (c1, c0) = split_fp2_bytes_into_fp(bytes);
+        let (c0_canonical, c0) = Fp::from_bytes_ct(c0).into_parts();
+        let (c1_canonical, c1) = Fp::from_bytes_ct(c1).into_parts();
+        CtOption::from((c0_canonical & c1_canonical, Fp2 { c0, c1 }))
+    }
+
+    /// Output the `c1 || c0` big-endian bytes representation.
+    ///
+    /// The *imaginary* component comes first, which is the standard order for BLS12-381
     pub fn to_bytes(&self) -> [u8; Self::SIZE_BYTES] {
         let mut out = [0u8; Self::SIZE_BYTES];
-        out[..Fp::SIZE_BYTES].copy_from_slice(&self.c0.to_bytes());
-        out[Fp::SIZE_BYTES..].copy_from_slice(&self.c1.to_bytes());
+        let (c1_out, c0_out) = split_fp2_bytes_into_fp_mut(&mut out);
+        self.c1.to_slice(c1_out);
+        self.c0.to_slice(c0_out);
         out
+    }
+
+    /// Output the `c1 || c0` big-endian bytes representation to a slice, which
+    /// must be of the right size.
+    pub fn to_slice(&self, slice: &mut [u8]) {
+        assert_eq!(slice.len(), Self::SIZE_BYTES);
+        let (c1, c0) = slice.split_at_mut(Fp::SIZE_BYTES);
+        self.c1.to_slice(c1);
+        self.c0.to_slice(c0);
     }
 }
 
@@ -484,6 +555,44 @@ mod tests {
         let a = e(0x1234_5678, 0x9abc_def0);
         let bytes = a.to_bytes();
         assert_eq!(Fp2::from_bytes_unchecked(&bytes), a);
+        assert_eq!(Fp2::from_bytes(&bytes).unwrap(), a);
+        assert_eq!(Fp2::from_slice(&bytes).unwrap(), a);
+    }
+
+    #[test]
+    fn bytes_are_c1_first() {
+        // the imaginary component leads, so the halves are the reverse of the
+        // struct's field order
+        let a = e(0x1234_5678, 0x9abc_def0);
+        let bytes = a.to_bytes();
+        assert_eq!(bytes[..Fp::SIZE_BYTES], a.c1.to_bytes());
+        assert_eq!(bytes[Fp::SIZE_BYTES..], a.c0.to_bytes());
+    }
+
+    #[test]
+    fn from_bytes_rejects_non_canonical() {
+        use crate::params::bls12_381::P_BYTES;
+
+        // p is not the canonical representative of zero, in either component
+        for offset in [0, Fp::SIZE_BYTES] {
+            let mut bytes = e(1, 1).to_bytes();
+            bytes[offset..offset + P_BYTES.len()].copy_from_slice(&P_BYTES);
+            assert!(Fp2::from_bytes(&bytes).is_none());
+            assert!(Fp2::from_bytes_ct(&bytes).into_option().is_none());
+        }
+    }
+
+    #[test]
+    fn from_bytes_ct_matches_from_bytes() {
+        let a = e(0x1234_5678, 0x9abc_def0);
+        let bytes = a.to_bytes();
+        assert_eq!(Fp2::from_bytes_ct(&bytes).into_option().unwrap(), a);
+    }
+
+    #[test]
+    fn from_slice_checks_the_size() {
+        let bytes = e(3, 4).to_bytes();
+        assert!(Fp2::from_slice(&bytes[1..]).is_none());
     }
 
     #[test]
