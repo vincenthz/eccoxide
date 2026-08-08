@@ -79,7 +79,8 @@ mod verify {
     fn cryptoxide(bencher: Bencher) {
         let (keypair, public) = ::cryptoxide::ed25519::keypair(&SEED);
         let sig = ::cryptoxide::ed25519::signature(MESSAGE, &keypair);
-        bencher
-            .bench(|| ::cryptoxide::ed25519::verify(black_box(MESSAGE), black_box(&public), black_box(&sig)));
+        bencher.bench(|| {
+            ::cryptoxide::ed25519::verify(black_box(MESSAGE), black_box(&public), black_box(&sig))
+        });
     }
 }

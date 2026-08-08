@@ -17,8 +17,8 @@
 //! type would only be needed for a signature scheme (Ed448), which is not
 //! provided.
 
-use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::fiat::p448_solinas_64::*;
+use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::montgomery::{MontgomeryCurve, MontgomeryCurveB1};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
 use crate::{fiat_field_solinas_impl, fiat_field_sqrt_define};
