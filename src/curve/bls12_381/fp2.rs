@@ -149,7 +149,7 @@ impl Fp2 {
     }
 
     /// Raise to the power of the big-endian exponent `exp` (public exponent).
-    fn power(&self, exp: &[u8]) -> Self {
+    pub(crate) fn power(&self, exp: &[u8]) -> Self {
         let mut a = self.clone();
         let mut q = Fp2::ONE;
         for limb in exp.iter().rev() {

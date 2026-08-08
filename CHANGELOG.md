@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **BLS12-381**: `is_in_subgroup` on the `Point` / `PointAffine` types of `g1`
+  and `g2` tells the prime-order-`r` subgroup apart from the curve it sits in,
+  which the curve equation alone does not. Both are the fast endomorphism checks
+  of <https://eprint.iacr.org/2021/1130>: `σ(P) = [-x²]P` for G1 (`σ` being the
+  cube-root-of-unity endomorphism) and `ψ(Q) = [x]Q` for G2 (`ψ` being
+  untwist-Frobenius-twist), which cost a couple of multiplications by the 64-bit
+  seed instead of one by `r`.
+- **BLS12-381**: hashing to the groups, behind the new
+  `bls12-381-hash-to-curve` feature (on by default): `Point::hash_to_curve` and
+  `Point::encode_to_curve` on `g1` and `g2` implement the four RFC 9380 suites
+  `BLS12381G{1,2}_XMD:SHA-256_SSWU_{RO,NU}_`, and the `hash_to_curve` module
+  exposes `expand_message_xmd` on its own. The RFC's test vectors are checked
+  against, down to the intermediate field elements and pre-cofactor points.
+- **BLS12-381**: `clear_cofactor` on the `Point` / `PointAffine` types of `g1`
+  and `g2` sends an arbitrary point of the curve (resp. the twist) into the
+  prime-order subgroup, the step hash-to-curve ends with. G1 multiplies by
+  `1 - x`, G2 uses the endomorphism chain of
+  <https://eprint.iacr.org/2017/419>; both are the `h_eff` of RFC 9380 section
+  8.8, so neither pays for a multiplication by the cofactor itself (126 and 507
+  bits).
+- **BLS12-381**: `from_compressed` / `from_uncompressed` now reject points
+  outside the prime-order subgroup; `from_compressed_oncurve_only` /
+  `from_uncompressed_oncurve_only` keep decoding any point of the curve, for when
+  membership is known or checked elsewhere.
 - **BLS12-381**: the two halves of the pairing are now public API: `miller_loop`
   returns a `MillerLoopResult` (which multiplies) and
   `MillerLoopResult::final_exponentiation` completes it.

@@ -54,7 +54,8 @@ name = "x448"
 harness = false
 
 [features]
-default = ["sec2", "sm2", "table", "curve25519", "ristretto255", "bls12-381", "jubjub", "protocols"]
+default = ["sec2", "sm2", "table", "curve25519", "ristretto255", "bls12-381",
+           "bls12-381-hash-to-curve", "jubjub", "protocols"]
 
 # Embed fixed-base (generator) precomputation tables so `Point::mul_base` uses a
 # constant-time comb (~4x faster than a variable-base scalar mult). This adds a
@@ -80,6 +81,11 @@ curve25519 = []
 curve448 = []
 bls12-381 = []
 jubjub = ["bls12-381"]
+
+# Hashing to the BLS12-381 groups (RFC 9380): the SSWU maps, the isogenies and
+# the suites BLS12381G{1,2}_XMD:SHA-256_SSWU_{RO,NU}_. Pulls cryptoxide for
+# SHA-256, hence the separate feature.
+bls12-381-hash-to-curve = ["bls12-381", "cryptoxide"]
 
 ristretto255 = ["curve25519"] # built on top of curve25519
 

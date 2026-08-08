@@ -69,6 +69,10 @@ Curves:
 * `table` (default): embed fixed-base precomputation tables so `Point::mul_base` uses a
   constant-time comb (~4x faster); adds static data to the binary
 * `curve25519` (default), `curve448`: the Edwards/Montgomery curves
+* `bls12-381` (default): the BLS12-381 pairing-friendly curve — G1, G2, the
+  `Fp2`/`Fp6`/`Fp12` tower and the optimal-ate pairing
+* `bls12-381-hash-to-curve` (default): hashing to G1/G2 per RFC 9380
+  (pulls `cryptoxide` for SHA-256)
 * `jubjub`: the Jubjub twisted Edwards curve over BLS12-381 `Fr`
 * `ristretto255`
 * individual SEC2 curves (e.g. `p256r1`) can be enabled one at a time

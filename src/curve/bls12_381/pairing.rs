@@ -52,15 +52,12 @@
 use super::fp::Fp;
 use super::fp12::Fp12;
 use super::fp2::Fp2;
-use super::{g1, g2};
+// the seed `x = -BLS_X`: the Miller loop runs over its magnitude and the
+// negative sign is corrected by conjugating the result
+use super::{g1, g2, BLS_X, BLS_X_IS_NEGATIVE};
 use crate::curve::{affine, projective};
 use crate::params::bls12_381::HARD_EXP_LAMBDA3_BYTES;
 use std::ops::Mul;
-
-/// BLS12-381 seed parameter `x = -0xd201000000010000`. The Miller loop runs
-/// over `|x|` and the negative sign is corrected by conjugating the result.
-const BLS_X: u64 = 0xd201000000010000;
-const BLS_X_IS_NEGATIVE: bool = true;
 
 /// `3b'`, three times the `b` coefficient `4(1 + u)` of the G2 twist.
 const B3_TWIST: Fp2 = Fp2::from_bytes_unchecked(&crate::params::bls12_381::g2::B3_BYTES);

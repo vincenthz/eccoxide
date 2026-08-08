@@ -22,7 +22,10 @@
 //! Points of either group serialize to the standard zcash/IETF compressed and
 //! uncompressed encodings through the `to_compressed` / `from_compressed` /
 //! `to_uncompressed` / `from_uncompressed` methods of their `Point` and
-//! `PointAffine` types.
+//! `PointAffine` types. Decoding validates membership of the prime-order
+//! subgroup, which the curve equation alone does not imply; the
+//! `_oncurve_only` decoders and the `is_in_subgroup` predicate expose the two
+//! halves of that separately.
 
 pub mod fp;
 pub mod fp12;
@@ -30,9 +33,24 @@ pub mod fp2;
 pub mod fp6;
 pub mod g1;
 pub mod g2;
+#[cfg(feature = "bls12-381-hash-to-curve")]
+pub mod hash_to_curve;
 pub mod pairing;
 pub mod scalar;
 mod serialize;
+
+/// Absolute value of the BLS12-381 seed parameter `x = -0xd201000000010000`,
+/// from which `p` and `r` are derived (`r = x⁴ - x² + 1`).
+///
+/// The seed drives the Miller loop of the [`pairing`] and the exponentiations of
+/// its final step, and — since `p ≡ x (mod r)` — the subgroup membership checks
+/// of [`g1`] and [`g2`] as well. Its sign is carried separately in
+/// [`BLS_X_IS_NEGATIVE`] rather than in the type, since every use of it iterates
+/// over the bits of the magnitude.
+pub(crate) const BLS_X: u64 = 0xd201000000010000;
+
+/// Whether the seed [`BLS_X`] stands for a negative parameter (it does).
+pub(crate) const BLS_X_IS_NEGATIVE: bool = true;
 
 pub use fp::Fp;
 pub use fp12::Fp12;

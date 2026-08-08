@@ -457,6 +457,46 @@ mod bls12_381 {
                     bencher.bench(|| black_box(&a).compress());
                 }
 
+                /// Prime-order-subgroup membership: the endomorphism check, to
+                /// compare with the `scalar_mul` the definition would cost.
+                #[divan::bench]
+                fn is_in_subgroup(bencher: Bencher) {
+                    let a = p();
+                    bencher.bench(|| black_box(&a).is_in_subgroup());
+                }
+
+                /// Cofactor clearing: the map hash-to-curve ends with.
+                #[divan::bench]
+                fn clear_cofactor(bencher: Bencher) {
+                    let a = p();
+                    bencher.bench(|| black_box(&a).clear_cofactor());
+                }
+
+                /// RFC 9380 `hash_to_curve`: expand, two field elements, two
+                /// SSWU maps plus isogenies, and the cofactor clearing.
+                #[cfg(feature = "bls12-381-hash-to-curve")]
+                #[divan::bench]
+                fn hash_to_curve(bencher: Bencher) {
+                    bencher.bench(|| {
+                        Point::hash_to_curve(
+                            black_box(b"benchmark message"),
+                            black_box(b"QUUX-V01-CS02-with-eccoxide-bench"),
+                        )
+                    });
+                }
+
+                /// The non-uniform encoding: one field element and one map.
+                #[cfg(feature = "bls12-381-hash-to-curve")]
+                #[divan::bench]
+                fn encode_to_curve(bencher: Bencher) {
+                    bencher.bench(|| {
+                        Point::encode_to_curve(
+                            black_box(b"benchmark message"),
+                            black_box(b"QUUX-V01-CS02-with-eccoxide-bench"),
+                        )
+                    });
+                }
+
                 #[divan::bench]
                 fn decompress(bencher: Bencher) {
                     let a = PointAffine::GENERATOR;

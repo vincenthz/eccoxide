@@ -6,7 +6,8 @@ features:
 * [ ] constant-time Result/Either (CtResult, CtEither)
 * [ ] assign-style operators (add_assign / sub_assign / mul_assign)
 * [ ] Scalar -> FieldElement conversion
-* [ ] generic hash-to-curve (point)
+* [ ] generic hash-to-curve (point), factoring out the BLS12-381 RFC 9380
+  implementation (SSWU + isogeny + expand_message) for the other curves
 * [ ] RFC 6979 deterministic nonce generation for ECDSA
 * [ ] Schnorr signatures
 * [ ] Ed448 signatures on curve448
@@ -22,13 +23,21 @@ tooling:
 ## BLS12-381
 
 features:
-* [ ] hash-to-curve (RFC 9380) for G1 and G2: SSWU map-to-curve + isogeny maps,
-  expand_message_xmd, and the encode/hash variants
-* [ ] subgroup membership checks (is-in-G1 / is-in-G2) and cofactor clearing
+* [ ] Generalize Hash algorithms to be able to pass arbitrary hash functions that fullfill
+  the output size requirement.
+* [ ] `expand_message_xof` (SHAKE128) alongside the `_XMD:SHA-256_` suites, for
+  applications that ask for the XOF variants of RFC 9380
+* [ ] GT membership check (an element of the cyclotomic subgroup with `f^p == f^x`),
+  the counterpart of the G1/G2 `is_in_subgroup` checks for pairing outputs
 * [ ] BLS signatures (min-pk and min-sig variants), signature aggregation and
   proof-of-possession
 
 optimisation
+* [ ] drop the inversion `map_to_curve` ends with (`x = x / tv4`, step 25 of
+  RFC 9380 appendix F.2) by handing `(x_num, x_den)` to the isogeny, which is
+  already evaluated projectively: a homogeneous `poly_eval` would need the
+  denominator powers but no `Fp`/`Fp2` inverse. Two inversions per
+  `hash_to_curve`, ~24us each, out of ~156us for G1 and ~625us for G2
 * [ ] windowed / NAF exponentiation for the 126-bit lambda3 step, whose 48 set bits
   cost ~47 of the hard part's ~68 Fp12 multiplications
 * [ ] cheaper tower squarings: Fp6::square is currently `self * self`

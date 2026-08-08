@@ -164,7 +164,9 @@ impl Fp2 {
 /// * `PointAffine`
 /// * `Point`
 ///
-/// with from_uncompressed / to_uncompressed / from_compressed / to_compressed
+/// with from_uncompressed / to_uncompressed / from_compressed / to_compressed,
+/// plus the from_compressed_oncurve_only / from_uncompressed_oncurve_only
+/// variants, which leave out the prime-order-subgroup check the others make
 #[doc(hidden)]
 #[macro_export]
 macro_rules! bls12_381_define_point_serialization {
@@ -218,6 +220,23 @@ macro_rules! bls12_381_define_point_serialization {
             CtOption::from((x_canonical & y_canonical & on_curve, PointAffine(p)))
         }
 
+        /// Fold prime-order-subgroup membership into the validity of a decoded
+        /// point, so that only a point of the group itself comes out present.
+        ///
+        /// The check runs on the carried point whether or not it is present: for
+        /// an absent one the coordinates are a placeholder off the curve, where
+        /// the outcome is meaningless but harmless — the check is made of
+        /// inversion-free point arithmetic — and it is discarded by the choice
+        /// all the same. That keeps the rejection out of the running time, as in
+        /// [`read_compressed_affine`].
+        fn check_subgroup(
+            p: $crate::mp::ct::CtOption<PointAffine>,
+        ) -> $crate::mp::ct::CtOption<PointAffine> {
+            let (present, p) = p.into_parts();
+            let in_subgroup = p.is_in_subgroup();
+            $crate::mp::ct::CtOption::from((present & in_subgroup, p))
+        }
+
         impl PointAffine {
             /// Size in bytes of the compressed encoding.
             pub const COMPRESSED_SIZE: usize = $FE::SIZE_BYTES;
@@ -267,13 +286,41 @@ macro_rules! bls12_381_define_point_serialization {
             /// dropped `y` is the lexicographically larger of the two roots.
             ///
             /// `None` is returned unless the encoding is the canonical one of
-            /// a point of the curve: the x-coordinate must be the canonical
-            /// representative of its class (less than `p`), `x^3 + b` must be
-            /// a square, and the flags must be consistent — in particular the
-            /// identity, which this type cannot represent, is rejected rather
-            /// than reported. Beware that lying on the curve does not imply
-            /// membership of the prime-order subgroup, which is not checked.
+            /// a point of the prime-order subgroup: the x-coordinate must be
+            /// the canonical representative of its class (less than `p`),
+            /// `x^3 + b` must be a square, the recovered point must lie in the
+            /// prime-order subgroup (see [`Self::is_in_subgroup`]), and the
+            /// flags must be consistent — in particular the identity, which
+            /// this type cannot represent, is rejected rather than reported.
+            ///
+            /// Use [`Self::from_compressed_oncurve_only`] to accept any point of
+            /// the curve, when membership is already known or checked
+            /// elsewhere.
             pub fn from_compressed(bytes: &[u8; Self::COMPRESSED_SIZE]) -> Option<Self> {
+                use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
+
+                match read_compressed_flags(bytes)? {
+                    // the identity has no affine representation
+                    Compressed::Infinity => None,
+                    Compressed::Point { sort } => {
+                        check_subgroup(read_compressed_affine(bytes, sort)).into_option()
+                    }
+                }
+            }
+
+            /// Deserialize the standard compressed format, validating only
+            /// that the point is on the curve.
+            ///
+            /// Same as [`Self::from_compressed`], which documents the format,
+            /// except that the prime-order-subgroup check is left out, so any
+            /// point of the curve is accepted. Beware that lying on the curve
+            /// does not imply membership of the subgroup: an attacker-supplied
+            /// point of another order breaks the assumptions of the
+            /// pairing-based protocols, so only leave the check out when it has
+            /// been done elsewhere or the source is trusted.
+            pub fn from_compressed_oncurve_only(
+                bytes: &[u8; Self::COMPRESSED_SIZE],
+            ) -> Option<Self> {
                 use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
 
                 match read_compressed_flags(bytes)? {
@@ -293,13 +340,37 @@ macro_rules! bls12_381_define_point_serialization {
             /// and bit 6 marks the identity.
             ///
             /// `None` is returned unless the encoding is the canonical one of
-            /// a point of the curve: both coordinates must be canonical, they
-            /// must satisfy the curve equation, and the flags must be
-            /// consistent — in particular the identity, which this type cannot
-            /// represent, is rejected rather than reported. Beware that lying
-            /// on the curve does not imply membership of the prime-order
-            /// subgroup, which is not checked.
+            /// a point of the prime-order subgroup: both coordinates must be
+            /// canonical, they must satisfy the curve equation, the point must
+            /// lie in the prime-order subgroup (see [`Self::is_in_subgroup`]),
+            /// and the flags must be consistent — in particular the identity,
+            /// which this type cannot represent, is rejected rather than
+            /// reported.
+            ///
+            /// Use [`Self::from_uncompressed_oncurve_only`] to accept any point of
+            /// the curve, when membership is already known or checked
+            /// elsewhere.
             pub fn from_uncompressed(bytes: &[u8; Self::UNCOMPRESSED_SIZE]) -> Option<Self> {
+                use $crate::curve::bls12_381::serialize::read_uncompressed_flags;
+
+                if read_uncompressed_flags(bytes)? {
+                    // the identity has no affine representation
+                    None
+                } else {
+                    check_subgroup(read_uncompressed_affine(bytes)).into_option()
+                }
+            }
+
+            /// Deserialize the standard uncompressed format, validating only
+            /// that the point is on the curve.
+            ///
+            /// Same as [`Self::from_uncompressed`], which documents the format,
+            /// except that the prime-order-subgroup check is left out; see
+            /// [`Self::from_compressed_oncurve_only`] about when that is
+            /// appropriate.
+            pub fn from_uncompressed_oncurve_only(
+                bytes: &[u8; Self::UNCOMPRESSED_SIZE],
+            ) -> Option<Self> {
                 use $crate::curve::bls12_381::serialize::read_uncompressed_flags;
 
                 if read_uncompressed_flags(bytes)? {
@@ -358,8 +429,30 @@ macro_rules! bls12_381_define_point_serialization {
             ///
             /// Same as [`PointAffine::from_compressed`], which documents the
             /// format, except that the encoding of the identity is accepted
-            /// and gives [`Self::INFINITY`].
+            /// and gives [`Self::INFINITY`] (which is in the subgroup).
             pub fn from_compressed(bytes: &[u8; Self::COMPRESSED_SIZE]) -> Option<Self> {
+                use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
+
+                match read_compressed_flags(bytes)? {
+                    Compressed::Infinity => Some(Point::INFINITY),
+                    Compressed::Point { sort } => {
+                        check_subgroup(read_compressed_affine(bytes, sort))
+                            .map(Point::from)
+                            .into_option()
+                    }
+                }
+            }
+
+            /// Deserialize the standard compressed format, validating only
+            /// that the point is on the curve.
+            ///
+            /// Same as [`Self::from_compressed`] except that the
+            /// prime-order-subgroup check is left out; see
+            /// [`PointAffine::from_compressed_oncurve_only`] about when that is
+            /// appropriate.
+            pub fn from_compressed_oncurve_only(
+                bytes: &[u8; Self::COMPRESSED_SIZE],
+            ) -> Option<Self> {
                 use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
 
                 match read_compressed_flags(bytes)? {
@@ -375,8 +468,29 @@ macro_rules! bls12_381_define_point_serialization {
             ///
             /// Same as [`PointAffine::from_uncompressed`], which documents the
             /// format, except that the encoding of the identity is accepted
-            /// and gives [`Self::INFINITY`].
+            /// and gives [`Self::INFINITY`] (which is in the subgroup).
             pub fn from_uncompressed(bytes: &[u8; Self::UNCOMPRESSED_SIZE]) -> Option<Self> {
+                use $crate::curve::bls12_381::serialize::read_uncompressed_flags;
+
+                if read_uncompressed_flags(bytes)? {
+                    Some(Point::INFINITY)
+                } else {
+                    check_subgroup(read_uncompressed_affine(bytes))
+                        .map(Point::from)
+                        .into_option()
+                }
+            }
+
+            /// Deserialize the standard uncompressed format, validating only
+            /// that the point is on the curve.
+            ///
+            /// Same as [`Self::from_uncompressed`] except that the
+            /// prime-order-subgroup check is left out; see
+            /// [`PointAffine::from_compressed_oncurve_only`] about when that is
+            /// appropriate.
+            pub fn from_uncompressed_oncurve_only(
+                bytes: &[u8; Self::UNCOMPRESSED_SIZE],
+            ) -> Option<Self> {
                 use $crate::curve::bls12_381::serialize::read_uncompressed_flags;
 
                 if read_uncompressed_flags(bytes)? {
@@ -400,7 +514,8 @@ macro_rules! bls12_381_define_point_serialization {
 macro_rules! bls12_381_point_serialization_unittest {
     () => {
         mod serialization {
-            use super::super::{Point, PointAffine, Scalar};
+            use super::super::{FieldElement, Point, PointAffine, Scalar};
+            use $crate::curve::field::Sign;
             use $crate::params::bls12_381::P_BYTES;
 
             const COMPRESSION_FLAG: u8 = 0b1000_0000;
@@ -417,6 +532,32 @@ macro_rules! bls12_381_point_serialization_unittest {
                             .expect("a multiple of the generator is not the identity")
                     })
                     .collect()
+            }
+
+            /// A point of the curve that is *not* in the prime-order subgroup,
+            /// obtained by decompressing a small x-coordinate: the cofactor is
+            /// large, so such a point is in the subgroup only with negligible
+            /// probability, and about half the x tried are on the curve at all.
+            ///
+            /// Membership is settled here by the definition, `[r]P == 𝒪`, and not
+            /// by the check the decoders run, which is what is under test.
+            fn off_subgroup() -> PointAffine {
+                use $crate::params::bls12_381::ORDER_BYTES;
+
+                for i in 1..64u64 {
+                    let x = FieldElement::from(i);
+                    if let Some(p) = PointAffine::decompress(&x, Sign::Positive).into_option() {
+                        let by_order = Point(
+                            Point::from(&p)
+                                .0
+                                .scale_a0::<super::super::Curve>(&ORDER_BYTES),
+                        );
+                        if by_order != Point::INFINITY {
+                            return p;
+                        }
+                    }
+                }
+                panic!("no small x gave a curve point outside the subgroup");
             }
 
             /// Both flavours round-trip, and the affine and projective sides
@@ -578,6 +719,68 @@ macro_rules! bls12_381_point_serialization_unittest {
                 let mut b = PointAffine::GENERATOR.to_uncompressed();
                 b[PointAffine::UNCOMPRESSED_SIZE - 1] ^= 1;
                 assert!(Point::from_uncompressed(&b).is_none());
+            }
+
+            /// A point of the curve outside the prime-order subgroup is
+            /// rejected by the standard decoders and accepted by the
+            /// `_oncurve_only` ones, in both flavours and for both point types.
+            #[test]
+            fn rejects_points_outside_the_subgroup() {
+                let p = off_subgroup();
+                let q = Point::from(&p);
+
+                let c = p.to_compressed();
+                assert!(PointAffine::from_compressed(&c).is_none());
+                assert!(Point::from_compressed(&c).is_none());
+                assert_eq!(PointAffine::from_compressed_oncurve_only(&c).unwrap(), p);
+                assert_eq!(Point::from_compressed_oncurve_only(&c).unwrap(), q);
+
+                let u = p.to_uncompressed();
+                assert!(PointAffine::from_uncompressed(&u).is_none());
+                assert!(Point::from_uncompressed(&u).is_none());
+                assert_eq!(PointAffine::from_uncompressed_oncurve_only(&u).unwrap(), p);
+                assert_eq!(Point::from_uncompressed_oncurve_only(&u).unwrap(), q);
+            }
+
+            /// The subgroup check is the *only* difference between the two
+            /// flavours of decoder: on points of the group they agree, the
+            /// identity included.
+            #[test]
+            fn oncurve_only_agrees_on_subgroup_points() {
+                for p in samples() {
+                    let c = p.to_compressed();
+                    assert_eq!(PointAffine::from_compressed_oncurve_only(&c).unwrap(), p);
+                    let u = p.to_uncompressed();
+                    assert_eq!(PointAffine::from_uncompressed_oncurve_only(&u).unwrap(), p);
+                }
+
+                let inf = Point::INFINITY;
+                assert_eq!(
+                    Point::from_compressed_oncurve_only(&inf.to_compressed()).unwrap(),
+                    inf
+                );
+                assert_eq!(
+                    Point::from_uncompressed_oncurve_only(&inf.to_uncompressed()).unwrap(),
+                    inf
+                );
+            }
+
+            /// The malformed encodings the flag and canonicity checks catch are
+            /// still caught when the subgroup check is skipped.
+            #[test]
+            fn oncurve_only_still_validates_the_encoding() {
+                let mut b = PointAffine::GENERATOR.to_compressed();
+                b[0] &= !COMPRESSION_FLAG;
+                assert!(Point::from_compressed_oncurve_only(&b).is_none());
+
+                let mut b = [0u8; PointAffine::COMPRESSED_SIZE];
+                b[..P_BYTES.len()].copy_from_slice(&P_BYTES);
+                b[0] |= COMPRESSION_FLAG;
+                assert!(Point::from_compressed_oncurve_only(&b).is_none());
+
+                let mut b = PointAffine::GENERATOR.to_uncompressed();
+                b[PointAffine::UNCOMPRESSED_SIZE - 1] ^= 1;
+                assert!(Point::from_uncompressed_oncurve_only(&b).is_none());
             }
         }
     };
