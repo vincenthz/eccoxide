@@ -38,6 +38,11 @@ using the `sec2-small` feature, but the size of those curves are too small to be
 in normal settings. Also those curves are using a generic backend using num-traits
 and num-bigint, which is not particularly fast, nor secure.
 
+Also available:
+
+* Pairing friendly BLS12-381
+* SM2: Chinese standard GB/T 32918 / GM.T 0003
+
 ### Edwards / Montgomery
 
 * curve25519: Montgomery Curve25519 and Twisted Edwards Ed25519
