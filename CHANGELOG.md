@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-08-18
 
 - **BLS12-381**: `is_in_subgroup` on the `Point` / `PointAffine` types of `g1`
   and `g2` tells the prime-order-`r` subgroup apart from the curve it sits in,
