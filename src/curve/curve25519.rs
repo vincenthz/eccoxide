@@ -575,6 +575,28 @@ pub struct Point {
     t: FieldElement,
 }
 
+/// The four products `(E, F, G, H)` of the dedicated `a = -1` doubling formula
+/// applied to the projective coordinates `(X, Y, Z)`.
+///
+/// The doubled point is `(E*F : G*H : F*G)` in projective coordinates, with the
+/// extended coordinate `T = E*H`. Doubling formula itself never reads `T`
+fn double_parts(
+    x: &FieldElement,
+    y: &FieldElement,
+    z: &FieldElement,
+) -> (FieldElement, FieldElement, FieldElement, FieldElement) {
+    let a = x.square();
+    let b = y.square();
+    let c = z.square().double(); // 2*Z^2
+    let d = -&a; // a*A with a = -1
+    let xy = x + y;
+    let e = &xy.square() - &(&a + &b); // (X+Y)^2 - A - B
+    let g = &d + &b;
+    let f = &g - &c;
+    let h = &d - &b;
+    (e, f, g, h)
+}
+
 impl Point {
     /// Neutral element of the group (the affine point `(0, 1)`)
     pub const IDENTITY: Self = Point {
@@ -624,15 +646,7 @@ impl Point {
 
     /// Point doubling using the dedicated `a = -1` formula.
     pub fn double(&self) -> Point {
-        let a = self.x.square();
-        let b = self.y.square();
-        let c = self.z.square().double(); // 2*Z^2
-        let d = -&a; // a*A with a = -1
-        let xy = &self.x + &self.y;
-        let e = &xy.square() - &(&a + &b); // (X+Y)^2 - A - B
-        let g = &d + &b;
-        let f = &g - &c;
-        let h = &d - &b;
+        let (e, f, g, h) = double_parts(&self.x, &self.y, &self.z);
         Point {
             x: &e * &f,
             y: &g * &h,
