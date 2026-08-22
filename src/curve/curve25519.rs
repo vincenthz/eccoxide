@@ -772,7 +772,6 @@ impl Point {
     pub fn decompress(y: &FieldElement, x_sign: Sign) -> Option<Self> {
         let one = FieldElement::one();
         let yy = y.square();
-        // x^2 = (y^2 - 1) / (d*y^2 + 1)
         let u = &yy - &one;
         let v = &(&EdCurve::D * &yy) + &one;
         match FieldElement::sqrt_div(&u, &v).into_option() {
