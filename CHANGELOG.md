@@ -5,6 +5,15 @@
 - **curve25519**: Ed25519 verification is faster. two scalar
   multiplications are now a single variable-time double-scalar multiplication,
   `Point::double_scalar_mul_base_vartime`
+- **curve25519**: `Point::decompress` is about twice as fast: it takes the
+  square root of `(y² - 1) / (d·y² + 1)` as a quotient, one exponentiation over
+  the shared `u·v³·(u·v⁷)^((p-5)/8)` candidate, instead of inverting the
+  denominator and then rooting, which cost two. The RFC 9496 `SQRT_RATIO_M1` of
+  ristretto255 now shares that candidate.
+- **Ed25519**: verification is faster: Decoding a point no longer recovers `x`
+  to reject the non-canonical `(x = 0, sign = 1)` encodings: on the curve `x` is
+  zero exactly for `y = ±1`, so the test is on `y` and the field inversion it
+  used to cost is gone.
 - **curve25519**: `Point::scale_vartime` is the width-5 wNAF variable-time
   scalar multiplication on its own, about twice as fast as the constant-time
   `Point::scale`, and is what `CurveGroup::mul_vartime` now uses.
