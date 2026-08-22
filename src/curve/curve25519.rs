@@ -1040,12 +1040,130 @@ impl PointNoT {
     }
 }
 
+/// The odd multiples `1*P, 3*P, …, (2*count - 1)*P` of `p` in cached form, so
+/// that the entry for an odd digit `d` is `table[d >> 1]`.
+fn odd_multiples(p: &Point, count: usize) -> Vec<CachedPoint> {
+    let dbl = CachedPoint::from_point(&p.double());
+    let mut table = Vec::with_capacity(count);
+    let mut cur = p.clone();
+    table.push(CachedPoint::from_point(&cur));
+    for _ in 1..count {
+        cur = cur.add_cached(&dbl);
+        table.push(CachedPoint::from_point(&cur));
+    }
+    table
+}
+
+/// The generated [`WNAF_BASE_TABLE`] decoded into cached points.
+///
+/// Both the decoding and the `2d*T` products happen at compile time — the
+/// generated entries are already in cached form and every one of them is affine
+/// — so using the table is a plain indexing, with no lazy initialisation on the
+/// way.
+#[cfg(feature = "table")]
+static GENERATOR_WNAF: [CachedPoint; wnaf_table_len(WNAF_W_BASE)] = {
+    // `[CONST; N]` initialises an array of a non-`Copy` type from a constant
+    const PLACEHOLDER: CachedPoint = CachedPoint {
+        y_minus_x: FieldElement::zero(),
+        y_plus_x: FieldElement::zero(),
+        t2d: FieldElement::zero(),
+        z: FieldElement::one(),
+    };
+    let mut table = [PLACEHOLDER; wnaf_table_len(WNAF_W_BASE)];
+    let mut i = 0;
+    while i < wnaf_table_len(WNAF_W_BASE) {
+        let (y_minus_x, y_plus_x, t2d) = WNAF_BASE_TABLE[i];
+        table[i] = CachedPoint {
+            y_minus_x: FieldElement::from_bytes_unchecked_le(&y_minus_x),
+            y_plus_x: FieldElement::from_bytes_unchecked_le(&y_plus_x),
+            t2d: FieldElement::from_bytes_unchecked_le(&t2d),
+            // the generated multiples are affine
+            z: FieldElement::one(),
+        };
+        i += 1;
+    }
+    table
+};
+
+/// Odd multiples of the generator for the width-[`WNAF_W_BASE`] recoding.
+#[cfg(feature = "table")]
+fn generator_odd_multiples() -> &'static [CachedPoint] {
+    &GENERATOR_WNAF
+}
+
+/// Odd multiples of the generator for the width-[`WNAF_W_BASE`] recoding.
+///
+/// Without the `table` feature there is no generated table, so these are
+/// computed for every multiplication — the same fallback [`Point::mul_base`]
+/// makes when it has no comb table to read.
+#[cfg(not(feature = "table"))]
+fn generator_odd_multiples() -> Vec<CachedPoint> {
+    odd_multiples(&Point::GENERATOR, wnaf_table_len(WNAF_W_BASE))
+}
+
+/// Add `digit * P` to `q`, where `table` holds the odd multiples of `P` and
+/// `digit` is a non-zero wNAF digit.
+#[inline]
+fn add_wnaf_multiple(q: &Point, table: &[CachedPoint], digit: i8) -> Point {
+    let entry = &table[(digit.unsigned_abs() >> 1) as usize];
+    if digit > 0 {
+        q.add_cached(entry)
+    } else {
+        q.add_cached(&entry.negate())
+    }
+}
+
 impl Point {
-    /// Variable-time double-scalar multiplication `s · B + k · p`, where `B` is
+    /// Variable-time scalar multiplication `k * self`, using a width-5 wNAF.
+    pub fn scale_vartime(&self, k: &Scalar) -> Point {
+        let (digits, len) = wnaf(k, WNAF_W);
+        let table = odd_multiples(self, wnaf_table_len(WNAF_W));
+
+        // `pending` counts the doublings a run of zero digits has accumulated,
+        // applied in one go so that only the last of them maintains `T`
+        let mut q = Point::IDENTITY;
+        let mut pending = 0;
+        for i in (0..len).rev() {
+            pending += 1;
+            if digits[i] != 0 {
+                q = add_wnaf_multiple(&q.double_repeat(pending), &table, digits[i]);
+                pending = 0;
+            }
+        }
+        if pending > 0 {
+            q = q.double_repeat(pending);
+        }
+        q
+    }
+
+    /// Variable-time double-scalar multiplication `s * B + k * p`, where `B` is
     /// the curve generator.
     pub fn double_scalar_mul_base_vartime(s: &Scalar, k: &Scalar, p: &Point) -> Point {
-        // TODO implemented with primitive operation not real efficient implementation
-        Point::mul_base(&s) + &p.scale(&k)
+        let (s_digits, s_len) = wnaf(s, WNAF_W_BASE);
+        let (k_digits, k_len) = wnaf(k, WNAF_W);
+        let base_table = generator_odd_multiples();
+        let p_table = odd_multiples(p, wnaf_table_len(WNAF_W));
+
+        let mut q = Point::IDENTITY;
+        let mut pending = 0;
+        for i in (0..core::cmp::max(s_len, k_len)).rev() {
+            pending += 1;
+            if s_digits[i] == 0 && k_digits[i] == 0 {
+                continue;
+            }
+            q = q.double_repeat(pending);
+            pending = 0;
+            if s_digits[i] != 0 {
+                q = add_wnaf_multiple(&q, &base_table, s_digits[i]);
+            }
+            if k_digits[i] != 0 {
+                q = add_wnaf_multiple(&q, &p_table, k_digits[i]);
+            }
+        }
+        if pending > 0 {
+            q = q.double_repeat(pending);
+        }
+        q
     }
 }
 
@@ -1169,7 +1287,7 @@ impl crate::curve::group::CurveGroup for Point {
         Point::mul_base(scalar)
     }
     fn mul_vartime(&self, scalar: &Scalar) -> Self {
-        self.scale(scalar)
+        self.scale_vartime(scalar)
     }
 }
 
@@ -1250,6 +1368,194 @@ mod tests {
                 s = s.square();
             }
             assert_eq!(Point::mul_base(&s), Point::GENERATOR.scale(&s));
+        }
+
+        /// A spread of scalars that stresses the wNAF recoding: zero, the
+        /// window boundaries, long runs of set bits (carry propagation), and a
+        /// few full-width values.
+        fn wnaf_test_scalars() -> Vec<Scalar> {
+            let mut scalars: Vec<Scalar> = [
+                0u64,
+                1,
+                2,
+                3,
+                15,
+                16,
+                17,
+                31,
+                32,
+                33,
+                127,
+                128,
+                129,
+                255,
+                256,
+                257,
+                0x5555_5555_5555_5555,
+                0xaaaa_aaaa_aaaa_aaaa,
+                0xffff_ffff_ffff_ffff,
+                0x8000_0000_0000_0000,
+                0x0123_4567_89ab_cdef,
+            ]
+            .iter()
+            .map(|&v| Scalar::from_u64(v))
+            .collect();
+
+            // full-width scalars, and the extremes of the scalar range
+            let mut big = Scalar::from_u64(0xfedc_ba98_7654_3210);
+            for _ in 0..5 {
+                big = big.square();
+                scalars.push(big.clone());
+            }
+            scalars.push(-&Scalar::one()); // l - 1
+            scalars.push(-&Scalar::from_u64(2)); // l - 2
+            scalars
+        }
+
+        #[test]
+        fn wnaf_digits_reconstruct_the_scalar() {
+            for w in 2..=8u32 {
+                for k in wnaf_test_scalars() {
+                    let (digits, len) = wnaf(&k, w);
+                    let half = 1i32 << (w - 1);
+
+                    // digits are odd, bounded, and at least `w` apart
+                    let mut last_nonzero: Option<usize> = None;
+                    for (i, &d) in digits.iter().enumerate() {
+                        if d == 0 {
+                            continue;
+                        }
+                        assert!(d % 2 != 0, "even digit {} at {}", d, i);
+                        assert!((d as i32).abs() < half, "digit {} out of range", d);
+                        assert!(i < len, "non-zero digit {} past len {}", i, len);
+                        if let Some(prev) = last_nonzero {
+                            assert!(
+                                i - prev >= w as usize,
+                                "digits {} and {} too close",
+                                prev,
+                                i
+                            );
+                        }
+                        last_nonzero = Some(i);
+                    }
+                    assert_eq!(last_nonzero.map_or(0, |i| i + 1), len, "wrong len");
+
+                    // sum(digits[i] * 2^i) == k, by Horner from the top
+                    let mut acc = Scalar::zero();
+                    for &d in digits[..len].iter().rev() {
+                        acc = acc.double();
+                        if d > 0 {
+                            acc = &acc + &Scalar::from_u64(d as u64);
+                        } else if d < 0 {
+                            acc = &acc - &Scalar::from_u64(d.unsigned_abs() as u64);
+                        }
+                    }
+                    assert_eq!(acc, k, "w={} recoding does not reconstruct", w);
+                }
+            }
+        }
+
+        #[test]
+        fn add_cached_matches_add() {
+            // the precomputed-addend formula must be the plain complete
+            // addition, including the exceptional cases
+            let g = Point::GENERATOR;
+            let points = [
+                Point::IDENTITY,
+                g.clone(),
+                g.double(),
+                g.scale_bytes(&[7]),
+                -&g,
+            ];
+            for p in points.iter() {
+                for q in points.iter() {
+                    assert_eq!(p.add_cached(&CachedPoint::from_point(q)), Point::add(p, q));
+                    // and the cached negation
+                    assert_eq!(
+                        p.add_cached(&CachedPoint::from_point(q).negate()),
+                        Point::add(p, &-q)
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn double_repeat_matches_repeated_doubling() {
+            let mut expected = Point::GENERATOR.scale_bytes(&[5]);
+            for n in 1..8u32 {
+                expected = expected.double();
+                assert_eq!(
+                    Point::GENERATOR.scale_bytes(&[5]).double_repeat(n),
+                    expected,
+                    "n={}",
+                    n
+                );
+            }
+            assert_eq!(Point::IDENTITY.double_repeat(4), Point::IDENTITY);
+        }
+
+        #[cfg(feature = "table")]
+        #[test]
+        fn generated_wnaf_table_matches_odd_multiples() {
+            // every entry of the generated table must be the odd multiple it
+            // claims to be. Adding it to the identity only exercises `Y ± X`,
+            // so each entry is also added to the generator: that is the only
+            // way a wrong `2d·T` shows up.
+            let g = Point::GENERATOR;
+            let two_g = g.double();
+            let mut odd_multiple = g.clone(); // (2i + 1)·G
+            for (i, entry) in GENERATOR_WNAF.iter().enumerate() {
+                if i > 0 {
+                    odd_multiple = &odd_multiple + &two_g;
+                }
+                assert_eq!(
+                    Point::IDENTITY.add_cached(entry),
+                    odd_multiple,
+                    "entry {} is not {}·G",
+                    i,
+                    2 * i + 1
+                );
+                assert_eq!(
+                    g.add_cached(entry),
+                    &odd_multiple + &g,
+                    "entry {} has an inconsistent 2d·T",
+                    i
+                );
+            }
+        }
+
+        #[test]
+        fn scale_vartime_matches_scale() {
+            // the variable-time wNAF must agree with the constant-time
+            // double-and-add on every base point, identity included
+            for base in [Point::IDENTITY, Point::GENERATOR, Point::GENERATOR.double()] {
+                for k in wnaf_test_scalars() {
+                    assert_eq!(base.scale_vartime(&k), base.scale(&k));
+                }
+            }
+        }
+
+        #[test]
+        fn double_scalar_mul_base_vartime_matches_separate_muls() {
+            // s*B + k*P, interleaved, must equal the two multiplications done
+            // separately
+            let points = [
+                Point::IDENTITY,
+                Point::GENERATOR,
+                Point::GENERATOR.scale_bytes(&[9]),
+                -&Point::GENERATOR,
+            ];
+            let scalars = wnaf_test_scalars();
+            for p in points.iter() {
+                for s in scalars.iter() {
+                    for k in scalars.iter() {
+                        assert_eq!(
+                            Point::double_scalar_mul_base_vartime(s, k, p),
+                            &Point::mul_base(s) + &p.scale(k),
+                        );
+                    }
+                }
+            }
         }
 
         #[test]
