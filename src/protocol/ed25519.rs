@@ -41,18 +41,21 @@ fn decode_point(bytes: &[u8; 32]) -> Option<Point> {
     le[31] &= 0x7f;
     // y must be a canonical field element (< p), little-endian on the wire
     let y = FieldElement::from_bytes_le(&le)?;
+    // reject the (x = 0, sign = 1) non-canonical encoding. On the curve x is
+    // zero exactly for y = ±1, since x = 0 forces y^2 = 1, so this is a test on
+    // y — no need to recover x, which would cost a field inversion.
+    if x_sign_bit == 1 {
+        let one = FieldElement::one();
+        if y == one || y == -&one {
+            return None;
+        }
+    }
     let want = if x_sign_bit == 1 {
         Sign::Negative
     } else {
         Sign::Positive
     };
-    let p = Point::decompress(&y, want)?;
-    // reject the (x = 0, sign = 1) non-canonical encoding
-    let (x, _) = p.to_affine();
-    if x_sign_bit == 1 && x.is_zero() {
-        return None;
-    }
-    Some(p)
+    Point::decompress(&y, want)
 }
 
 /// Expand a 32-byte seed into the secret scalar (mod l) and the nonce prefix.
@@ -329,6 +332,79 @@ mod tests {
             assert_eq!(kp_sig.to_bytes(), sk.sign(&message).to_bytes());
             assert_eq!(kp_sig.to_bytes(), expected_sig, "keypair sig != RFC");
         }
+    }
+
+    /// Decoding written the straightforward way, recovering x and testing it
+    /// for zero, as the reference the y-based rejection has to match.
+    fn decode_point_reference(bytes: &[u8; 32]) -> Option<Point> {
+        let x_sign_bit = bytes[31] >> 7;
+        let mut le = *bytes;
+        le[31] &= 0x7f;
+        let y = FieldElement::from_bytes_le(&le)?;
+        let want = if x_sign_bit == 1 {
+            Sign::Negative
+        } else {
+            Sign::Positive
+        };
+        let p = Point::decompress(&y, want)?;
+        let (x, _) = p.to_affine();
+        if x_sign_bit == 1 && x.is_zero() {
+            return None;
+        }
+        Some(p)
+    }
+
+    #[test]
+    fn decode_point_matches_reference() {
+        let mut cases: Vec<[u8; 32]> = Vec::new();
+
+        // the two curve points with x = 0: y = 1 and y = p - 1
+        let mut y_one = [0u8; 32];
+        y_one[0] = 1;
+        let mut y_minus_one = [0xffu8; 32];
+        y_minus_one[0] = 0xec;
+        y_minus_one[31] = 0x7f;
+        for base in [y_one, y_minus_one] {
+            cases.push(base);
+            let mut sign_set = base;
+            sign_set[31] |= 0x80; // the non-canonical encodings
+            cases.push(sign_set);
+        }
+
+        // genuine points, with the sign bit left alone, forced and cleared
+        for k in 1..20u64 {
+            let encoded = encode_point(&Point::mul_base(&Scalar::from_u64(k)));
+            cases.push(encoded);
+            let mut sign_set = encoded;
+            sign_set[31] |= 0x80;
+            cases.push(sign_set);
+            let mut sign_clear = encoded;
+            sign_clear[31] &= 0x7f;
+            cases.push(sign_clear);
+        }
+
+        // pseudo-random strings: mostly off-curve or non-canonical y
+        let mut h = sha512(&[b"ed25519 decode cases"]);
+        for i in 0..200u8 {
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(&h[..32]);
+            cases.push(bytes);
+            h = sha512(&[&h[..], &[i]]);
+        }
+
+        let mut accepted = 0;
+        for bytes in cases {
+            let decoded = decode_point(&bytes);
+            accepted += decoded.is_some() as usize;
+            assert_eq!(
+                decoded,
+                decode_point_reference(&bytes),
+                "decoding disagrees for {:02x?}",
+                bytes
+            );
+        }
+        // the cases do cover valid encodings, not only rejections
+        assert!(accepted > 20, "only {} accepted", accepted);
     }
 
     #[test]
