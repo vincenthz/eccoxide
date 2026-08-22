@@ -655,6 +655,21 @@ impl Point {
         }
     }
 
+    /// Repeated point doubling where `2^n * self` for `n >= 1`, maintaining the extended `T` coordinate only
+    /// for the final doubling, which save some multiplications
+    fn double_repeat(&self, n: u32) -> Point {
+        debug_assert!(n >= 1);
+        let mut q = PointNoT {
+            x: self.x.clone(),
+            y: self.y.clone(),
+            z: self.z.clone(),
+        };
+        for _ in 1..n {
+            q = q.double();
+        }
+        q.double_to_point()
+    }
+
     /// Complete point addition (valid for every pair of points since `a = -1`).
     pub fn add(&self, other: &Point) -> Point {
         let aa = &(&self.y - &self.x) * &(&other.y - &other.x);
