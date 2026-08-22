@@ -900,6 +900,42 @@ impl CachedPoint {
     }
 }
 
+/// Extended coordinates with the redundant `T = XY/Z` left out.
+///
+/// Only the addition formulas read `T`, so while the wNAF digits are zero — and
+/// they are, about `w / (w + 1)` of the time — the running accumulator can skip
+/// the multiplication that maintains it.
+struct PointNoT {
+    x: FieldElement,
+    y: FieldElement,
+    z: FieldElement,
+}
+
+impl PointNoT {
+    /// Doubling that leaves `T` out.
+    #[inline]
+    fn double(&self) -> PointNoT {
+        let (e, f, g, h) = double_parts(&self.x, &self.y, &self.z);
+        PointNoT {
+            x: &e * &f,
+            y: &g * &h,
+            z: &f * &g,
+        }
+    }
+
+    /// Doubling back into full extended coordinates.
+    #[inline]
+    fn double_to_point(&self) -> Point {
+        let (e, f, g, h) = double_parts(&self.x, &self.y, &self.z);
+        Point {
+            x: &e * &f,
+            y: &g * &h,
+            z: &f * &g,
+            t: &e * &h,
+        }
+    }
+}
+
 impl Point {
     /// Variable-time double-scalar multiplication `s · B + k · p`, where `B` is
     /// the curve generator.
