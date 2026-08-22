@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **curve25519**: Ed25519 verification is faster. two scalar
+  multiplications are now a single variable-time double-scalar multiplication,
+  `Point::double_scalar_mul_base_vartime`
+- **curve25519**: `Point::scale_vartime` is the width-5 wNAF variable-time
+  scalar multiplication on its own, about twice as fast as the constant-time
+  `Point::scale`, and is what `CurveGroup::mul_vartime` now uses.
+
 ## 0.5.0 - 2026-08-18
 
 - **BLS12-381**: `is_in_subgroup` on the `Point` / `PointAffine` types of `g1`
