@@ -204,6 +204,29 @@ mod curve25519 {
         }
 
         #[divan::bench]
+        fn scalar_mul_vartime(bencher: Bencher) {
+            // variable-time width-5 wNAF (public scalars only)
+            let (a, k) = (p(), sc_a());
+            bencher.bench(|| black_box(&a).scale_vartime(black_box(&k)));
+        }
+
+        #[divan::bench]
+        fn double_scalar_mul_base_vartime(bencher: Bencher) {
+            // the Ed25519 verification shape: s*B + k*P, interleaved
+            let (a, s, k) = (q(), sc_a(), sc_b());
+            bencher.bench(|| {
+                Point::double_scalar_mul_base_vartime(black_box(&s), black_box(&k), black_box(&a))
+            });
+        }
+
+        #[divan::bench]
+        fn mul_base(bencher: Bencher) {
+            // constant-time fixed-base comb, for comparison
+            let k = sc_a();
+            bencher.bench(|| Point::mul_base(black_box(&k)));
+        }
+
+        #[divan::bench]
         fn to_affine(bencher: Bencher) {
             // a genuine projective point (z != 1) so the modular inversion runs
             let a = &p() + &q();
