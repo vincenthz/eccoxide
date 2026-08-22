@@ -239,6 +239,31 @@ impl FieldElement {
         FieldElement::ct_select(self.is_negative_ct(), &(-self), self)
     }
 
+    /// Returns `(r, v*r²)` for `r = u*v³*(u*v⁷)^((p-5)/8)`. Expanding,
+    /// `v*r² = u*(u*v⁷)^((p-1)/4)`, and that exponent always lands on a fourth
+    /// root of unity: the verification value is `±u` exactly when `u / v` is a
+    /// square (`r`, or `i*r`, being then the root), and `±i*u` otherwise.
+    fn sqrt_div_candidate(u: &FieldElement, v: &FieldElement) -> (FieldElement, FieldElement) {
+        let v3 = &v.square() * v;
+        let v7 = &v3.square() * v;
+        let r = &(u * &v3) * &(u * &v7).pow_p58();
+        let check = v * &r.square();
+        (r, check)
+    }
+
+    /// A square root of `u / v`, or `None` when `u / v` is not a square.
+    ///
+    /// A zero `v` yields `None`, except for `u == 0` as well, where the root of
+    /// the undefined quotient is reported as 0.
+    pub(crate) fn sqrt_div(u: &FieldElement, v: &FieldElement) -> CtOption<FieldElement> {
+        let (r, check) = Self::sqrt_div_candidate(u, v);
+        let correct = check.ct_eq(u);
+        let flipped = check.ct_eq(&-u);
+        // v*r² = -u means i*r is the root instead, since i² = -1
+        let r = Self::ct_select(flipped, &(&Self::SQRT_M1 * &r), &r);
+        CtOption::from((correct | flipped, r))
+    }
+
     /// The `SQRT_RATIO_M1` primitive of RFC 9496.
     ///
     /// Given `u` and `v`, returns `(was_square, r)` where:
@@ -250,11 +275,7 @@ impl FieldElement {
     /// `r` is always the non-negative root (its canonical encoding is even).
     #[cfg(feature = "ristretto255")]
     pub(crate) fn sqrt_ratio_m1(u: &FieldElement, v: &FieldElement) -> (Choice, FieldElement) {
-        let v3 = &v.square() * v;
-        let v7 = &v3.square() * v;
-        // r = (u * v3) * (u * v7)^((p-5)/8)
-        let r = &(u * &v3) * &(u * &v7).pow_p58();
-        let check = v * &r.square();
+        let (r, check) = Self::sqrt_div_candidate(u, v);
         let neg_u = -u;
         let i = &Self::SQRT_M1;
         let correct_sign = check.ct_eq(u);
@@ -754,11 +775,7 @@ impl Point {
         // x^2 = (y^2 - 1) / (d*y^2 + 1)
         let u = &yy - &one;
         let v = &(&EdCurve::D * &yy) + &one;
-        if v.is_zero() {
-            return None;
-        }
-        let x2 = &u * &v.inverse();
-        match x2.sqrt().into_option() {
+        match FieldElement::sqrt_div(&u, &v).into_option() {
             None => None,
             Some(x) => {
                 let x = if x.sign() == x_sign { x } else { -x };
@@ -1570,6 +1587,31 @@ mod tests {
                 }
                 assert_eq!(lhs, rhs, "k={}", k);
             }
+        }
+
+        #[test]
+        fn sqrt_div_matches_inverse_then_sqrt() {
+            let mut squares = 0;
+            let mut non_squares = 0;
+            for uu in [0u64, 1, 2, 3, 4, 5, 9, 16, 17, 121665, 121666] {
+                for vv in [1u64, 2, 3, 4, 5, 7, 121666] {
+                    let u = FieldElement::from_u64(uu);
+                    let v = FieldElement::from_u64(vv);
+                    let expected = (&u * &v.inverse()).sqrt().into_option();
+                    let got = FieldElement::sqrt_div(&u, &v).into_option();
+                    match (got, expected) {
+                        (None, None) => non_squares += 1,
+                        (Some(r), Some(_)) => {
+                            // r may be either root, but it must be one of them
+                            assert_eq!(&r.square() * &v, u, "u={} v={}", uu, vv);
+                            squares += 1;
+                        }
+                        (g, e) => panic!("u={} v={}: {:?} vs {:?}", uu, vv, g, e),
+                    }
+                }
+            }
+            // neither branch of the test is vacuous
+            assert!(squares > 0 && non_squares > 0);
         }
 
         #[test]
