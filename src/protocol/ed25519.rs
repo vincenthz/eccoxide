@@ -136,10 +136,11 @@ fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
     // k = H(R || A || M) mod l
     let k = reduce_wide_le(&sha512(&[&r_encoded[..], &public[..], message]));
 
-    // accept iff [S]B == R + [k]A
-    let lhs = Point::mul_base(&s);
-    let rhs = &r_point + &a_point.scale(&k);
-    lhs == rhs
+    // accept iff [S]B == R + [k]A, rewritten as [S]B + [k](-A) == R so that
+    // the two multiplications interleave into a variable op since all values are
+    // public
+    let lhs = Point::double_scalar_mul_base_vartime(&s, &k, &-&a_point);
+    lhs == r_point
 }
 
 /// An Ed25519 secret key: the 32-byte seed from which everything is derived.

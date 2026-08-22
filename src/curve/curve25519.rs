@@ -866,6 +866,14 @@ impl CachedPoint {
     }
 }
 
+impl Point {
+    /// Variable-time double-scalar multiplication `s · B + k · p`, where `B` is
+    /// the curve generator.
+    pub fn double_scalar_mul_base_vartime(s: &Scalar, k: &Scalar, p: &Point) -> Point {
+        // TODO implemented with primitive operation not real efficient implementation
+        Point::mul_base(&s) + &p.scale(&k)
+    }
+}
 
 impl CtSelect for Point {
     fn ct_select(cond: Choice, a: &Point, b: &Point) -> Point {
