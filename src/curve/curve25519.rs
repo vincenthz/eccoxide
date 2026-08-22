@@ -835,6 +835,37 @@ fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
         .ok()
         .expect("comb window count matches COMB_WINDOWS")
 }
+/// Point in precomputed "cached" form: (Y - X, Y + X, 2d * T, Z)`.
+#[derive(Clone)]
+struct CachedPoint {
+    y_minus_x: FieldElement,
+    y_plus_x: FieldElement,
+    t2d: FieldElement,
+    z: FieldElement,
+}
+
+impl CachedPoint {
+    fn from_point(p: &Point) -> Self {
+        CachedPoint {
+            y_minus_x: &p.y - &p.x,
+            y_plus_x: &p.y + &p.x,
+            t2d: &EdCurve::D2 * &p.t,
+            z: p.z.clone(),
+        }
+    }
+
+    /// The cached form of the opposite point: negating `X` and `T` swaps
+    /// `Y - X` with `Y + X` and negates `2d*T`.
+    fn negate(&self) -> Self {
+        CachedPoint {
+            y_minus_x: self.y_plus_x.clone(),
+            y_plus_x: self.y_minus_x.clone(),
+            t2d: -&self.t2d,
+            z: self.z.clone(),
+        }
+    }
+}
+
 
 impl CtSelect for Point {
     fn ct_select(cond: Choice, a: &Point, b: &Point) -> Point {
