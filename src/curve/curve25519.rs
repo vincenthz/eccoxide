@@ -27,7 +27,7 @@ use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::montgomery::{MontgomeryCurve, MontgomeryCurveB1};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
 #[cfg(feature = "table")]
-use crate::params::curve25519::{COMB_TABLE, COMB_WINDOWS};
+use crate::params::curve25519::{COMB_TABLE, COMB_WINDOWS, WNAF_BASE_TABLE, WNAF_BASE_W};
 use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
 #[cfg(feature = "table")]
 use std::convert::TryFrom;
@@ -884,6 +884,95 @@ fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
         .ok()
         .expect("comb window count matches COMB_WINDOWS")
 }
+
+/// Number of wNAF digits held by [`wnaf`]. Scalars are reduced modulo
+/// `l < 2^253`, so their recoding always fits.
+const WNAF_DIGITS: usize = 256;
+
+/// Signed window width used for a variable base. The odd-multiple table
+/// (`2^(W-2)` = 8 points) has to be built for every multiplication, which makes
+/// 5 the usual sweet spot for a 253-bit scalar.
+const WNAF_W: u32 = 5;
+
+/// Signed window width used for the generator: the width of the generated
+/// [`WNAF_BASE_TABLE`], which costs nothing to use, so it is wider than
+/// [`WNAF_W`] — one non-zero digit in 9 instead of one in 6.
+#[cfg(feature = "table")]
+const WNAF_W_BASE: u32 = WNAF_BASE_W;
+
+/// Signed window width used for the generator. Without the `table` feature
+/// there is no generated table to read, so the generator is treated like any
+/// other base and its odd multiples are computed per multiplication.
+#[cfg(not(feature = "table"))]
+const WNAF_W_BASE: u32 = WNAF_W;
+
+/// Number of entries of the odd-multiple table of a width-w wNAF: the odd
+/// multiples `1*P, 3*P, …, (2^(w-1) - 1)*P`.
+const fn wnaf_table_len(w: u32) -> usize {
+    1 << (w - 2)
+}
+
+/// Width-w non-adjacent form of `scalar`: signed digits, least significant
+/// first, together with the number of significant digits.
+///
+/// Every non-zero digit is odd and lies in `[-(2^(w-1) - 1), 2^(w-1) - 1]`, and
+/// two non-zero digits are at least `w` positions apart, so only about one
+/// digit in `w + 1` is non-zero. This is used solely by the *variable-time*
+/// scalar multiplications and is deliberately not constant-time.
+fn wnaf(scalar: &Scalar, w: u32) -> ([i8; WNAF_DIGITS], usize) {
+    debug_assert!((2..=8).contains(&w));
+
+    // little-endian 64-bit limbs of the scalar, plus one zero limb of headroom
+    // so a window straddling the top limb can always read the next one
+    let bytes = scalar.to_bytes_le();
+    let mut limbs = [0u64; 5];
+    for (i, limb) in limbs[..4].iter_mut().enumerate() {
+        let mut v = 0u64;
+        for j in 0..8 {
+            v |= (bytes[i * 8 + j] as u64) << (8 * j);
+        }
+        *limb = v;
+    }
+
+    let width = 1i32 << w; // 2^w
+    let mask = (width - 1) as u64;
+
+    let mut digits = [0i8; WNAF_DIGITS];
+    let mut len = 0;
+    // `carry` is the borrow left by a negative digit, i.e. the +2^w that the
+    // next window has to absorb
+    let mut carry = 0u64;
+    let mut pos = 0;
+    while pos < WNAF_DIGITS {
+        let (limb, bit) = (pos / 64, pos % 64);
+        // the `w` low bits of `scalar >> pos`, which may straddle two limbs
+        let bits = if bit == 0 {
+            limbs[limb]
+        } else {
+            (limbs[limb] >> bit) | (limbs[limb + 1] << (64 - bit))
+        };
+        let window = carry + (bits & mask);
+
+        // only odd digits are emitted: an even window means a zero digit
+        if window & 1 == 0 {
+            pos += 1;
+            continue;
+        }
+
+        if (window as i32) < width / 2 {
+            carry = 0;
+            digits[pos] = window as i8;
+        } else {
+            // use the negative representative and carry the 2^w over
+            carry = 1;
+            digits[pos] = (window as i32 - width) as i8;
+        }
+        len = pos + 1;
+        pos += w as usize;
+    }
+    (digits, len)
+}
+
 /// Point in precomputed "cached" form: (Y - X, Y + X, 2d * T, Z)`.
 #[derive(Clone)]
 struct CachedPoint {
