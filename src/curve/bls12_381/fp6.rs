@@ -67,8 +67,31 @@ impl Fp6 {
         }
     }
 
+    /// Square the element.
     pub fn square(&self) -> Self {
-        self * self
+        // Chung-Hasan SQR3 (<https://eprint.iacr.org/2006/471>): three `Fp2`
+        // squarings and two `Fp2` multiplications, against the six
+        // multiplications a Karatsuba product with itself would cost.
+        //
+        // Expanding the square directly gives
+        //   (a0 + a1 v + a2 v^2)^2 = (a0^2 + xi*2a1a2)
+        //                          + (2a0a1 + xi*a2^2) v
+        //                          + (a1^2 + 2a0a2) v^2
+        // and the v^2 coefficient is recovered without its own multiplication
+        // from the square of the alternating sum, since
+        //   (a0 - a1 + a2)^2 = a0^2 + a1^2 + a2^2 - 2a0a1 + 2a0a2 - 2a1a2
+        // so a1^2 + 2a0a2 = s2 + s1 + s3 - s0 - s4.
+        let s0 = self.c0.square(); // a0^2
+        let s1 = (&self.c0 * &self.c1).double(); // 2a0a1
+        let s2 = (&(&self.c0 - &self.c1) + &self.c2).square(); // (a0 - a1 + a2)^2
+        let s3 = (&self.c1 * &self.c2).double(); // 2a1a2
+        let s4 = self.c2.square(); // a2^2
+
+        Fp6 {
+            c0: &s0 + &s3.mul_by_nonresidue(),
+            c1: &s1 + &s4.mul_by_nonresidue(),
+            c2: &(&(&(&s1 + &s2) + &s3) - &s0) - &s4,
+        }
     }
 
     /// The `p`-power Frobenius endomorphism, i.e. `self^p`.
@@ -257,8 +280,29 @@ mod tests {
 
     #[test]
     fn square_matches_mul() {
-        let a = e(1, 2, 3, 4, 5, 6);
-        assert_eq!(a.square(), &a * &a);
+        // the SQR3 formula recovers the v^2 coefficient from (a0 - a1 + a2)^2,
+        // so cover the patterns where that alternating sum degenerates
+        for a in [
+            e(1, 2, 3, 4, 5, 6),
+            Fp6::ZERO,
+            Fp6::ONE,
+            e(0, 0, 3, 4, 5, 6),
+            e(1, 2, 0, 0, 5, 6),
+            e(1, 2, 3, 4, 0, 0),
+            e(1, 2, 1, 2, 1, 2), // a0 - a1 + a2 == a0
+            e(1, 2, 2, 4, 1, 2), // a0 - a1 + a2 == 0
+        ] {
+            assert_eq!(a.square(), &a * &a, "square != mul for {:?}", a);
+        }
+
+        // and a deep chain, so any error compounds instead of cancelling
+        let mut x = e(7, 11, 13, 17, 19, 23);
+        let mut y = x.clone();
+        for _ in 0..16 {
+            x = x.square();
+            y = &y * &y;
+            assert_eq!(x, y);
+        }
     }
 
     #[test]

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **BLS12-381**: optimise `Fp6` squaring.
 - **curve25519**: Ed25519 verification is faster. two scalar
   multiplications are now a single variable-time double-scalar multiplication,
   `Point::double_scalar_mul_base_vartime`
