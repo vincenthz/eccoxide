@@ -87,12 +87,6 @@ closing the gap vs the cryptoxide comparison benches (benches/curve25519, x25519
 
 ## ed25519 (performance)
 
-* [ ] verify currently does a constant-time `mul_base(S)` plus a full constant-time
-  variable-base `scale(A)` and then compares; verification is over public data,
-  so replace it with simultaneous double-scalar multiplication for
-  [S]B - [k]A using wNAF and a precomputed table for B (variable-time)
-* [ ] add a variable-time (w)NAF variable-base multiplication as the shared building
-  block for the above
 * [ ] batch verification: verify n signatures with one multi-scalar multiplication
   over a random linear combination of the equations
 * [ ] cache a niels-form precomputation of a repeatedly-used public key A across
