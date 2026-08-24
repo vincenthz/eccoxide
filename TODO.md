@@ -40,9 +40,6 @@ optimisation
   `hash_to_curve`, ~24us each, out of ~156us for G1 and ~625us for G2
 * [ ] windowed / NAF exponentiation for the 126-bit lambda3 step, whose 48 set bits
   cost ~47 of the hard part's ~68 Fp12 multiplications
-* [ ] cheaper tower squarings: Fp6::square is currently `self * self`
-  (6 Fp2 muls instead of the 2M+3S of CH-SQR), and Fp12::square uses 3 Fp6 muls
-  instead of the complex method's 2
 * [ ] compressed cyclotomic squaring (Karabina) for the exp-by-x chains
 * [ ] GLV endomorphism on G1 (and psi on G2) for faster scalar multiplication
 * [ ] multi-scalar multiplication (Pippenger / wNAF)
