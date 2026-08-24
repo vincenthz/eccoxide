@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **All curves**: `init_from_wide_bytes_be` / `_le`, which reduce a
+  double-width buffer into a field or scalar, evaluate the wide integer in
+  half-field-wide digits instead of one byte at a time.
 - **BLS12-381**: optimise `Fp6` squaring.
 - **curve25519**: Ed25519 verification is faster. two scalar
   multiplications are now a single variable-time double-scalar multiplication,

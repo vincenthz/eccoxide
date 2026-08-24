@@ -287,6 +287,34 @@ macro_rules! fiat_field_common_impl {
                 slice.copy_from_slice(&self.to_bytes_le()[..]);
             }
 
+            /// Byte width of the digits [`Self::init_from_wide_bytes_be`]
+            /// evaluates the wide integer in.
+            ///
+            /// Half a field element, so a digit always represents a value below
+            /// the characteristic for any field of at least 2 bytes.
+            const WIDE_DIGIT_BYTES: usize = Self::SIZE_BYTES / 2;
+
+            /// `2^(8 * WIDE_DIGIT_BYTES) mod p`, the radix from_wide_bytes evaluates in
+            ///
+            /// this is done at compile time.
+            const WIDE_DIGIT_RADIX: Self = {
+                let mut acc = Self::ONE;
+                let mut i = 0;
+                while i < Self::WIDE_DIGIT_BYTES * 8 {
+                    acc = acc.double();
+                    i += 1;
+                }
+                acc
+            };
+
+            /// Decode a big-endian digit of at most [`Self::WIDE_DIGIT_BYTES`]
+            /// bytes, zero-padded up to a full field element.
+            fn from_wide_digit_be(digit: &[u8]) -> Self {
+                let mut buf = [0u8; Self::SIZE_BYTES];
+                buf[Self::SIZE_BYTES - digit.len()..].copy_from_slice(digit);
+                Self::from_bytes_unchecked_be(&buf)
+            }
+
             /// Initialize from a wide buffer of random data, interpreted as a
             /// big-endian integer and reduced modulo the field characteristic.
             ///
@@ -298,11 +326,26 @@ macro_rules! fiat_field_common_impl {
             /// This runs in constant time with respect to the input
             pub fn init_from_wide_bytes_be(random: [u8; Self::SIZE_BYTES * 2]) -> Self {
                 // Reduce the wide big-endian integer modulo p with Horner's
-                // method to rewrite the polynomial in nested form: acc = acc * 256 + byte.
-                let c256 = Self::from_u64(256);
-                let mut acc = Self::zero();
-                for b in random.iter() {
-                    acc = &acc * &c256 + Self::from_u64(*b as u64);
+                // method, in nested form: acc = acc * radix + digit. The digits
+                // are half a field element wide rather than single bytes, so
+                // this costs a handful of field multiplications instead of two
+                // per byte of the buffer.
+                //
+                // process the leading digit to prevent a dummy multiplication
+                // to radix of 0 and an addition with 0
+                let total = Self::SIZE_BYTES * 2;
+                let width = Self::WIDE_DIGIT_BYTES;
+                let lead = match total % width {
+                    0 => width,
+                    rest => rest,
+                };
+
+                let mut acc = Self::from_wide_digit_be(&random[..lead]);
+                let mut at = lead;
+                while at < total {
+                    acc = &(&acc * &Self::WIDE_DIGIT_RADIX)
+                        + &Self::from_wide_digit_be(&random[at..at + width]);
+                    at += width;
                 }
                 acc
             }
@@ -1151,6 +1194,17 @@ macro_rules! fiat_field_unittest {
 
         #[test]
         fn wide_bytes() {
+            // The same value evaluated one byte at a time: the slow but plainly
+            // correct Horner the digit-wise reduction has to agree with.
+            fn reference(random: &[u8; $FE::SIZE_BYTES * 2]) -> $FE {
+                let c256 = $FE::from_u64(256);
+                let mut acc = $FE::zero();
+                for b in random.iter() {
+                    acc = &acc * &c256 + $FE::from_u64(*b as u64);
+                }
+                acc
+            }
+
             // the test buffers are laid out big-endian, so reduce them as such
             // regardless of the type's default byte order.
             assert_eq!(
@@ -1161,6 +1215,36 @@ macro_rules! fiat_field_unittest {
             let mut wide = [0u8; $FE::SIZE_BYTES * 2];
             wide[$FE::SIZE_BYTES * 2 - 1] = 5;
             assert_eq!($FE::init_from_wide_bytes_be(wide), $FE::from_u64(5));
+
+            // the largest input, 2^(16 * SIZE_BYTES) - 1, against that power of
+            // two reached by doubling — a path that shares no code with either
+            // reduction
+            let mut two_pow = $FE::one();
+            for _ in 0..($FE::SIZE_BYTES * 16) {
+                two_pow = two_pow.double();
+            }
+            assert_eq!(
+                $FE::init_from_wide_bytes_be([0xffu8; $FE::SIZE_BYTES * 2]),
+                &two_pow - &$FE::one()
+            );
+
+            // a spread of full-width buffers against the byte-at-a-time
+            // reference, each also read back through the little-endian entry
+            // point to check the two agree on the byte order
+            for seed in [0x01u8, 0x7f, 0x80, 0xa5, 0xfe].iter() {
+                let mut wide = [0u8; $FE::SIZE_BYTES * 2];
+                let mut x = *seed;
+                for b in wide.iter_mut() {
+                    *b = x;
+                    x = x.wrapping_mul(31).wrapping_add(17);
+                }
+                let expected = reference(&wide);
+                assert_eq!($FE::init_from_wide_bytes_be(wide), expected);
+
+                let mut le = wide;
+                le.reverse();
+                assert_eq!($FE::init_from_wide_bytes_le(le), expected);
+            }
         }
 
         #[test]
