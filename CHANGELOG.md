@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **curve25519**: `Point::mul_base` is faster. The
+  fixed-base comb reads *signed* 4-bit digits, so a window holds the eight
+  magnitudes `1..=8` instead of fifteen digits and a constant-time lookup walks
+  half as much table; the entries are stored in the "niels" form the addition
+  formula reads (`y - x`, `y + x`, `2d*x*y`) rather than as affine `(x, y)`, a
+  quarter less again and nothing to recompute per addition; and since their `z`
+  is one, the addition is the mixed-coordinate one, seven field
+  multiplications instead of nine. The embedded table is 12KB smaller for it.
 - **All curves**: `init_from_wide_bytes_be` / `_le`, which reduce a
   double-width buffer into a field or scalar, evaluate the wide integer in
   half-field-wide digits instead of one byte at a time.

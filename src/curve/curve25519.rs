@@ -27,7 +27,9 @@ use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::curve::montgomery::{MontgomeryCurve, MontgomeryCurveB1};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
 #[cfg(feature = "table")]
-use crate::params::curve25519::{COMB_TABLE, COMB_WINDOWS, WNAF_BASE_TABLE, WNAF_BASE_W};
+use crate::params::curve25519::{
+    COMB_DIGITS, COMB_TABLE, COMB_WINDOWS, WNAF_BASE_TABLE, WNAF_BASE_W,
+};
 use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
 #[cfg(feature = "table")]
 use std::convert::TryFrom;
@@ -729,6 +731,28 @@ impl Point {
         }
     }
 
+    /// The same complete addition again, with the right-hand operand in the
+    /// affine [`CachedPointAffine`] form: its `Z` is one, so `2*Z1*Z2` is a
+    /// doubling rather than a multiplication and the addition costs seven
+    /// multiplications instead of the eight of [`Self::add_cached`].
+    #[cfg(feature = "table")]
+    fn add_cached_affine(&self, other: &CachedPointAffine) -> Point {
+        let aa = &(&self.y - &self.x) * &other.y_minus_x;
+        let bb = &(&self.y + &self.x) * &other.y_plus_x;
+        let cc = &self.t * &other.t2d; // 2*d*T1*T2
+        let dd = self.z.double(); // 2*Z1*Z2, with Z2 = 1
+        let e = &bb - &aa;
+        let f = &dd - &cc;
+        let g = &dd + &cc;
+        let h = &bb + &aa;
+        Point {
+            x: &e * &f,
+            y: &g * &h,
+            z: &f * &g,
+            t: &e * &h,
+        }
+    }
+
     fn negate(&self) -> Point {
         Point {
             x: -&self.x,
@@ -834,18 +858,15 @@ impl Point {
     /// With the `table` feature this uses a precomputed comb table for the
     /// generator (built once on first use), which is several times faster than
     /// the general [`Point::scale`] since it needs no point doublings: just one
-    /// constant-time table lookup and one complete addition per 4-bit window of
-    /// the scalar. Without the feature it falls back to `scale`.
+    /// constant-time table lookup and one mixed addition per signed 4-bit digit
+    /// of the scalar. Without the feature it falls back to `scale`.
     #[cfg(feature = "table")]
     pub fn mul_base(scalar: &Scalar) -> Point {
         let tables = generator_comb();
-        let n = scalar.to_bytes_be(); // big-endian: 32 bytes = 64 nibbles
+        let digits = signed_comb_digits(scalar);
         let mut q = Point::IDENTITY;
-        for (i, window) in tables.iter().enumerate() {
-            let byte = n[n.len() - 1 - (i / 2)];
-            let digit = if i % 2 == 0 { byte & 0x0f } else { byte >> 4 };
-            let selected = Self::select_from_table(window, digit);
-            q = q.add(&selected);
+        for (window, digit) in tables.iter().zip(digits.iter()) {
+            q = q.add_cached_affine(&Self::select_from_table(window, *digit));
         }
         q
     }
@@ -856,47 +877,81 @@ impl Point {
         Point::GENERATOR.scale(scalar)
     }
 
-    /// Constant-time lookup of `table[index]`: the whole window is scanned so
-    /// the memory access pattern does not depend on the (secret) `index`.
+    /// Constant-time lookup of the window entry a signed digit calls for: its
+    /// magnitude picks the multiple (`1..=8`), its sign negates it.
+    ///
+    /// The whole window is scanned, so neither the memory access pattern nor
+    /// the running time depends on the (secret) digit.
     #[cfg(feature = "table")]
-    fn select_from_table(table: &[Point; 16], index: u8) -> Point {
-        let mut acc = Point::IDENTITY;
+    fn select_from_table(table: &[CachedPointAffine; COMB_DIGITS], digit: i8) -> CachedPointAffine {
+        // all ones for a negative digit: it carries both the sign to negate by
+        // and, as `(digit ^ mask) - mask`, the magnitude to look up
+        let mask = (digit >> 7) as u8;
+        let negative = Choice((mask & 1) as u64);
+        let magnitude = ((digit as u8) ^ mask).wrapping_sub(mask) as u64;
+
+        let mut acc = CachedPointAffine::IDENTITY;
         for (j, t) in table.iter().enumerate() {
-            let take = (j as u64).ct_eq(&(index as u64));
-            acc = Point::ct_select(take, t, &acc);
+            acc = CachedPointAffine::ct_select((j as u64 + 1).ct_eq(&magnitude), t, &acc);
         }
-        acc
+        acc.ct_negate(negative)
     }
 }
 
-/// The fixed-base comb table for the generator, parsed once on first use from
+/// Recode a scalar into the [`COMB_WINDOWS`] signed 4-bit digits the comb reads,
+/// so that `sum(digits[i] * 16^i) == k` with every digit in `-8..=7`.
+///
+/// Halving the digit range halves the table a window has to be scanned for,
+/// since a negative digit reuses the entry of its magnitude, negated. The price
+/// is a carry propagation, done here without ever branching on the (secret)
+/// scalar. A scalar is below `2^253`, so the top digit stays in range and no
+/// carry escapes it.
+#[cfg(feature = "table")]
+fn signed_comb_digits(k: &Scalar) -> [i8; COMB_WINDOWS] {
+    let bytes = k.to_bytes_le();
+    let mut digits = [0i8; COMB_WINDOWS];
+    for (i, digit) in digits.iter_mut().enumerate() {
+        let byte = bytes[i / 2];
+        *digit = (if i % 2 == 0 { byte & 0x0f } else { byte >> 4 }) as i8;
+    }
+    for i in 0..COMB_WINDOWS - 1 {
+        // a digit above 7 borrows 16 from the next one
+        let carry = (digits[i] + 8) >> 4;
+        digits[i] -= carry << 4;
+        digits[i + 1] += carry;
+    }
+    digits
+}
+
+/// The fixed-base comb table for the generator, decoded once on first use from
 /// the statically embedded [`COMB_TABLE`] (generated by `sage/comb.sage`).
 ///
-/// `COMB_TABLE[i][d]` holds the affine `(x, y)` of `(d + 1) · 16^i · B`; the
-/// runtime table places those at window indices `1..=15`, with index `0` set to
-/// the identity so a zero digit selects the neutral element. `n · B` is then one
-/// constant-time table lookup and one complete addition per 4-bit window of `n`,
-/// with no point doublings.
+/// `COMB_TABLE[i][d]` holds `(d + 1) · 16^i · B` in the affine cached form, so
+/// the window for digit position `i` covers the magnitudes `1..=COMB_DIGITS`
+/// and [`Point::select_from_table`] answers a zero digit with the identity.
+/// `n · B` is then one constant-time table lookup and one mixed addition per
+/// signed 4-bit digit of `n`, with no point doublings.
 #[cfg(feature = "table")]
-fn generator_comb() -> &'static [[Point; 16]; COMB_WINDOWS] {
-    static V: std::sync::OnceLock<Box<[[Point; 16]; COMB_WINDOWS]>> = std::sync::OnceLock::new();
+fn generator_comb() -> &'static [[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS] {
+    static V: std::sync::OnceLock<Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]>> =
+        std::sync::OnceLock::new();
     &**V.get_or_init(build_comb_table)
 }
 
 #[cfg(feature = "table")]
-fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
-    let mut windows: Vec<[Point; 16]> = Vec::with_capacity(COMB_WINDOWS);
+fn build_comb_table() -> Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]> {
+    let mut windows: Vec<[CachedPointAffine; COMB_DIGITS]> = Vec::with_capacity(COMB_WINDOWS);
     for row in COMB_TABLE.iter() {
-        let mut window: [Point; 16] = core::array::from_fn(|_| Point::IDENTITY);
-        for (slot, (x, y)) in window.iter_mut().skip(1).zip(row.iter()) {
-            *slot = Point::from_affine(
-                &FieldElement::from_bytes_unchecked_le(x),
-                &FieldElement::from_bytes_unchecked_le(y),
-            );
-        }
-        windows.push(window);
+        windows.push(core::array::from_fn(|j| {
+            let (y_minus_x, y_plus_x, t2d) = &row[j];
+            CachedPointAffine {
+                y_minus_x: FieldElement::from_bytes_unchecked_le(y_minus_x),
+                y_plus_x: FieldElement::from_bytes_unchecked_le(y_plus_x),
+                t2d: FieldElement::from_bytes_unchecked_le(t2d),
+            }
+        }));
     }
-    <Box<[[Point; 16]; COMB_WINDOWS]>>::try_from(windows.into_boxed_slice())
+    <Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]>>::try_from(windows.into_boxed_slice())
         .ok()
         .expect("comb window count matches COMB_WINDOWS")
 }
@@ -1017,6 +1072,67 @@ impl CachedPoint {
             t2d: -&self.t2d,
             z: self.z.clone(),
         }
+    }
+}
+
+/// Point in precomputed affine "cached" form: `(Y - X, Y + X, 2d * T)`.
+///
+/// This is [`CachedPoint`] for the points a precomputed table of affine
+/// multiples is made of, whose `Z` is one. Leaving `Z` out is a quarter less
+/// table for a constant-time lookup to walk, and one multiplication less per
+/// addition (see [`Point::add_cached_affine`]).
+#[cfg(feature = "table")]
+#[derive(Clone)]
+struct CachedPointAffine {
+    y_minus_x: FieldElement,
+    y_plus_x: FieldElement,
+    t2d: FieldElement,
+}
+
+#[cfg(feature = "table")]
+impl CachedPointAffine {
+    /// The neutral element `(0, 1)`: `Y - X` and `Y + X` are both one and
+    /// `T = XY` is zero, so adding it leaves the accumulator where it was.
+    const IDENTITY: Self = CachedPointAffine {
+        y_minus_x: FieldElement::one(),
+        y_plus_x: FieldElement::one(),
+        t2d: FieldElement::zero(),
+    };
+
+    /// The affine cached form of a point whose `Z` is one — the shape the
+    /// precomputed tables are generated in, and how a test reaches the formula
+    /// without going through them.
+    #[cfg(test)]
+    fn from_affine(x: &FieldElement, y: &FieldElement) -> Self {
+        CachedPointAffine {
+            y_minus_x: y - x,
+            y_plus_x: y + x,
+            t2d: &EdCurve::D2 * &(x * y),
+        }
+    }
+
+    /// Select between this point and its opposite in constant time: negating
+    /// `X` and `T` swaps `Y - X` with `Y + X` and negates `2d*T`.
+    fn ct_negate(&self, negate: Choice) -> Self {
+        CachedPointAffine {
+            y_minus_x: FieldElement::ct_select(negate, &self.y_plus_x, &self.y_minus_x),
+            y_plus_x: FieldElement::ct_select(negate, &self.y_minus_x, &self.y_plus_x),
+            t2d: FieldElement::ct_select(negate, &-&self.t2d, &self.t2d),
+        }
+    }
+}
+
+#[cfg(feature = "table")]
+impl CtSelect for CachedPointAffine {
+    fn ct_select(cond: Choice, a: &Self, b: &Self) -> Self {
+        CachedPointAffine {
+            y_minus_x: FieldElement::ct_select(cond, &a.y_minus_x, &b.y_minus_x),
+            y_plus_x: FieldElement::ct_select(cond, &a.y_plus_x, &b.y_plus_x),
+            t2d: FieldElement::ct_select(cond, &a.t2d, &b.t2d),
+        }
+    }
+    fn ct_assign(&mut self, cond: Choice, other: &Self) {
+        *self = Self::ct_select(cond, other, self);
     }
 }
 
@@ -1384,6 +1500,74 @@ mod tests {
                 s = s.square();
             }
             assert_eq!(Point::mul_base(&s), Point::GENERATOR.scale(&s));
+
+            // the scalars that stress a signed recoding: the digit boundaries,
+            // long runs of set bits, and both ends of the scalar range
+            for s in wnaf_test_scalars() {
+                assert_eq!(Point::mul_base(&s), Point::GENERATOR.scale(&s), "s={:?}", s);
+            }
+        }
+
+        #[test]
+        fn signed_comb_digits_reconstruct_the_scalar() {
+            let mut saw_negative = 0;
+            for k in wnaf_test_scalars() {
+                let digits = signed_comb_digits(&k);
+
+                for (i, &d) in digits.iter().enumerate() {
+                    assert!((-8..=7).contains(&d), "digit {} at {} out of range", d, i);
+                    saw_negative += (d < 0) as usize;
+                }
+
+                // sum(digits[i] * 16^i) == k, by Horner from the top
+                let sixteen = Scalar::from_u64(16);
+                let mut acc = Scalar::zero();
+                for &d in digits.iter().rev() {
+                    let digit = Scalar::from_u64(d.unsigned_abs() as u64);
+                    let digit = if d < 0 { -&digit } else { digit };
+                    acc = &(&acc * &sixteen) + &digit;
+                }
+                assert_eq!(acc, k);
+            }
+            // the recoding does exercise the negative half of the digit range,
+            // and so the negation of a table entry
+            assert!(saw_negative > 20, "only {} negative digits", saw_negative);
+        }
+
+        #[test]
+        fn add_cached_affine_matches_add() {
+            // the mixed-coordinate formula the comb uses must be the plain
+            // complete addition, exceptional cases included. Its right-hand
+            // operand is affine, so the addends are taken through `to_affine`.
+            let g = Point::GENERATOR;
+            let points = [
+                Point::IDENTITY,
+                g.clone(),
+                g.double(),
+                g.scale_bytes(&[7]),
+                -&g,
+            ];
+            for p in points.iter() {
+                for q in points.iter() {
+                    let (qx, qy) = q.to_affine();
+                    let cached = CachedPointAffine::from_affine(&qx, &qy);
+                    assert_eq!(p.add_cached_affine(&cached), Point::add(p, q));
+                    // and the constant-time negation of a table entry
+                    assert_eq!(
+                        p.add_cached_affine(&cached.ct_negate(Choice::TRUE)),
+                        Point::add(p, &-q)
+                    );
+                    assert_eq!(
+                        p.add_cached_affine(&cached.ct_negate(Choice::FALSE)),
+                        Point::add(p, q)
+                    );
+                }
+            }
+
+            // the identity entry a zero digit selects
+            for p in points.iter() {
+                assert_eq!(p.add_cached_affine(&CachedPointAffine::IDENTITY), p.clone());
+            }
         }
 
         /// A spread of scalars that stresses the wNAF recoding: zero, the
