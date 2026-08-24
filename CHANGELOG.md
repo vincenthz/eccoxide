@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **curve25519**: point doubling is a bit faster (85.7ns to 81.1ns)
 - **curve25519**: `Point::mul_base` is faster. The
   fixed-base comb reads *signed* 4-bit digits, so a window holds the eight
   magnitudes `1..=8` instead of fifteen digits and a constant-time lookup walks

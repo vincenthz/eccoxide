@@ -74,10 +74,16 @@ closing the gap vs the cryptoxide comparison benches (benches/curve25519, x25519
   constant-time bit-by-bit double-and-add (~256 doublings + 256 masked additions
   per scalar); switch to a fixed 4-bit window with a constant-time point table
   (~256 D + 64 A), or a signed-window / (w)NAF method for the variable-time paths
+* [ ] the additions of the wNAF ladders always compute `T`, which the doubling
+  that follows them never reads: ~65 of the ~70 additions of a
+  `double_scalar_mul_base_vartime` throw one multiplication away. Have the
+  addition return its four factors, as `double_parts` does, and let the caller
+  materialise `T` only when another addition follows (~0.7us of a ~36us verify)
 * [ ] the width-`WNAF_BASE_W` generator table of
   `double_scalar_mul_base_vartime` is still `CachedPoint`, so every base
   addition pays a multiplication by a `z` that is one: move it to
-  `CachedPointAffine` / `add_cached_affine` as `mul_base` now does
+  `CachedPointAffine` / `add_cached_affine` as `mul_base` now does, with a
+  `sub_cached_affine` for the negative digits (~0.3us)
 * [ ] X25519: the Montgomery ladder is already standard x-only add-and-double, so the
   remaining lever is the field multiply — benchmark the saturated 4-limb
   (dettman) fiat backend against the current 5-limb unsaturated-solinas one
