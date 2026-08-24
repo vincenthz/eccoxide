@@ -78,8 +78,6 @@ closing the gap vs the cryptoxide comparison benches (benches/curve25519, x25519
   `double_scalar_mul_base_vartime` is still `CachedPoint`, so every base
   addition pays a multiplication by a `z` that is one: move it to
   `CachedPointAffine` / `add_cached_affine` as `mul_base` now does
-* [ ] `add_wnaf_multiple` builds `entry.negate()` for a negative digit, four
-  field-element clones per addition; negate inside the formula instead
 * [ ] X25519: the Montgomery ladder is already standard x-only add-and-double, so the
   remaining lever is the field multiply — benchmark the saturated 4-limb
   (dettman) fiat backend against the current 5-limb unsaturated-solinas one

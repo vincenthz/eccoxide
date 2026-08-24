@@ -731,6 +731,25 @@ impl Point {
         }
     }
 
+    /// Complete *subtraction* of a [`CachedPoint`], for the same price as
+    /// [`Self::add_cached`].
+    fn sub_cached(&self, other: &CachedPoint) -> Point {
+        let aa = &(&self.y - &self.x) * &other.y_plus_x;
+        let bb = &(&self.y + &self.x) * &other.y_minus_x;
+        let cc = &self.t * &other.t2d; // 2*d*T1*T2
+        let dd = (&self.z * &other.z).double(); // 2*Z1*Z2
+        let e = &bb - &aa;
+        let f = &dd + &cc;
+        let g = &dd - &cc;
+        let h = &bb + &aa;
+        Point {
+            x: &e * &f,
+            y: &g * &h,
+            z: &f * &g,
+            t: &e * &h,
+        }
+    }
+
     /// The same complete addition again, with the right-hand operand in the
     /// affine [`CachedPointAffine`] form: its `Z` is one, so `2*Z1*Z2` is a
     /// doubling rather than a multiplication and the addition costs seven
@@ -1062,17 +1081,6 @@ impl CachedPoint {
             z: p.z.clone(),
         }
     }
-
-    /// The cached form of the opposite point: negating `X` and `T` swaps
-    /// `Y - X` with `Y + X` and negates `2d*T`.
-    fn negate(&self) -> Self {
-        CachedPoint {
-            y_minus_x: self.y_plus_x.clone(),
-            y_plus_x: self.y_minus_x.clone(),
-            t2d: -&self.t2d,
-            z: self.z.clone(),
-        }
-    }
 }
 
 /// Point in precomputed affine "cached" form: `(Y - X, Y + X, 2d * T)`.
@@ -1241,7 +1249,7 @@ fn add_wnaf_multiple(q: &Point, table: &[CachedPoint], digit: i8) -> Point {
     if digit > 0 {
         q.add_cached(entry)
     } else {
-        q.add_cached(&entry.negate())
+        q.sub_cached(entry)
     }
 }
 
@@ -1670,9 +1678,10 @@ mod tests {
             for p in points.iter() {
                 for q in points.iter() {
                     assert_eq!(p.add_cached(&CachedPoint::from_point(q)), Point::add(p, q));
-                    // and the cached negation
+                    // and the subtraction that folds the negation of the
+                    // precomputed addend into the formula
                     assert_eq!(
-                        p.add_cached(&CachedPoint::from_point(q).negate()),
+                        p.sub_cached(&CachedPoint::from_point(q)),
                         Point::add(p, &-q)
                     );
                 }
