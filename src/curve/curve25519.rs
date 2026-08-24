@@ -599,24 +599,35 @@ pub struct Point {
 }
 
 /// The four products `(E, F, G, H)` of the dedicated `a = -1` doubling formula
-/// applied to the projective coordinates `(X, Y, Z)`.
+/// applied to the projective coordinates `(X, Y, Z)`:
+///
+/// ```text
+/// E = 2*X*Y                F = 2*Z^2 - (Y^2 - X^2)
+/// G = Y^2 - X^2            H = X^2 + Y^2
+/// ```
 ///
 /// The doubled point is `(E*F : G*H : F*G)` in projective coordinates, with the
-/// extended coordinate `T = E*H`. Doubling formula itself never reads `T`
+/// extended coordinate `T = E*H`. The doubling formula itself never reads `T`.
+///
+/// `F` and `H` are the opposite of what the published `a = -1` formula calls
+/// them, which negates all four outputs at once — the same projective point,
+/// and `T = X*Y/Z` stays consistent under it. Taking the signs this way round
+/// is what lets `X^2 + Y^2` serve as `H` as well as feed `E`, and spares the
+/// `-X^2` the published version starts from: six field additions instead of
+/// eight, for a formula whose four multiplications and four squarings are
+/// otherwise the whole cost.
 fn double_parts(
     x: &FieldElement,
     y: &FieldElement,
     z: &FieldElement,
 ) -> (FieldElement, FieldElement, FieldElement, FieldElement) {
-    let a = x.square();
-    let b = y.square();
-    let c = z.square().double(); // 2*Z^2
-    let d = -&a; // a*A with a = -1
-    let xy = x + y;
-    let e = &xy.square() - &(&a + &b); // (X+Y)^2 - A - B
-    let g = &d + &b;
-    let f = &g - &c;
-    let h = &d - &b;
+    let xx = x.square();
+    let yy = y.square();
+    let zz2 = z.square().double(); // 2*Z^2
+    let h = &yy + &xx; // X^2 + Y^2
+    let g = &yy - &xx; // Y^2 - X^2
+    let e = &(x + y).square() - &h; // (X+Y)^2 - (X^2 + Y^2) = 2*X*Y
+    let f = &zz2 - &g;
     (e, f, g, h)
 }
 
@@ -1486,6 +1497,108 @@ mod tests {
             assert_eq!(g.double(), &g + &g);
             assert_eq!(g.scale_bytes(&[2]), g.double());
             assert_eq!(g.scale_bytes(&[3]), &g.double() + &g);
+        }
+
+        /// The dedicated `a = -1` doubling exactly as published, which
+        /// [`double_parts`] departs from by the sign of `F` and `H`.
+        fn double_parts_published(
+            x: &FieldElement,
+            y: &FieldElement,
+            z: &FieldElement,
+        ) -> (FieldElement, FieldElement, FieldElement, FieldElement) {
+            let a = x.square();
+            let b = y.square();
+            let c = z.square().double(); // 2*Z^2
+            let d = -&a; // a*A with a = -1
+            let e = &(x + y).square() - &(&a + &b); // (X+Y)^2 - A - B
+            let g = &d + &b;
+            let f = &g - &c;
+            let h = &d - &b;
+            (e, f, g, h)
+        }
+
+        fn assemble(
+            (e, f, g, h): (FieldElement, FieldElement, FieldElement, FieldElement),
+        ) -> Point {
+            Point {
+                x: &e * &f,
+                y: &g * &h,
+                z: &f * &g,
+                t: &e * &h,
+            }
+        }
+
+        /// What the sign convention of [`double_parts`] does, and what it
+        /// cannot do.
+        ///
+        /// Against the published formula it negates all four coordinates of the
+        /// doubled point: a different *representative*, never a different
+        /// point. Nothing reachable through the API can tell the two apart,
+        /// since every observable is a ratio of coordinates and the factor
+        /// cancels. Hence a test on the coordinates themselves.
+        ///
+        /// Note in particular that this is not something the equality test at
+        /// the end of a verification makes safe. Negating is just a projective
+        /// rescaling, so it survives everything downstream, the addition
+        /// formulas included even though those do read `T`.
+        #[test]
+        fn double_parts_is_the_published_formula_negated() {
+            let mut p = Point::IDENTITY;
+            for i in 0..8 {
+                p = &p + &Point::GENERATOR;
+
+                let (e, f, g, h) = double_parts(&p.x, &p.y, &p.z);
+                let (e2, f2, g2, h2) = double_parts_published(&p.x, &p.y, &p.z);
+
+                // `E` and `G` are the published ones, `F` and `H` the opposites
+                assert_eq!(e, e2, "E at {}", i);
+                assert_eq!(g, g2, "G at {}", i);
+                assert_eq!(f, -&f2, "F at {}", i);
+                assert_eq!(h, -&h2, "H at {}", i);
+
+                // and since both flipped factors appear in each of the four
+                // output products, every coordinate comes out negated
+                let q = assemble((e, f, g, h));
+                let q2 = assemble((e2, f2, g2, h2));
+                assert_eq!(q.x, -&q2.x, "X at {}", i);
+                assert_eq!(q.y, -&q2.y, "Y at {}", i);
+                assert_eq!(q.z, -&q2.z, "Z at {}", i);
+                assert_eq!(q.t, -&q2.t, "T at {}", i);
+
+                // which leaves nothing observable to distinguish: the same
+                // point, both extended representations valid, the same affine
+                // coordinates and the same encoding
+                assert_eq!(q, q2, "point at {}", i);
+                assert_eq!(&q.t * &q.z, &q.x * &q.y, "invariant at {}", i);
+                assert_eq!(&q2.t * &q2.z, &q2.x * &q2.y, "published invariant at {}", i);
+                assert_eq!(q.to_affine(), q2.to_affine(), "affine at {}", i);
+                assert_eq!(q.compress(), q2.compress(), "encoding at {}", i);
+
+                // and it keeps agreeing through the operations that read `T`,
+                // so the convention is not confined to a final equality test
+                assert_eq!(q.scale_bytes(&[5]), q2.scale_bytes(&[5]), "scale at {}", i);
+                assert_eq!(q.double(), q2.double(), "double at {}", i);
+                assert_eq!(&q + &p, &q2 + &p, "add at {}", i);
+            }
+        }
+
+        /// `double_parts` takes the signs of `F` and `H` the opposite way round
+        /// from the published `a = -1` formula, which negates all four outputs.
+        /// Point equality is blind to that, a projective point is unchanged by
+        /// it, but the addition formulas read `T`, so what has to hold is the
+        /// extended-coordinate invariant `T * Z == X * Y` itself.
+        #[test]
+        fn doubling_keeps_the_extended_coordinate_consistent() {
+            let mut p = Point::GENERATOR;
+            for i in 0..16 {
+                for q in [p.clone(), p.double(), &p + &Point::GENERATOR] {
+                    assert_eq!(&q.t * &q.z, &q.x * &q.y, "step {}", i);
+                }
+                p = p.double();
+            }
+            // and for the identity, whose T and X are both zero
+            let id = Point::IDENTITY.double();
+            assert_eq!(&id.t * &id.z, &id.x * &id.y);
         }
 
         #[test]
