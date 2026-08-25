@@ -22,7 +22,7 @@
 use super::{EdCurve, FieldElement, Point, Scalar};
 use crate::curve::edwards::EdwardsCurve;
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect, CtZero};
-use std::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, Mul, Neg, Sub};
 
 // Field constants (big-endian), as specified by RFC 9496 Appendix A.
 // `i = sqrt(-1)` is reused from the parent module as `FieldElement::SQRT_M1`.

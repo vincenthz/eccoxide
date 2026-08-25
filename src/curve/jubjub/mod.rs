@@ -24,8 +24,8 @@ use crate::params::jubjub::{A_BYTES, D2_BYTES, D_BYTES, GT_BYTES, GX_BYTES, GY_B
 #[cfg(feature = "table")]
 use crate::params::jubjub::{COMB_TABLE, COMB_WINDOWS};
 #[cfg(feature = "table")]
-use std::convert::TryFrom;
-use std::ops::{Add, Mul, Neg, Sub};
+use core::convert::TryFrom;
+use core::ops::{Add, Mul, Neg, Sub};
 
 pub mod scalar;
 
@@ -261,13 +261,14 @@ impl Point {
 /// with no point doublings.
 #[cfg(feature = "table")]
 fn generator_comb() -> &'static [[Point; 16]; COMB_WINDOWS] {
-    static V: std::sync::OnceLock<Box<[[Point; 16]; COMB_WINDOWS]>> = std::sync::OnceLock::new();
+    static V: std::sync::OnceLock<alloc::boxed::Box<[[Point; 16]; COMB_WINDOWS]>> =
+        std::sync::OnceLock::new();
     &**V.get_or_init(build_comb_table)
 }
 
 #[cfg(feature = "table")]
-fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
-    let mut windows: Vec<[Point; 16]> = Vec::with_capacity(COMB_WINDOWS);
+fn build_comb_table() -> alloc::boxed::Box<[[Point; 16]; COMB_WINDOWS]> {
+    let mut windows: alloc::vec::Vec<[Point; 16]> = alloc::vec::Vec::with_capacity(COMB_WINDOWS);
     for row in COMB_TABLE.iter() {
         let mut window: [Point; 16] = core::array::from_fn(|_| Point::IDENTITY);
         for (slot, (x, y)) in window.iter_mut().skip(1).zip(row.iter()) {
@@ -278,7 +279,7 @@ fn build_comb_table() -> Box<[[Point; 16]; COMB_WINDOWS]> {
         }
         windows.push(window);
     }
-    <Box<[[Point; 16]; COMB_WINDOWS]>>::try_from(windows.into_boxed_slice())
+    <alloc::boxed::Box<[[Point; 16]; COMB_WINDOWS]>>::try_from(windows.into_boxed_slice())
         .ok()
         .expect("comb window count matches COMB_WINDOWS")
 }

@@ -31,9 +31,10 @@ use crate::params::curve25519::{
     COMB_DIGITS, COMB_TABLE, COMB_WINDOWS, WNAF_BASE_TABLE, WNAF_BASE_W,
 };
 use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
+use alloc::vec::Vec;
 #[cfg(feature = "table")]
-use std::convert::TryFrom;
-use std::ops::{Add, Mul, Neg, Sub};
+use core::convert::TryFrom;
+use core::ops::{Add, Mul, Neg, Sub};
 
 const FE_LIMBS_SIZE: usize = 5;
 const GM_LIMBS_SIZE: usize = 4;
@@ -963,13 +964,14 @@ fn signed_comb_digits(k: &Scalar) -> [i8; COMB_WINDOWS] {
 /// signed 4-bit digit of `n`, with no point doublings.
 #[cfg(feature = "table")]
 fn generator_comb() -> &'static [[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS] {
-    static V: std::sync::OnceLock<Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]>> =
-        std::sync::OnceLock::new();
+    static V: std::sync::OnceLock<
+        alloc::boxed::Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]>,
+    > = std::sync::OnceLock::new();
     &**V.get_or_init(build_comb_table)
 }
 
 #[cfg(feature = "table")]
-fn build_comb_table() -> Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]> {
+fn build_comb_table() -> alloc::boxed::Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]> {
     let mut windows: Vec<[CachedPointAffine; COMB_DIGITS]> = Vec::with_capacity(COMB_WINDOWS);
     for row in COMB_TABLE.iter() {
         windows.push(core::array::from_fn(|j| {
@@ -981,9 +983,11 @@ fn build_comb_table() -> Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]> {
             }
         }));
     }
-    <Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]>>::try_from(windows.into_boxed_slice())
-        .ok()
-        .expect("comb window count matches COMB_WINDOWS")
+    <alloc::boxed::Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]>>::try_from(
+        windows.into_boxed_slice(),
+    )
+    .ok()
+    .expect("comb window count matches COMB_WINDOWS")
 }
 
 /// Number of wNAF digits held by [`wnaf`]. Scalars are reduced modulo

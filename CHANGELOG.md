@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **no_std groundwork**: the crate no longer reaches for `std` anywhere except
+  one construct.
 - **curve25519**: point doubling is a bit faster (85.7ns to 81.1ns)
 - **curve25519**: `Point::mul_base` is faster. The
   fixed-base comb reads *signed* 4-bit digits, so a window holds the eight

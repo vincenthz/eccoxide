@@ -13,8 +13,9 @@ use super::affine;
 use super::field::Field;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect};
-use std::convert::TryFrom;
-use std::ops::{Add, Mul, Neg, Sub};
+use alloc::vec::Vec;
+use core::convert::TryFrom;
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// Projective point with field element FE
 ///
@@ -451,7 +452,7 @@ impl<FE: Field> Point<FE> {
     pub(crate) fn build_comb_table<const NW: usize, const FS: usize>(
         table: &[[([u8; FS], [u8; FS]); 15]; NW],
         parse: fn(&[u8; FS]) -> FE,
-    ) -> Box<[[Point<FE>; 16]; NW]> {
+    ) -> alloc::boxed::Box<[[Point<FE>; 16]; NW]> {
         let mut windows: Vec<[Point<FE>; 16]> = Vec::with_capacity(NW);
         for w in 0..NW {
             let mut window: [Point<FE>; 16] = core::array::from_fn(|_| Self::INFINITY);
@@ -466,7 +467,7 @@ impl<FE: Field> Point<FE> {
         }
 
         // conversion should not reallocate since we pinned the capacity
-        <Box<[[Point<FE>; 16]; NW]>>::try_from(windows.into_boxed_slice())
+        <alloc::boxed::Box<[[Point<FE>; 16]; NW]>>::try_from(windows.into_boxed_slice())
             .ok()
             .expect("comb table window count matches NW")
     }
@@ -1029,7 +1030,7 @@ impl<FE: Field> CtSelect for Point<FE> {
     }
 }
 
-impl<FE> std::ops::Neg for Point<FE>
+impl<FE> core::ops::Neg for Point<FE>
 where
     FE: Neg<Output = FE>,
 {
@@ -1044,7 +1045,7 @@ where
     }
 }
 
-impl<'a, FE> std::ops::Neg for &'a Point<FE>
+impl<'a, FE> core::ops::Neg for &'a Point<FE>
 where
     FE: Clone + Neg<Output = FE>,
     &'a FE: Neg<Output = FE>,

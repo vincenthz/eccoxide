@@ -11,7 +11,7 @@
 
 use super::fp2::Fp2;
 use crate::params::bls12_381::{FROBENIUS_FP6_C1_BYTES, FROBENIUS_FP6_C2_BYTES};
-use std::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// `ξ^((p-1)/3)`, so that `v^p = v · FROBENIUS_C1`.
 const FROBENIUS_C1: Fp2 = Fp2::from_bytes_unchecked(&FROBENIUS_FP6_C1_BYTES);
@@ -172,8 +172,8 @@ impl Fp6 {
     }
 }
 
-impl std::fmt::Debug for Fp6 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Fp6 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "({}) + ({})*v + ({})*v^2", self.c0, self.c1, self.c2)
     }
 }

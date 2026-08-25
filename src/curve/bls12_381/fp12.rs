@@ -11,7 +11,7 @@
 use super::fp2::Fp2;
 use super::fp6::Fp6;
 use crate::params::bls12_381::FROBENIUS_FP12_C1_BYTES;
-use std::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// `ξ^((p-1)/6)`, so that `w^p = w · FROBENIUS_C1`.
 const FROBENIUS_C1: Fp2 = Fp2::from_bytes_unchecked(&FROBENIUS_FP12_C1_BYTES);
@@ -174,8 +174,8 @@ impl Fp12 {
     }
 }
 
-impl std::fmt::Debug for Fp12 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Fp12 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "({:?}) + ({:?})*w", self.c0, self.c1)
     }
 }

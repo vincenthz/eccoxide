@@ -20,6 +20,19 @@ optimisation:
 tooling:
 * [ ] audit functions for constant-time-ness
 
+no_std:
+
+* [ ] replace the `OnceLock<Box<..>>` comb caches with a const-evaluated
+  `static`, decoding the embedded bytes at compile time the way `GENERATOR_WNAF`
+  already does.
+* [ ] the `bigint` backend need `OnceLock`
+* [ ] `#![no_std]` itself, plus `extern crate std` under `cfg(test)` for the test
+  modules, and a `std` / `alloc` feature pair to select the tiers
+* [ ] turn the last `Vec`s into fixed-size arrays.
+  * [ ]`curve25519`'s `odd_multiples`
+  * [ ] `projective.rs`'s `wnaf(n, w)`
+  * [ ] `multi_miller`'s `Vec` is sized by a caller-supplied slice
+
 ## BLS12-381
 
 features:

@@ -15,11 +15,11 @@ impl<'a> LimbsLE<'a> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
-    pub fn iter_from_high(&self) -> core::iter::Rev<std::slice::Iter<'a, u64>> {
+    pub fn iter_from_high(&self) -> core::iter::Rev<core::slice::Iter<'a, u64>> {
         self.0.iter().rev()
     }
 
-    pub fn iter_from_low(&self) -> std::slice::Iter<'a, u64> {
+    pub fn iter_from_low(&self) -> core::slice::Iter<'a, u64> {
         self.0.iter()
     }
 }
@@ -28,11 +28,11 @@ impl<'a> LimbsBE<'a> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
-    pub fn iter_from_high(&self) -> std::slice::Iter<'a, u64> {
+    pub fn iter_from_high(&self) -> core::slice::Iter<'a, u64> {
         self.0.iter()
     }
 
-    pub fn iter_from_low(&self) -> core::iter::Rev<std::slice::Iter<'a, u64>> {
+    pub fn iter_from_low(&self) -> core::iter::Rev<core::slice::Iter<'a, u64>> {
         self.0.iter().rev()
     }
 }

@@ -107,8 +107,8 @@ macro_rules! fiat_field_common_impl {
         }
         impl Eq for $FE {}
 
-        impl std::fmt::Debug for $FE {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Debug for $FE {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 for b in &self.to_bytes()[..] {
                     write!(f, "{:02x}", b)?
                 }
@@ -116,8 +116,8 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl std::fmt::Display for $FE {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Display for $FE {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 for b in &self.to_bytes()[..] {
                     write!(f, "{:02x}", b)?
                 }
@@ -168,15 +168,6 @@ macro_rules! fiat_field_common_impl {
                 let mut limbs = [0u64; $FE_LIMBS_SIZE];
                 limbs[0] = 1;
                 Self::init(limbs)
-            }
-
-            pub fn to_string(&self) -> String {
-                let mut s = String::new();
-                let bytes = self.to_bytes();
-                for b in bytes.iter() {
-                    s.push_str(&format!("{:02x}", b));
-                }
-                s
             }
 
             /// Return a new element that is the square of this one
@@ -364,7 +355,7 @@ macro_rules! fiat_field_common_impl {
         // pointing at the native default for this field ($endian)
         $crate::fiat_field_serde_default_slice!($FE, $endian);
 
-        impl std::ops::Neg for $FE {
+        impl core::ops::Neg for $FE {
             type Output = $FE;
 
             fn neg(self) -> Self::Output {
@@ -374,7 +365,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl std::ops::Neg for &$FE {
+        impl core::ops::Neg for &$FE {
             type Output = $FE;
 
             fn neg(self) -> Self::Output {
@@ -388,7 +379,7 @@ macro_rules! fiat_field_common_impl {
         // Scalar Addition
         // ****************
 
-        impl<'a, 'b> std::ops::Add<&'b $FE> for &'a $FE {
+        impl<'a, 'b> core::ops::Add<&'b $FE> for &'a $FE {
             type Output = $FE;
 
             fn add(self, other: &'b $FE) -> $FE {
@@ -398,7 +389,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl<'a> std::ops::Add<$FE> for &'a $FE {
+        impl<'a> core::ops::Add<$FE> for &'a $FE {
             type Output = $FE;
 
             fn add(self, other: $FE) -> $FE {
@@ -406,7 +397,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl<'b> std::ops::Add<&'b $FE> for $FE {
+        impl<'b> core::ops::Add<&'b $FE> for $FE {
             type Output = $FE;
 
             fn add(self, other: &'b $FE) -> $FE {
@@ -414,7 +405,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl std::ops::Add<$FE> for $FE {
+        impl core::ops::Add<$FE> for $FE {
             type Output = $FE;
 
             fn add(self, other: $FE) -> $FE {
@@ -426,7 +417,7 @@ macro_rules! fiat_field_common_impl {
         // Scalar Subtraction
         // *******************
 
-        impl<'a, 'b> std::ops::Sub<&'b $FE> for &'a $FE {
+        impl<'a, 'b> core::ops::Sub<&'b $FE> for &'a $FE {
             type Output = $FE;
 
             fn sub(self, other: &'b $FE) -> $FE {
@@ -436,7 +427,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl<'a> std::ops::Sub<$FE> for &'a $FE {
+        impl<'a> core::ops::Sub<$FE> for &'a $FE {
             type Output = $FE;
 
             fn sub(self, other: $FE) -> $FE {
@@ -444,7 +435,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl<'b> std::ops::Sub<&'b $FE> for $FE {
+        impl<'b> core::ops::Sub<&'b $FE> for $FE {
             type Output = $FE;
 
             fn sub(self, other: &'b $FE) -> $FE {
@@ -452,7 +443,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl std::ops::Sub<$FE> for $FE {
+        impl core::ops::Sub<$FE> for $FE {
             type Output = $FE;
 
             fn sub(self, other: $FE) -> $FE {
@@ -464,7 +455,7 @@ macro_rules! fiat_field_common_impl {
         // Scalar Multiplication
         // **********************
 
-        impl<'a, 'b> std::ops::Mul<&'b $FE> for &'a $FE {
+        impl<'a, 'b> core::ops::Mul<&'b $FE> for &'a $FE {
             type Output = $FE;
 
             fn mul(self, other: &'b $FE) -> $FE {
@@ -474,7 +465,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl<'b> std::ops::Mul<&'b $FE> for $FE {
+        impl<'b> core::ops::Mul<&'b $FE> for $FE {
             type Output = $FE;
 
             fn mul(self, other: &'b $FE) -> $FE {
@@ -482,7 +473,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl<'a, 'b> std::ops::Mul<$FE> for &'a $FE {
+        impl<'a, 'b> core::ops::Mul<$FE> for &'a $FE {
             type Output = $FE;
 
             fn mul(self, other: $FE) -> $FE {
@@ -490,7 +481,7 @@ macro_rules! fiat_field_common_impl {
             }
         }
 
-        impl std::ops::Mul<$FE> for $FE {
+        impl core::ops::Mul<$FE> for $FE {
             type Output = $FE;
 
             fn mul(self, other: $FE) -> $FE {

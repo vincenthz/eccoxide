@@ -12,8 +12,8 @@
 //! be written generically over any curve group.
 
 use crate::curve::field::Field;
-use std::fmt;
-use std::ops::{Add, Mul, Neg, Sub};
+use core::fmt;
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// Abstract trait for a prime-order group of points on an elliptic curve
 ///

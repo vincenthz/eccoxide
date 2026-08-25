@@ -12,8 +12,8 @@
 //!
 
 use crate::mp::ct::{CtEqual, CtOption, CtSelect};
-use std::fmt;
-use std::ops::{Add, Mul, Neg, Sub};
+use core::fmt;
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// Sign of a field element
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

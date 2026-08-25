@@ -265,14 +265,14 @@ impl Fp2 {
     }
 }
 
-impl std::fmt::Debug for Fp2 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Fp2 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{} + {}*u", self.c0, self.c1)
     }
 }
 
-impl std::fmt::Display for Fp2 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Fp2 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{} + {}*u", self.c0, self.c1)
     }
 }

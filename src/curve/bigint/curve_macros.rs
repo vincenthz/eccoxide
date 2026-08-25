@@ -115,7 +115,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl<'a, 'b> std::ops::Add<&'b PointAffine> for &'a PointAffine {
+        impl<'a, 'b> core::ops::Add<&'b PointAffine> for &'a PointAffine {
             type Output = PointAffine;
             fn add(self, other: &'b PointAffine) -> PointAffine {
                 let PointAffine {
@@ -371,7 +371,7 @@ macro_rules! point_impl {
         // Point Negation
         // *************
 
-        impl std::ops::Neg for Point {
+        impl core::ops::Neg for Point {
             type Output = Point;
 
             fn neg(self) -> Self::Output {
@@ -383,7 +383,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl<'a> std::ops::Neg for &'a Point {
+        impl<'a> core::ops::Neg for &'a Point {
             type Output = Point;
 
             fn neg(self) -> Self::Output {
@@ -403,7 +403,7 @@ macro_rules! point_impl {
         // (of any size), not just the *field element* scalar defined in F(p).
         // this semantic abuse makes it easier to use.
 
-        impl<'a, 'b> std::ops::Mul<&'b $SCALAR> for &'a Point {
+        impl<'a, 'b> core::ops::Mul<&'b $SCALAR> for &'a Point {
             type Output = Point;
 
             fn mul(self, other: &'b $SCALAR) -> Point {
@@ -411,7 +411,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a $SCALAR {
+        impl<'a, 'b> core::ops::Mul<&'b Point> for &'a $SCALAR {
             type Output = Point;
 
             fn mul(self, other: &'b Point) -> Point {
@@ -423,7 +423,7 @@ macro_rules! point_impl {
         // Point Addition
         // **************
 
-        impl<'a, 'b> std::ops::Add<&'b Point> for &'a Point {
+        impl<'a, 'b> core::ops::Add<&'b Point> for &'a Point {
             type Output = Point;
 
             fn add(self, other: &'b Point) -> Point {
@@ -431,7 +431,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl<'b> std::ops::Add<&'b Point> for Point {
+        impl<'b> core::ops::Add<&'b Point> for Point {
             type Output = Point;
 
             fn add(self, other: &'b Point) -> Point {
@@ -439,7 +439,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl<'a> std::ops::Add<Point> for &'a Point {
+        impl<'a> core::ops::Add<Point> for &'a Point {
             type Output = Point;
 
             fn add(self, other: Point) -> Point {
@@ -447,7 +447,7 @@ macro_rules! point_impl {
             }
         }
 
-        impl std::ops::Add<Point> for Point {
+        impl core::ops::Add<Point> for Point {
             type Output = Point;
 
             fn add(self, other: Point) -> Point {

@@ -1,6 +1,6 @@
+use core::convert::TryInto;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::identities::{One, Zero};
-use std::convert::TryInto;
 
 pub fn mod_inverse(a: &BigUint, n: &BigUint) -> BigUint {
     let mut t = BigInt::zero();

@@ -144,7 +144,7 @@ where
     }
 }
 
-impl<'x, 'y, FE> std::ops::Add<&'y Point<FE>> for &'x Point<FE>
+impl<'x, 'y, FE> core::ops::Add<&'y Point<FE>> for &'x Point<FE>
 where
     FE: Field,
     for<'a> &'a FE: Add<FE, Output = FE>,

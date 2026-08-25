@@ -223,7 +223,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'a, 'b> std::ops::Add<&'b PointAffine> for &'a PointAffine {
+        impl<'a, 'b> core::ops::Add<&'b PointAffine> for &'a PointAffine {
             type Output = PointAffine;
             fn add(self, other: &'b PointAffine) -> PointAffine {
                 PointAffine(&self.0 + &other.0)
@@ -294,7 +294,7 @@ macro_rules! fiat_define_weierstrass_points {
         // Point Negation
         // *************
 
-        impl std::ops::Neg for Point {
+        impl core::ops::Neg for Point {
             type Output = Point;
 
             fn neg(self) -> Self::Output {
@@ -302,7 +302,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'a> std::ops::Neg for &'a Point {
+        impl<'a> core::ops::Neg for &'a Point {
             type Output = Point;
 
             fn neg(self) -> Self::Output {
@@ -318,7 +318,7 @@ macro_rules! fiat_define_weierstrass_points {
         // (of any size), not just the *field element* scalar defined in F(p).
         // this semantic abuse makes it easier to use.
 
-        impl<'a, 'b> std::ops::Mul<&'b Scalar> for &'a Point {
+        impl<'a, 'b> core::ops::Mul<&'b Scalar> for &'a Point {
             type Output = Point;
 
             fn mul(self, other: &'b Scalar) -> Point {
@@ -326,7 +326,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'b> std::ops::Mul<&'b Scalar> for Point {
+        impl<'b> core::ops::Mul<&'b Scalar> for Point {
             type Output = Point;
 
             fn mul(self, other: &'b Scalar) -> Point {
@@ -334,7 +334,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'a, 'b> std::ops::Mul<&'b Point> for &'a Scalar {
+        impl<'a, 'b> core::ops::Mul<&'b Point> for &'a Scalar {
             type Output = Point;
 
             fn mul(self, other: &'b Point) -> Point {
@@ -346,7 +346,7 @@ macro_rules! fiat_define_weierstrass_points {
         // Point Addition
         // **************
 
-        impl<'a, 'b> std::ops::Add<&'b Point> for &'a Point {
+        impl<'a, 'b> core::ops::Add<&'b Point> for &'a Point {
             type Output = Point;
 
             fn add(self, other: &'b Point) -> Point {
@@ -354,7 +354,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'b> std::ops::Add<&'b Point> for Point {
+        impl<'b> core::ops::Add<&'b Point> for Point {
             type Output = Point;
 
             fn add(self, other: &'b Point) -> Point {
@@ -362,7 +362,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'a> std::ops::Add<Point> for &'a Point {
+        impl<'a> core::ops::Add<Point> for &'a Point {
             type Output = Point;
 
             fn add(self, other: Point) -> Point {
@@ -370,7 +370,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl std::ops::Add<Point> for Point {
+        impl core::ops::Add<Point> for Point {
             type Output = Point;
 
             fn add(self, other: Point) -> Point {
@@ -378,7 +378,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'a, 'b> std::ops::Sub<&'b Point> for &'a Point {
+        impl<'a, 'b> core::ops::Sub<&'b Point> for &'a Point {
             type Output = Point;
 
             fn sub(self, other: &'b Point) -> Point {
@@ -386,7 +386,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'b> std::ops::Sub<&'b Point> for Point {
+        impl<'b> core::ops::Sub<&'b Point> for Point {
             type Output = Point;
 
             fn sub(self, other: &'b Point) -> Point {
@@ -394,7 +394,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl<'a> std::ops::Sub<Point> for &'a Point {
+        impl<'a> core::ops::Sub<Point> for &'a Point {
             type Output = Point;
 
             fn sub(self, other: Point) -> Point {
@@ -402,7 +402,7 @@ macro_rules! fiat_define_weierstrass_points {
             }
         }
 
-        impl std::ops::Sub<Point> for Point {
+        impl core::ops::Sub<Point> for Point {
             type Output = Point;
 
             fn sub(self, other: Point) -> Point {

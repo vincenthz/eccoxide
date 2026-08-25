@@ -11,8 +11,8 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl std::fmt::Debug for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 let bs = self.0.to_bytes_be();
                 for b in bs.iter() {
                     write!(f, "{:02x}", b)?
@@ -235,7 +235,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl std::ops::Neg for $ty {
+        impl core::ops::Neg for $ty {
             type Output = $ty;
 
             fn neg(self) -> Self::Output {
@@ -243,7 +243,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl std::ops::Neg for &$ty {
+        impl core::ops::Neg for &$ty {
             type Output = $ty;
 
             fn neg(self) -> Self::Output {
@@ -255,7 +255,7 @@ macro_rules! bigint_scalar_impl {
         // Scalar Addition
         // ****************
 
-        impl<'a, 'b> std::ops::Add<&'b $ty> for &'a $ty {
+        impl<'a, 'b> core::ops::Add<&'b $ty> for &'a $ty {
             type Output = $ty;
 
             fn add(self, other: &'b $ty) -> $ty {
@@ -263,7 +263,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl<'a> std::ops::Add<$ty> for &'a $ty {
+        impl<'a> core::ops::Add<$ty> for &'a $ty {
             type Output = $ty;
 
             fn add(self, other: $ty) -> $ty {
@@ -271,7 +271,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl<'b> std::ops::Add<&'b $ty> for $ty {
+        impl<'b> core::ops::Add<&'b $ty> for $ty {
             type Output = $ty;
 
             fn add(self, other: &'b $ty) -> $ty {
@@ -279,7 +279,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl std::ops::Add<$ty> for $ty {
+        impl core::ops::Add<$ty> for $ty {
             type Output = $ty;
 
             fn add(self, other: $ty) -> $ty {
@@ -291,7 +291,7 @@ macro_rules! bigint_scalar_impl {
         // Scalar Subtraction
         // *******************
 
-        impl<'a, 'b> std::ops::Sub<&'b $ty> for &'a $ty {
+        impl<'a, 'b> core::ops::Sub<&'b $ty> for &'a $ty {
             type Output = $ty;
 
             fn sub(self, other: &'b $ty) -> $ty {
@@ -299,7 +299,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl<'a> std::ops::Sub<$ty> for &'a $ty {
+        impl<'a> core::ops::Sub<$ty> for &'a $ty {
             type Output = $ty;
 
             fn sub(self, other: $ty) -> $ty {
@@ -307,7 +307,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl<'b> std::ops::Sub<&'b $ty> for $ty {
+        impl<'b> core::ops::Sub<&'b $ty> for $ty {
             type Output = $ty;
 
             fn sub(self, other: &'b $ty) -> $ty {
@@ -315,7 +315,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl std::ops::Sub<$ty> for $ty {
+        impl core::ops::Sub<$ty> for $ty {
             type Output = $ty;
 
             fn sub(self, other: $ty) -> $ty {
@@ -327,7 +327,7 @@ macro_rules! bigint_scalar_impl {
         // Scalar Multiplication
         // **********************
 
-        impl<'a, 'b> std::ops::Mul<&'b $ty> for &'a $ty {
+        impl<'a, 'b> core::ops::Mul<&'b $ty> for &'a $ty {
             type Output = $ty;
 
             fn mul(self, other: &'b $ty) -> $ty {
@@ -335,7 +335,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl<'b> std::ops::Mul<&'b $ty> for $ty {
+        impl<'b> core::ops::Mul<&'b $ty> for $ty {
             type Output = $ty;
 
             fn mul(self, other: &'b $ty) -> $ty {
@@ -343,7 +343,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl<'a, 'b> std::ops::Mul<$ty> for &'a $ty {
+        impl<'a, 'b> core::ops::Mul<$ty> for &'a $ty {
             type Output = $ty;
 
             fn mul(self, other: $ty) -> $ty {
@@ -351,7 +351,7 @@ macro_rules! bigint_scalar_impl {
             }
         }
 
-        impl std::ops::Mul<$ty> for $ty {
+        impl core::ops::Mul<$ty> for $ty {
             type Output = $ty;
 
             fn mul(self, other: $ty) -> $ty {
