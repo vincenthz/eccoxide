@@ -454,92 +454,166 @@ impl EdwardsCurveAM1 for EdCurve {}
 // Montgomery x-only point and ladder (X25519)
 // ***********************************************************************
 
-/// x-only point on the Montgomery curve, in projective `(X:Z)` coordinates.
+/// x-only point on the Montgomery curve, as its affine u-coordinate.
 ///
 /// Only the x-coordinate is tracked; this representation supports the
 /// differential (Montgomery) ladder but not general point addition.
+///
+/// The projective `(X:Z)` form the ladder works in stays internal to
+/// [`ladder`]
 #[derive(Clone, Debug)]
 pub struct MontgomeryPoint {
-    x: FieldElement,
-    z: FieldElement,
+    u: FieldElement,
 }
 
-/// Constant-time conditional swap of two field elements.
-fn cswap(swap: Choice, a: &mut FieldElement, b: &mut FieldElement) {
-    let na = FieldElement::ct_select(swap, b, a);
-    let nb = FieldElement::ct_select(swap, a, b);
-    *a = na;
-    *b = nb;
+// The ladder is written against the fiat-crypto loose/tight domains rather than
+// through `FieldElement`'s operators, which buys two things:
+//
+// * `carry_mul`, `carry_square` and `carry_scmul_121666` all take *loose*
+//   inputs, and every add/sub below feeds straight into one of them
+// * the `(A+2)/4 = 121666` multiplication uses the dedicated small-constant
+//   routine instead of a general field multiplication.
+
+type Tight = fiat_25519_tight_field_element;
+type Loose = fiat_25519_loose_field_element;
+
+const TIGHT_ZERO: Tight = fiat_25519_tight_field_element([0u64; FE_LIMBS_SIZE]);
+const LOOSE_ZERO: Loose = fiat_25519_loose_field_element([0u64; FE_LIMBS_SIZE]);
+const TIGHT_ONE: Tight = {
+    let mut limbs = [0u64; FE_LIMBS_SIZE];
+    limbs[0] = 1;
+    fiat_25519_tight_field_element(limbs)
+};
+
+/// `a + b`: tight operands to a loose result.
+#[inline(always)]
+fn fe_add(a: &Tight, b: &Tight) -> Loose {
+    let mut out = LOOSE_ZERO;
+    fiat_25519_add(&mut out, a, b);
+    out
 }
 
-/// Constant-time Montgomery ladder: returns the u-coordinate of `k * P`, where
-/// `P` is the affine u-coordinate `base_u` and `k` is the big-endian scalar.
-fn ladder(base_u: &FieldElement, k_be: &[u8]) -> FieldElement {
-    let a24 = <Curve as MontgomeryCurve>::A24;
-    let x1 = base_u.clone();
-    let mut x2 = FieldElement::one();
-    let mut z2 = FieldElement::zero();
-    let mut x3 = base_u.clone();
-    let mut z3 = FieldElement::one();
-    let mut swap = 0u8;
+/// `a - b`: tight operands to a loose result.
+#[inline(always)]
+fn fe_sub(a: &Tight, b: &Tight) -> Loose {
+    let mut out = LOOSE_ZERO;
+    fiat_25519_sub(&mut out, a, b);
+    out
+}
+
+/// `a * b`: loose operands to a tight (carried) result.
+#[inline(always)]
+fn fe_mul(a: &Loose, b: &Loose) -> Tight {
+    let mut out = TIGHT_ZERO;
+    fiat_25519_carry_mul(&mut out, a, b);
+    out
+}
+
+/// `a^2`: loose operand to a tight (carried) result.
+#[inline(always)]
+fn fe_square(a: &Loose) -> Tight {
+    let mut out = TIGHT_ZERO;
+    fiat_25519_carry_square(&mut out, a);
+    out
+}
+
+/// `121666 * a`, i.e. `A24 * a`: loose operand to a tight (carried) result.
+///
+/// The backend hardcodes the constant; `ladder_a24_matches_curve_parameter` in
+/// the tests below pins it to [`MontgomeryCurve::A24`].
+#[inline(always)]
+fn fe_mul_a24(a: &Loose) -> Tight {
+    let mut out = TIGHT_ZERO;
+    fiat_25519_carry_scmul_121666(&mut out, a);
+    out
+}
+
+/// Widen a tight element into the loose domain (a relabelling, not arithmetic).
+#[inline(always)]
+fn fe_relax(a: &Tight) -> Loose {
+    let mut out = LOOSE_ZERO;
+    fiat_25519_relax(&mut out, a);
+    out
+}
+
+/// Constant-time conditional swap of two tight field elements.
+#[inline(always)]
+fn cswap(swap: fiat_25519_u1, a: &mut Tight, b: &mut Tight) {
+    let mut na = [0u64; FE_LIMBS_SIZE];
+    let mut nb = [0u64; FE_LIMBS_SIZE];
+    fiat_25519_selectznz(&mut na, swap, &a.0, &b.0);
+    fiat_25519_selectznz(&mut nb, swap, &b.0, &a.0);
+    a.0 = na;
+    b.0 = nb;
+}
+
+/// Constant-time Montgomery ladder: returns the projective `(X:Z)` of `k * P`,
+/// where `P` is the affine u-coordinate `base_u` and `k` is the big-endian
+/// scalar `k_be`.
+///
+/// The inversion turning `(X:Z)` into an affine u is left to the caller, so the
+/// intermediate results of a chain of ladders never round-trip through it.
+fn ladder(base_u: &FieldElement, k_be: &[u8]) -> (FieldElement, FieldElement) {
+    let x1 = fe_relax(&base_u.0);
+    let mut x2 = TIGHT_ONE;
+    let mut z2 = TIGHT_ZERO;
+    let mut x3 = base_u.0;
+    let mut z3 = TIGHT_ONE;
+    // the bit consumed by the previous iteration; the two running points are
+    // swapped whenever the current bit differs from it
+    let mut prev = 0u8;
 
     for &byte in k_be.iter() {
         for i in (0..8).rev() {
             let bit = (byte >> i) & 1;
-            swap ^= bit;
-            let sw = Choice((swap as u64) & 1);
+            let sw = prev ^ bit;
             cswap(sw, &mut x2, &mut x3);
             cswap(sw, &mut z2, &mut z3);
-            swap = bit;
+            prev = bit;
 
             // differential add-and-double
-            let a = &x2 + &z2;
-            let aa = a.square();
-            let b = &x2 - &z2;
-            let bb = b.square();
-            let e = &aa - &bb;
-            let c = &x3 + &z3;
-            let d = &x3 - &z3;
-            let da = &d * &a;
-            let cb = &c * &b;
-            x3 = (&da + &cb).square();
-            z3 = &x1 * &(&da - &cb).square();
-            x2 = &aa * &bb;
-            z2 = &e * &(&bb + &(&a24 * &e));
+            let a = fe_add(&x2, &z2);
+            let aa = fe_square(&a);
+            let b = fe_sub(&x2, &z2);
+            let bb = fe_square(&b);
+            let e = fe_sub(&aa, &bb);
+            let c = fe_add(&x3, &z3);
+            let d = fe_sub(&x3, &z3);
+            let da = fe_mul(&d, &a);
+            let cb = fe_mul(&c, &b);
+            x3 = fe_square(&fe_add(&da, &cb));
+            z3 = fe_mul(&x1, &fe_relax(&fe_square(&fe_sub(&da, &cb))));
+            x2 = fe_mul(&fe_relax(&aa), &fe_relax(&bb));
+            z2 = fe_mul(&e, &fe_add(&bb, &fe_mul_a24(&e)));
         }
     }
-    let sw = Choice((swap as u64) & 1);
-    cswap(sw, &mut x2, &mut x3);
-    cswap(sw, &mut z2, &mut z3);
+    cswap(prev, &mut x2, &mut x3);
+    cswap(prev, &mut z2, &mut z3);
 
-    &x2 * &z2.invert_or_zero()
+    (FieldElement(x2), FieldElement(z2))
 }
 
 impl MontgomeryPoint {
     /// Base point with u-coordinate 9
     pub const GENERATOR: Self = MontgomeryPoint {
-        x: FieldElement::from_bytes_unchecked_be(&MONT_GU_BYTES),
-        z: FieldElement::one(),
+        u: FieldElement::from_bytes_unchecked_be(&MONT_GU_BYTES),
     };
 
     /// Build an x-only point from its affine u-coordinate
     pub fn from_u(u: &FieldElement) -> Self {
-        MontgomeryPoint {
-            x: u.clone(),
-            z: FieldElement::one(),
-        }
+        MontgomeryPoint { u: u.clone() }
     }
 
     /// Return the affine u-coordinate (0 if this is the point at infinity)
     pub fn u(&self) -> FieldElement {
-        &self.x * &self.z.invert_or_zero()
+        self.u.clone()
     }
 
     /// Scalar multiplication by a big-endian scalar using the Montgomery ladder.
     pub fn scale_bytes(&self, k_be: &[u8]) -> Self {
+        let (x, z) = ladder(&self.u, k_be);
         MontgomeryPoint {
-            x: ladder(&self.u(), k_be),
-            z: FieldElement::one(),
+            u: &x * &z.invert_or_zero(),
         }
     }
 
@@ -553,24 +627,20 @@ impl MontgomeryPoint {
     ///
     /// Returns `None` for the points where the rational map is undefined.
     pub fn to_edwards(&self, x_sign: Sign) -> Option<Point> {
-        let u = self.u();
         let one = FieldElement::one();
-        let denom = &u + &one;
+        let denom = &self.u + &one;
         if denom.is_zero() {
             return None;
         }
         // y = (u - 1) / (u + 1)
-        let y = &(&u - &one) * &denom.inverse();
+        let y = &(&self.u - &one) * &denom.inverse();
         Point::decompress(&y, x_sign)
     }
 }
 
 impl PartialEq for MontgomeryPoint {
     fn eq(&self, other: &Self) -> bool {
-        // (X1:Z1) == (X2:Z2) iff X1*Z2 == X2*Z1
-        let l = &self.x * &other.z;
-        let r = &other.x * &self.z;
-        l.ct_eq(&r).is_true()
+        self.u.ct_eq(&other.u).is_true()
     }
 }
 impl Eq for MontgomeryPoint {}
@@ -836,6 +906,21 @@ impl Point {
                 Some(Point::from_affine(&x, y))
             }
         }
+    }
+
+    /// Map this Edwards point to the Montgomery u-coordinate, in constant time.
+    ///
+    /// `u = (1 + y)/(1 - y) = (Z + Y)/(Z - Y)`, so this reads the projective
+    /// coordinates directly: the map's own inversion also does the job of
+    /// [`Self::to_affine`]'s, making the whole conversion a single inversion.
+    ///
+    /// Unlike [`Self::to_montgomery_u`] there is no branch, and the identity
+    /// (`Y == Z`), where the rational map is undefined, yields 0 -- the value
+    /// the Montgomery ladder likewise reports for the point at infinity.
+    pub fn to_montgomery_u_ct(&self) -> FieldElement {
+        let num = &self.z + &self.y;
+        let den = &self.z - &self.y;
+        &num * &den.invert_or_zero()
     }
 
     /// Map this Edwards point to the Montgomery u-coordinate `(1 + y)/(1 - y)`.
@@ -1882,6 +1967,23 @@ mod tests {
                     }
                 }
             }
+        }
+
+        /// The ladder multiplies by `(A+2)/4` with the fiat-backend hardcoded
+        /// `carry_scmul_121666` rather than a general multiplication by
+        /// [`MontgomeryCurve::A24`].
+        #[test]
+        fn ladder_a24_matches_curve_parameter() {
+            let a24 = <Curve as MontgomeryCurve>::A24;
+            for v in [0u64, 1, 2, 9, 121665, 121666, u64::MAX] {
+                let x = FieldElement::from_u64(v);
+                let expected = &a24 * &x;
+                let got = FieldElement(fe_mul_a24(&fe_relax(&x.0)));
+                assert_eq!(got, expected, "v={}", v);
+            }
+            // and on a full-width element
+            let x = Point::GENERATOR.to_affine().0;
+            assert_eq!(FieldElement(fe_mul_a24(&fe_relax(&x.0))), &a24 * &x);
         }
 
         #[test]
