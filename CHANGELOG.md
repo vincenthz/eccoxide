@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **X25519** / **X448**: Montgomery Points now hold just a u-coordinate, and use
+  faster implementation using fiat crypto loose/tight domains instead of the
+  field element only tightened operation. Also for curve25519, use the optimised
+  small multiplication `carry_scmul_121666`. use the fixed-base comb through the
+  edwards curve (by birationally equivalent mapping)
 - **no_std groundwork**: the crate no longer reaches for `std` anywhere except
   one construct.
 - **curve25519**: point doubling is a bit faster (85.7ns to 81.1ns)
