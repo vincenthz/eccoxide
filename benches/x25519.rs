@@ -40,6 +40,14 @@ mod derive_public {
         bencher.bench(|| x25519_base(black_box(&SK_A)));
     }
 
+    /// The Montgomery-ladder path, for comparison against the fixed-base comb
+    /// that `x25519_base` uses under the `table` feature.
+    #[divan::bench]
+    fn eccoxide_ladder(bencher: Bencher) {
+        use ::eccoxide::protocol::x25519::{x25519, BASEPOINT};
+        bencher.bench(|| x25519(black_box(&SK_A), &BASEPOINT));
+    }
+
     #[cfg(feature = "cryptoxide")]
     #[divan::bench]
     fn cryptoxide(bencher: Bencher) {
