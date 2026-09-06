@@ -854,6 +854,26 @@ impl Point {
         }
     }
 
+    /// Complete *subtraction* of a [`CachedPointAffine`], for the same price
+    /// as [`Self::add_cached_affine`] — the same trade of `Y - X` against
+    /// `Y + X` and of the signs of `F` and `G` that [`Self::sub_cached`] makes.
+    fn sub_cached_affine(&self, other: &CachedPointAffine) -> Point {
+        let aa = &(&self.y - &self.x) * &other.y_plus_x;
+        let bb = &(&self.y + &self.x) * &other.y_minus_x;
+        let cc = &self.t * &other.t2d; // 2*d*T1*T2
+        let dd = self.z.double(); // 2*Z1*Z2, with Z2 = 1
+        let e = &bb - &aa;
+        let f = &dd + &cc;
+        let g = &dd - &cc;
+        let h = &bb + &aa;
+        Point {
+            x: &e * &f,
+            y: &g * &h,
+            z: &f * &g,
+            t: &e * &h,
+        }
+    }
+
     fn negate(&self) -> Point {
         Point {
             x: -&self.x,
