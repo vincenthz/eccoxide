@@ -31,7 +31,6 @@ use crate::params::curve25519::{
     COMB_DIGITS, COMB_TABLE, COMB_WINDOWS, WNAF_BASE_TABLE, WNAF_BASE_W,
 };
 use crate::{fiat_field_montgomery_impl, fiat_field_solinas_impl, fiat_field_sqrt_define};
-use alloc::vec::Vec;
 #[cfg(feature = "table")]
 use core::convert::TryFrom;
 use core::ops::{Add, Mul, Neg, Sub};
@@ -1077,7 +1076,8 @@ fn generator_comb() -> &'static [[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]
 
 #[cfg(feature = "table")]
 fn build_comb_table() -> alloc::boxed::Box<[[CachedPointAffine; COMB_DIGITS]; COMB_WINDOWS]> {
-    let mut windows: Vec<[CachedPointAffine; COMB_DIGITS]> = Vec::with_capacity(COMB_WINDOWS);
+    let mut windows: alloc::vec::Vec<[CachedPointAffine; COMB_DIGITS]> =
+        alloc::vec::Vec::with_capacity(COMB_WINDOWS);
     for row in COMB_TABLE.iter() {
         windows.push(core::array::from_fn(|j| {
             let (y_minus_x, y_plus_x, t2d) = &row[j];
@@ -1104,6 +1104,14 @@ const WNAF_DIGITS: usize = 256;
 /// 5 the usual sweet spot for a 253-bit scalar.
 const WNAF_W: u32 = 5;
 
+/// Signed window width used with a [`PrecomputedPoint`] table.
+///
+/// A precomputed table is built once and reused, so its width is not held down
+/// by what a single multiplication can afford to precompute the way [`WNAF_W`]
+/// is: 7 leaves one non-zero digit in 8 instead of one in 6, a quarter fewer
+/// additions, for `2^5 = 32` stored points
+const WNAF_W_PRECOMP: u32 = 7;
+
 /// Signed window width used for the generator: the width of the generated
 /// [`WNAF_BASE_TABLE`], which costs nothing to use, so it is wider than
 /// [`WNAF_W`] — one non-zero digit in 9 instead of one in 6.
@@ -1121,6 +1129,15 @@ const WNAF_W_BASE: u32 = WNAF_W;
 const fn wnaf_table_len(w: u32) -> usize {
     1 << (w - 2)
 }
+
+/// Odd-multiple table length for a variable base, [`WNAF_W`] wide.
+const WNAF_LEN: usize = wnaf_table_len(WNAF_W);
+
+/// Odd-multiple table length for a [`PrecomputedPoint`], [`WNAF_W_PRECOMP`] wide.
+const WNAF_LEN_PRECOMP: usize = wnaf_table_len(WNAF_W_PRECOMP);
+
+/// Odd-multiple table length for the generator, [`WNAF_W_BASE`] wide.
+const WNAF_LEN_BASE: usize = wnaf_table_len(WNAF_W_BASE);
 
 /// Width-w non-adjacent form of `scalar`: signed digits, least significant
 /// first, together with the number of significant digits.
@@ -1193,6 +1210,16 @@ struct CachedPoint {
 }
 
 impl CachedPoint {
+    /// The neutral element `(0, 1)`: `Y - X` and `Y + X` are both one, `T = XY`
+    /// is zero and `Z` is one, so adding it leaves the accumulator where it
+    /// was. Used to fill the odd-multiple arrays before they are written.
+    const IDENTITY: Self = CachedPoint {
+        y_minus_x: FieldElement::one(),
+        y_plus_x: FieldElement::one(),
+        t2d: FieldElement::zero(),
+        z: FieldElement::one(),
+    };
+
     fn from_point(p: &Point) -> Self {
         CachedPoint {
             y_minus_x: &p.y - &p.x,
@@ -1209,7 +1236,6 @@ impl CachedPoint {
 /// multiples is made of, whose `Z` is one. Leaving `Z` out is a quarter less
 /// table for a constant-time lookup to walk, and one multiplication less per
 /// addition (see [`Point::add_cached_affine`]).
-#[cfg(feature = "table")]
 #[derive(Clone)]
 struct CachedPointAffine {
     y_minus_x: FieldElement,
@@ -1217,7 +1243,6 @@ struct CachedPointAffine {
     t2d: FieldElement,
 }
 
-#[cfg(feature = "table")]
 impl CachedPointAffine {
     /// The neutral element `(0, 1)`: `Y - X` and `Y + X` are both one and
     /// `T = XY` is zero, so adding it leaves the accumulator where it was.
@@ -1241,6 +1266,7 @@ impl CachedPointAffine {
 
     /// Select between this point and its opposite in constant time: negating
     /// `X` and `T` swaps `Y - X` with `Y + X` and negates `2d*T`.
+    #[cfg(feature = "table")]
     fn ct_negate(&self, negate: Choice) -> Self {
         CachedPointAffine {
             y_minus_x: FieldElement::ct_select(negate, &self.y_plus_x, &self.y_minus_x),
@@ -1300,16 +1326,77 @@ impl PointNoT {
     }
 }
 
-/// The odd multiples `1*P, 3*P, …, (2*count - 1)*P` of `p` in cached form, so
-/// that the entry for an odd digit `d` is `table[d >> 1]`.
-fn odd_multiples(p: &Point, count: usize) -> Vec<CachedPoint> {
+/// The odd multiples `1*P, 3*P, …, (2*N - 1)*P` of `p` in cached form, so that
+/// the entry for an odd digit `d` is `table[d >> 1]`.
+fn odd_multiples<const N: usize>(p: &Point) -> [CachedPoint; N] {
     let dbl = CachedPoint::from_point(&p.double());
-    let mut table = Vec::with_capacity(count);
+    let mut table = [CachedPoint::IDENTITY; N];
     let mut cur = p.clone();
-    table.push(CachedPoint::from_point(&cur));
-    for _ in 1..count {
-        cur = cur.add_cached(&dbl);
-        table.push(CachedPoint::from_point(&cur));
+    for (i, slot) in table.iter_mut().enumerate() {
+        if i > 0 {
+            cur = cur.add_cached(&dbl);
+        }
+        *slot = CachedPoint::from_point(&cur);
+    }
+    table
+}
+
+/// The odd multiples `1*P, 3*P, …, (2*N - 1)*P` of `p` in *affine* cached
+/// form, so that the entry for an odd digit `d` is `table[d >> 1]`.
+///
+/// Normalising the multiples to `Z = 1` makes every addition that reads one of
+/// them a multiplication cheaper (see [`Point::add_cached_affine`]), and costs
+/// a single field inversion for the whole table rather than one per entry:
+/// Montgomery's trick inverts the product of all the `Z` and walks back down
+/// the running products, trading each of the other inversions for three
+/// multiplications. An inversion is still worth some 265 multiplications here,
+/// so this only pays for a table that is reused — which is what
+/// [`PrecomputedPoint`] is for.
+///
+/// The scratch arrays are the other reason this is not what a single
+/// multiplication uses: at [`WNAF_LEN_PRECOMP`] entries the projective
+/// multiples and their prefix products are some 6 KiB of stack on the way to a
+/// 3.8 KiB table.
+fn odd_multiples_affine<const N: usize>(p: &Point) -> [CachedPointAffine; N] {
+    const ONE: FieldElement = FieldElement::one();
+
+    let dbl = CachedPoint::from_point(&p.double());
+    let mut points = [Point::IDENTITY; N];
+    let mut cur = p.clone();
+    for (i, slot) in points.iter_mut().enumerate() {
+        if i > 0 {
+            cur = cur.add_cached(&dbl);
+        }
+        *slot = cur.clone();
+    }
+
+    // prefix[i] = Z_0 * … * Z_i
+    let mut prefix = [ONE; N];
+    let mut acc = ONE;
+    for (point, slot) in points.iter().zip(prefix.iter_mut()) {
+        acc = &acc * &point.z;
+        *slot = acc.clone();
+    }
+
+    // walking down from the top, `running` is `1 / (Z_0 * … * Z_i)`: the
+    // inverse of `Z_i` alone is it times the prefix below, and multiplying
+    // `Z_i` back in leaves the running inverse of the next one down
+    let mut running = acc.inverse();
+    let mut table = [CachedPointAffine::IDENTITY; N];
+    for i in (0..N).rev() {
+        let z_inv = if i == 0 {
+            running.clone()
+        } else {
+            &running * &prefix[i - 1]
+        };
+        running = &running * &points[i].z;
+        let x = &points[i].x * &z_inv;
+        let y = &points[i].y * &z_inv;
+        table[i] = CachedPointAffine {
+            y_minus_x: &y - &x,
+            y_plus_x: &y + &x,
+            t2d: &EdCurve::D2 * &(&x * &y),
+        };
     }
     table
 }
@@ -1321,17 +1408,11 @@ fn odd_multiples(p: &Point, count: usize) -> Vec<CachedPoint> {
 /// — so using the table is a plain indexing, with no lazy initialisation on the
 /// way.
 #[cfg(feature = "table")]
-static GENERATOR_WNAF: [CachedPoint; wnaf_table_len(WNAF_W_BASE)] = {
+static GENERATOR_WNAF: [CachedPoint; WNAF_LEN_BASE] = {
     // `[CONST; N]` initialises an array of a non-`Copy` type from a constant
-    const PLACEHOLDER: CachedPoint = CachedPoint {
-        y_minus_x: FieldElement::zero(),
-        y_plus_x: FieldElement::zero(),
-        t2d: FieldElement::zero(),
-        z: FieldElement::one(),
-    };
-    let mut table = [PLACEHOLDER; wnaf_table_len(WNAF_W_BASE)];
+    let mut table = [CachedPoint::IDENTITY; WNAF_LEN_BASE];
     let mut i = 0;
-    while i < wnaf_table_len(WNAF_W_BASE) {
+    while i < WNAF_LEN_BASE {
         let (y_minus_x, y_plus_x, t2d) = WNAF_BASE_TABLE[i];
         table[i] = CachedPoint {
             y_minus_x: FieldElement::from_bytes_unchecked_le(&y_minus_x),
@@ -1357,8 +1438,8 @@ fn generator_odd_multiples() -> &'static [CachedPoint] {
 /// computed for every multiplication — the same fallback [`Point::mul_base`]
 /// makes when it has no comb table to read.
 #[cfg(not(feature = "table"))]
-fn generator_odd_multiples() -> Vec<CachedPoint> {
-    odd_multiples(&Point::GENERATOR, wnaf_table_len(WNAF_W_BASE))
+fn generator_odd_multiples() -> [CachedPoint; WNAF_LEN_BASE] {
+    odd_multiples::<WNAF_LEN_BASE>(&Point::GENERATOR)
 }
 
 /// Add `digit * P` to `q`, where `table` holds the odd multiples of `P` and
@@ -1373,11 +1454,23 @@ fn add_wnaf_multiple(q: &Point, table: &[CachedPoint], digit: i8) -> Point {
     }
 }
 
+/// Add `digit * P` to `q`, where `table` holds the odd multiples of `P` in
+/// affine cached form and `digit` is a non-zero wNAF digit.
+#[inline]
+fn add_wnaf_multiple_affine(q: &Point, table: &[CachedPointAffine], digit: i8) -> Point {
+    let entry = &table[(digit.unsigned_abs() >> 1) as usize];
+    if digit > 0 {
+        q.add_cached_affine(entry)
+    } else {
+        q.sub_cached_affine(entry)
+    }
+}
+
 impl Point {
     /// Variable-time scalar multiplication `k * self`, using a width-5 wNAF.
     pub fn scale_vartime(&self, k: &Scalar) -> Point {
         let (digits, len) = wnaf(k, WNAF_W);
-        let table = odd_multiples(self, wnaf_table_len(WNAF_W));
+        let table = odd_multiples::<WNAF_LEN>(self);
 
         // `pending` counts the doublings a run of zero digits has accumulated,
         // applied in one go so that only the last of them maintains `T`
@@ -1402,7 +1495,11 @@ impl Point {
         let (s_digits, s_len) = wnaf(s, WNAF_W_BASE);
         let (k_digits, k_len) = wnaf(k, WNAF_W);
         let base_table = generator_odd_multiples();
-        let p_table = odd_multiples(p, wnaf_table_len(WNAF_W));
+        // with the generated table this is already a slice of the static; without
+        // it, it is an array just computed, which has to be reborrowed as one
+        #[cfg(not(feature = "table"))]
+        let base_table: &[CachedPoint] = &base_table;
+        let p_table = odd_multiples::<WNAF_LEN>(p);
 
         let mut q = Point::IDENTITY;
         let mut pending = 0;
@@ -1414,10 +1511,93 @@ impl Point {
             q = q.double_repeat(pending);
             pending = 0;
             if s_digits[i] != 0 {
-                q = add_wnaf_multiple(&q, &base_table, s_digits[i]);
+                q = add_wnaf_multiple(&q, base_table, s_digits[i]);
             }
             if k_digits[i] != 0 {
                 q = add_wnaf_multiple(&q, &p_table, k_digits[i]);
+            }
+        }
+        if pending > 0 {
+            q = q.double_repeat(pending);
+        }
+        q
+    }
+}
+
+/// A point with the table of its odd multiples precomputed, for multiplying by
+/// the *same* point over and over in variable time.
+///
+/// [`Point::scale_vartime`] and [`Point::double_scalar_mul_base_vartime`] build
+/// a width-5 table of the point they are given and throw it away when they
+/// return. When the point is fixed across many multiplications, for example
+/// when the public key is verified for multiple signatures, that table is worth
+/// building once with a wider window (by 2 bits) where the entries are normalised to
+/// affine coordinates (Z=1).
+#[derive(Clone)]
+pub struct PrecomputedPoint {
+    /// the odd multiples `1*P, 3*P, …, (2^(WNAF_W_PRECOMP - 1) - 1)*P`, the
+    /// entry for an odd digit `d` sitting at `table[d >> 1]`
+    table: [CachedPointAffine; WNAF_LEN_PRECOMP],
+}
+
+impl PrecomputedPoint {
+    /// Precompute the odd multiples of `p`.
+    pub fn new(p: &Point) -> Self {
+        PrecomputedPoint {
+            table: odd_multiples_affine::<WNAF_LEN_PRECOMP>(p),
+        }
+    }
+
+    /// Variable-time scalar multiplication `k * P`, `P` being the precomputed
+    /// point. The same as [`Point::scale_vartime`], reading the precomputed
+    /// table instead of building one.
+    pub fn scale_vartime(&self, k: &Scalar) -> Point {
+        let (digits, len) = wnaf(k, WNAF_W_PRECOMP);
+
+        // `pending` counts the doublings a run of zero digits has accumulated,
+        // applied in one go so that only the last of them maintains `T`
+        let mut q = Point::IDENTITY;
+        let mut pending = 0;
+        for i in (0..len).rev() {
+            pending += 1;
+            if digits[i] != 0 {
+                q = add_wnaf_multiple_affine(&q.double_repeat(pending), &self.table, digits[i]);
+                pending = 0;
+            }
+        }
+        if pending > 0 {
+            q = q.double_repeat(pending);
+        }
+        q
+    }
+
+    /// Variable-time double-scalar multiplication `s * B + k * P`, where `B` is
+    /// the curve generator and `P` the precomputed point. The same as
+    /// [`Point::double_scalar_mul_base_vartime`], with both tables precomputed:
+    /// the generator's and the point's.
+    pub fn double_scalar_mul_base_vartime(&self, s: &Scalar, k: &Scalar) -> Point {
+        let (s_digits, s_len) = wnaf(s, WNAF_W_BASE);
+        let (k_digits, k_len) = wnaf(k, WNAF_W_PRECOMP);
+        let base_table = generator_odd_multiples();
+        // with the generated table this is already a slice of the static; without
+        // it, it is an array just computed, which has to be reborrowed as one
+        #[cfg(not(feature = "table"))]
+        let base_table: &[CachedPoint] = &base_table;
+
+        let mut q = Point::IDENTITY;
+        let mut pending = 0;
+        for i in (0..core::cmp::max(s_len, k_len)).rev() {
+            pending += 1;
+            if s_digits[i] == 0 && k_digits[i] == 0 {
+                continue;
+            }
+            q = q.double_repeat(pending);
+            pending = 0;
+            if s_digits[i] != 0 {
+                q = add_wnaf_multiple(&q, base_table, s_digits[i]);
+            }
+            if k_digits[i] != 0 {
+                q = add_wnaf_multiple_affine(&q, &self.table, k_digits[i]);
             }
         }
         if pending > 0 {
@@ -1738,6 +1918,8 @@ mod tests {
             }
         }
 
+        // the comb table and the constant-time lookup that walks it
+        #[cfg(feature = "table")]
         #[test]
         fn signed_comb_digits_reconstruct_the_scalar() {
             let mut saw_negative = 0;
@@ -1764,6 +1946,8 @@ mod tests {
             assert!(saw_negative > 20, "only {} negative digits", saw_negative);
         }
 
+        // the comb table and the constant-time lookup that walks it
+        #[cfg(feature = "table")]
         #[test]
         fn add_cached_affine_matches_add() {
             // the mixed-coordinate formula the comb uses must be the plain
@@ -1962,6 +2146,93 @@ mod tests {
             for base in [Point::IDENTITY, Point::GENERATOR, Point::GENERATOR.double()] {
                 for k in wnaf_test_scalars() {
                     assert_eq!(base.scale_vartime(&k), base.scale(&k));
+                }
+            }
+        }
+
+        #[test]
+        fn sub_cached_affine_matches_add_of_the_negation() {
+            // subtracting an affine cached addend — how a precomputed table
+            // serves a negative wNAF digit — must be the plain complete
+            // addition of the negated point, exceptional cases included
+            let g = Point::GENERATOR;
+            let points = [
+                Point::IDENTITY,
+                g.clone(),
+                g.double(),
+                g.scale_bytes(&[7]),
+                -&g,
+            ];
+            for p in points.iter() {
+                for q in points.iter() {
+                    let (x, y) = q.to_affine();
+                    let cached = CachedPointAffine::from_affine(&x, &y);
+                    assert_eq!(p.sub_cached_affine(&cached), Point::add(p, &-q));
+                    // the addition it mirrors, as the reference
+                    assert_eq!(p.add_cached_affine(&cached), Point::add(p, q));
+                }
+            }
+        }
+
+        #[test]
+        fn odd_multiples_affine_matches_odd_multiples() {
+            // the batch-inverted affine table must hold the same points as the
+            // projective one, `2d*T` included — which only shows up when the
+            // entry is added to something other than the identity
+            for base in [Point::GENERATOR, Point::GENERATOR.scale_bytes(&[11])] {
+                let projective = odd_multiples::<8>(&base);
+                let affine = odd_multiples_affine::<8>(&base);
+                assert_eq!(affine.len(), projective.len());
+                for (i, (a, p)) in affine.iter().zip(projective.iter()).enumerate() {
+                    assert_eq!(
+                        Point::IDENTITY.add_cached_affine(a),
+                        Point::IDENTITY.add_cached(p),
+                        "entry {} is not {}·P",
+                        i,
+                        2 * i + 1
+                    );
+                    assert_eq!(
+                        Point::GENERATOR.add_cached_affine(a),
+                        Point::GENERATOR.add_cached(p),
+                        "entry {} has an inconsistent 2d·T",
+                        i
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn precomputed_scale_vartime_matches_scale() {
+            // the wider recoding over the precomputed table must agree with the
+            // constant-time double-and-add, on the identity as well
+            for base in [Point::IDENTITY, Point::GENERATOR, Point::GENERATOR.double()] {
+                let precomputed = PrecomputedPoint::new(&base);
+                for k in wnaf_test_scalars() {
+                    assert_eq!(precomputed.scale_vartime(&k), base.scale(&k), "base scale");
+                }
+            }
+        }
+
+        #[test]
+        fn precomputed_double_scalar_matches_double_scalar() {
+            // s*B + k*P over a precomputed P must be what the table-less path
+            // computes
+            let points = [
+                Point::IDENTITY,
+                Point::GENERATOR,
+                Point::GENERATOR.scale_bytes(&[9]),
+                -&Point::GENERATOR,
+            ];
+            let scalars = wnaf_test_scalars();
+            for p in points.iter() {
+                let precomputed = PrecomputedPoint::new(p);
+                for s in scalars.iter() {
+                    for k in scalars.iter() {
+                        assert_eq!(
+                            precomputed.double_scalar_mul_base_vartime(s, k),
+                            &Point::mul_base(s) + &p.scale(k),
+                        );
+                    }
                 }
             }
         }
