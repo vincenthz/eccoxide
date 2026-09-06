@@ -3,7 +3,7 @@
 //! Keys, signatures and encoded points use the RFC 8032 little-endian wire
 //! format. The internal SHA-512 is provided by the `cryptoxide` crate.
 
-use crate::curve::curve25519::{FieldElement, Point, Scalar};
+use crate::curve::curve25519::{FieldElement, Point, PrecomputedPoint, Scalar};
 use crate::curve::field::Sign;
 use cryptoxide::hashing::sha2::Sha512;
 
@@ -116,11 +116,15 @@ fn sign(seed: &[u8; 32], message: &[u8]) -> [u8; 64] {
     sign_with_public(&a, &prefix, &public, message)
 }
 
-fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
-    let a_point = match decode_point(public) {
-        Some(p) => p,
-        None => return false,
-    };
+/// The verification equation common part for verify to cope with precomputed / non precomputed difference
+///
+/// `lhs` callback is handed `(S, k)` and must return `[S]B + [k](-A)`
+fn verify_equation(
+    public: &[u8; 32],
+    message: &[u8],
+    sig: &[u8; 64],
+    lhs: impl FnOnce(&Scalar, &Scalar) -> Point,
+) -> bool {
     let mut r_encoded = [0u8; 32];
     r_encoded.copy_from_slice(&sig[..32]);
     let r_point = match decode_point(&r_encoded) {
@@ -142,8 +146,17 @@ fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
     // accept iff [S]B == R + [k]A, rewritten as [S]B + [k](-A) == R so that
     // the two multiplications interleave into a variable op since all values are
     // public
-    let lhs = Point::double_scalar_mul_base_vartime(&s, &k, &-&a_point);
-    lhs == r_point
+    lhs(&s, &k) == r_point
+}
+
+fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
+    let neg_a = match decode_point(public) {
+        Some(p) => -&p,
+        None => return false,
+    };
+    verify_equation(public, message, sig, |s, k| {
+        Point::double_scalar_mul_base_vartime(s, k, &neg_a)
+    })
 }
 
 /// An Ed25519 secret key: the 32-byte seed from which everything is derived.
@@ -199,6 +212,78 @@ impl PublicKey {
     /// Verify a signature over `message`.
     pub fn verify(&self, message: &[u8], signature: &Signature) -> bool {
         verify(&self.0, message, &signature.0)
+    }
+
+    /// Do the part of verification that depends on the key alone, once, for
+    /// verifying many signatures under this key.
+    ///
+    /// `None` if the key is not a valid point encoding
+    pub fn precompute(&self) -> Option<PrecomputedPublicKey> {
+        PrecomputedPublicKey::new(self)
+    }
+}
+
+/// An Ed25519 public key with the per-key half of verification already done.
+///
+/// [`PublicKey::verify`] starts every signature by decompressing the 32 bytes
+/// of the key into a curve point (field square root + builds a small table
+/// of the multiples of that point for the double-scalar
+/// multiplication).
+///
+/// A `PrecomputedPublicKey` pays for this once and use wider table, and
+/// allow faster verification of multiple ed25519 signatures for different message
+/// for the *same* public key.
+///
+/// This is a *precomputation*, not batch verification: signatures are still
+/// verified one by one, with exactly the same accept/reject decision as
+/// [`PublicKey::verify`] makes.
+///
+/// ```
+/// # use eccoxide::protocol::ed25519::Keypair;
+/// let keypair = Keypair::from_seed([42u8; 32]);
+/// let messages: [&[u8]; 2] = [b"first", b"second"];
+/// let signatures = messages.map(|m| keypair.sign(m));
+///
+/// let public = keypair.public().precompute().expect("a key we just built");
+/// for (message, signature) in messages.iter().zip(signatures.iter()) {
+///     assert!(public.verify(message, signature));
+/// }
+/// ```
+#[derive(Clone)]
+pub struct PrecomputedPublicKey {
+    /// the key as it sits on the wire: `k = H(R || A || M)` hashes the
+    /// encoding, not the point, so the bytes are needed as well as the table
+    encoded: [u8; 32],
+    /// the multiples of `-A`, the form the verification equation reads
+    neg_multiples: PrecomputedPoint,
+}
+
+impl PrecomputedPublicKey {
+    /// Precompute the verification tables of `public`, or `None` if it is not a
+    /// valid point encoding.
+    pub fn new(public: &PublicKey) -> Option<Self> {
+        let a_point = decode_point(&public.0)?;
+        Some(PrecomputedPublicKey {
+            encoded: public.0,
+            neg_multiples: PrecomputedPoint::new(&-&a_point),
+        })
+    }
+
+    /// The public key the precomputation was built from.
+    pub fn public_key(&self) -> PublicKey {
+        PublicKey(self.encoded)
+    }
+
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.encoded
+    }
+
+    /// Verify a signature over `message`, accepting exactly what
+    /// [`PublicKey::verify`] accepts.
+    pub fn verify(&self, message: &[u8], signature: &Signature) -> bool {
+        verify_equation(&self.encoded, message, &signature.0, |s, k| {
+            self.neg_multiples.double_scalar_mul_base_vartime(s, k)
+        })
     }
 }
 
@@ -425,6 +510,123 @@ mod tests {
         // wrong public key
         let other = Keypair::from_seed(hex(VECTORS[2].seed));
         assert!(!other.public().verify(msg, &sig));
+    }
+
+    #[test]
+    fn precomputed_verify_matches_rfc_vectors() {
+        for v in VECTORS {
+            let pk = PublicKey::from_bytes(hex(v.public));
+            let sig = Signature::from_bytes(hex(v.signature));
+            let message = hex_vec(v.message);
+            let precomputed = pk.precompute().expect("RFC public key decodes");
+
+            assert_eq!(precomputed.to_bytes(), pk.to_bytes());
+            assert!(precomputed.public_key() == pk);
+            assert!(
+                precomputed.verify(&message, &sig),
+                "valid signature rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn precomputed_verify_agrees_with_plain_verify() {
+        // the precomputed path must reach the same decision as the plain one on
+        // every case, accepted or rejected: the tables are an optimisation, not
+        // a different check
+        let keypairs: Vec<Keypair> = VECTORS
+            .iter()
+            .map(|v| Keypair::from_seed(hex(v.seed)))
+            .chain(core::iter::once(Keypair::from_seed([3u8; 32])))
+            .collect();
+
+        for kp in keypairs.iter() {
+            let precomputed = kp.public().precompute().expect("derived key decodes");
+            for len in [0usize, 1, 32, 33, 150] {
+                let message: Vec<u8> = (0..len).map(|i| (i * 7 + 5) as u8).collect();
+                let sig = kp.sign(&message);
+
+                let mut cases = alloc::vec![
+                    // the genuine signature
+                    (message.clone(), sig.to_bytes()),
+                    // a different message under the same signature
+                    (alloc::vec![0xaa; len + 1], sig.to_bytes()),
+                ];
+                // every kind of damage to the 64 signature bytes: R, S, the
+                // sign bit of R, and an S past the group order
+                for byte in [0usize, 31, 32, 63] {
+                    let mut bad = sig.to_bytes();
+                    bad[byte] ^= 0x80;
+                    cases.push((message.clone(), bad));
+                }
+                let mut s_max = sig.to_bytes();
+                s_max[32..].copy_from_slice(&[0xff; 32]); // S >= l, non-canonical
+                cases.push((message.clone(), s_max));
+
+                for (m, sig_bytes) in cases {
+                    let signature = Signature::from_bytes(sig_bytes);
+                    assert_eq!(
+                        precomputed.verify(&m, &signature),
+                        kp.public().verify(&m, &signature),
+                        "verdicts differ for a {}-byte message",
+                        m.len()
+                    );
+                }
+
+                // and under the wrong key
+                for other in keypairs.iter() {
+                    let other_precomputed =
+                        other.public().precompute().expect("derived key decodes");
+                    assert_eq!(
+                        other_precomputed.verify(&message, &sig),
+                        other.public().verify(&message, &sig),
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn precompute_rejects_what_verify_rejects() {
+        // a key that cannot be decoded has no precomputation, which is exactly
+        // the case where verifying with it always fails
+        let kp = Keypair::from_seed([9u8; 32]);
+        let message = b"precomputation";
+        let sig = kp.sign(message);
+
+        let mut bad_keys: Vec<[u8; 32]> = alloc::vec![
+            // x = 0 with the sign bit set: the non-canonical encodings
+            {
+                let mut y_one = [0u8; 32];
+                y_one[0] = 1;
+                y_one[31] = 0x80;
+                y_one
+            },
+        ];
+        // strings that are almost always off-curve
+        let mut h = sha512(&[b"ed25519 precompute rejection"]);
+        for i in 0..32u8 {
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(&h[..32]);
+            bad_keys.push(bytes);
+            h = sha512(&[&h[..], &[i]]);
+        }
+
+        let mut rejected = 0;
+        for bytes in bad_keys {
+            let pk = PublicKey::from_bytes(bytes);
+            match pk.precompute() {
+                None => {
+                    rejected += 1;
+                    assert!(!pk.verify(message, &sig), "undecodable key still verifies");
+                }
+                Some(precomputed) => {
+                    // a decodable key: it is simply not the signer
+                    assert_eq!(precomputed.verify(message, &sig), pk.verify(message, &sig));
+                }
+            }
+        }
+        assert!(rejected > 10, "only {} keys rejected", rejected);
     }
 
     #[test]
