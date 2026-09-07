@@ -130,6 +130,64 @@ impl<'a> CtLesser for LimbsBE<'a> {
     }
 }
 
+/// Pack big-endian bytes into saturated little-endian 64-bit limbs.
+///
+/// `L` must be wide enough for `N` bytes; any limb the bytes do not reach
+/// stays zero.
+pub(crate) const fn limbs_from_be<const N: usize, const L: usize>(bytes: &[u8; N]) -> [u64; L] {
+    let mut out = [0u64; L];
+    let mut i = 0;
+    while i < N {
+        // byte `i` counting up from the least significant end
+        out[i / 8] |= (bytes[N - 1 - i] as u64) << ((i % 8) * 8);
+        i += 1;
+    }
+    out
+}
+
+/// Pack little-endian bytes into saturated little-endian 64-bit limbs.
+pub(crate) const fn limbs_from_le<const N: usize, const L: usize>(bytes: &[u8; N]) -> [u64; L] {
+    let mut out = [0u64; L];
+    let mut i = 0;
+    while i < N {
+        out[i / 8] |= (bytes[i] as u64) << ((i % 8) * 8);
+        i += 1;
+    }
+    out
+}
+
+/// Unpack saturated little-endian 64-bit limbs into `N` little-endian bytes.
+///
+/// Bytes beyond `N` are dropped, so the caller must know the value fits — it
+/// does when the value is reduced and `N` is the field's encoded size.
+pub(crate) const fn limbs_to_le<const L: usize, const N: usize>(limbs: &[u64; L]) -> [u8; N] {
+    let mut out = [0u8; N];
+    let mut i = 0;
+    while i < N {
+        out[i] = (limbs[i / 8] >> ((i % 8) * 8)) as u8;
+        i += 1;
+    }
+    out
+}
+
+/// `bytes - k` over a big-endian byte string
+pub const fn be_sub_small<const N: usize>(bytes: &[u8; N], k: u8) -> [u8; N] {
+    let mut out = *bytes;
+    let mut borrow = k;
+    let mut i = N;
+    while i > 0 && borrow != 0 {
+        i -= 1;
+        if out[i] >= borrow {
+            out[i] -= borrow;
+            borrow = 0;
+        } else {
+            out[i] = (out[i] as u16 + 256 - borrow as u16) as u8;
+            borrow = 1;
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +254,19 @@ mod tests {
             false,
             limbsbe_lt(LimbsBE(&[2, 0, 2]), LimbsBE(&[1, 2, 3])).into(),
         );
+    }
+    #[test]
+    fn be_sub_small_borrows() {
+        assert_eq!(be_sub_small(&[0x00, 0xab], 2), [0x00, 0xa9]);
+        assert_eq!(be_sub_small(&[0x01, 0x00], 2), [0x00, 0xfe]);
+        assert_eq!(
+            be_sub_small(&[0x01, 0x00, 0x00, 0x01], 2),
+            [0x00, 0xff, 0xff, 0xff]
+        );
+        assert_eq!(
+            be_sub_small(&[0xff, 0x00, 0x00, 0x00], 1),
+            [0xfe, 0xff, 0xff, 0xff]
+        );
+        assert_eq!(be_sub_small(&[0x00, 0x02], 2), [0x00, 0x00]);
     }
 }
