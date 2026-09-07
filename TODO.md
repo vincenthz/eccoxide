@@ -16,6 +16,7 @@ features:
 optimisation:
 * [ ] fill in the remaining fiat backends: generated sqrt & inverse addition-chains,
   a macro to write addition chains, and constant-time variants
+* [ ] `invert_or_zero` used in curve25519 / curve448 is still the Fermat path, since safegcd asserts on zero.
 
 tooling:
 * [ ] audit functions for constant-time-ness
@@ -29,7 +30,6 @@ no_std:
 * [ ] `#![no_std]` itself, plus `extern crate std` under `cfg(test)` for the test
   modules, and a `std` / `alloc` feature pair to select the tiers
 * [ ] turn the last `Vec`s into fixed-size arrays.
-  * [ ]`curve25519`'s `odd_multiples`
   * [ ] `projective.rs`'s `wnaf(n, w)`
   * [ ] `multi_miller`'s `Vec` is sized by a caller-supplied slice
 

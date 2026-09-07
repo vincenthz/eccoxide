@@ -37,6 +37,23 @@
 - **curve25519**: `Point::scale_vartime` is the width-5 wNAF variable-time
   scalar multiplication on its own, about twice as fast as the constant-time
   `Point::scale`, and is what `CurveGroup::mul_vartime` now uses.
+- **Ed25519**: `PublicKey::precompute` returns a `PrecomputedPublicKey`, the
+  same key with the part of verification that depends on it alone already done:
+  the point decompression, and a table of the multiples of `-A` that the
+  verification equation reads. Multiple verifications (verifications >= 3) with
+  it is faster The accept/reject decision is exactly the one `PublicKey::verify`
+  makes — this is a precomputation, not batch verification.
+- **curve25519**: `PrecomputedPoint` holds the odd multiples of a point for
+  repeated variable-time multiplication by it, through `scale_vartime` and
+  `double_scalar_mul_base_vartime`.
+- **All curves**: `inverse_safegcd` runs the Bernstein-Yang divsteps in batches
+  of 62 instead of one at a time, which makes it 3x to 9x faster.
+  this is also faster than the Fermat addition-chain `inverse` on every field
+  (by 2.5x to 10x).
+- **curve25519**: the odd-multiple tables no longer allocate
+- **All curves**: every field now exposes both inversions, `inverse_fermat` and
+  `inverse_safegcd`, and `inverse` is whichever of the two is faster for that
+  field.
 
 ## 0.5.0 - 2026-08-18
 
