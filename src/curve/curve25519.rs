@@ -200,6 +200,13 @@ impl FieldElement {
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
     pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
         self.invert_or_zero()
     }
@@ -322,11 +329,18 @@ const ORDER_M2_BYTES: [u8; 32] = [
 ];
 
 impl Scalar {
+    /// Get the multiplicative inverse.
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
     /// Get the multiplicative inverse, computed as `self^(l-2)` (Fermat) using a
     /// fixed 4-bit window over the constant exponent `l-2`.
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic.
-    pub fn inverse(&self) -> Self {
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
 
         // table[i] = self^i for i in 0..16
@@ -835,7 +849,6 @@ impl Point {
     /// affine [`CachedPointAffine`] form: its `Z` is one, so `2*Z1*Z2` is a
     /// doubling rather than a multiplication and the addition costs seven
     /// multiplications instead of the eight of [`Self::add_cached`].
-    #[cfg(feature = "table")]
     fn add_cached_affine(&self, other: &CachedPointAffine) -> Point {
         let aa = &(&self.y - &self.x) * &other.y_minus_x;
         let bb = &(&self.y + &self.x) * &other.y_plus_x;
@@ -1741,6 +1754,7 @@ mod tests {
         use super::super::FieldElement;
         use crate::{fiat_field_sqrt_unittest, fiat_field_unittest};
         fiat_field_unittest!(FieldElement);
+        crate::fiat_field_safegcd_unittest!(FieldElement);
         fiat_field_sqrt_unittest!(FieldElement);
     }
     mod sc {

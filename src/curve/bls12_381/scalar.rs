@@ -12,7 +12,7 @@ use crate::curve::fiat::bls12_381_scalar_64::*;
 use crate::curve::field::{Field, Sign};
 use crate::fiat_field_montgomery_impl;
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
-use crate::params::bls12_381::ORDER_LIMBS;
+use crate::params::bls12_381::{ORDER_BYTES, ORDER_LIMBS};
 
 /// Number of 64-bit limbs of a scalar field element (255 bits -> 4 limbs).
 const GM_LIMBS_SIZE: usize = 4;
@@ -63,17 +63,26 @@ const SQRT_ROOT_OF_UNITY_BYTES: [u8; 32] = [
     0xc4, 0x02, 0x4f, 0xf2, 0x70, 0xb3, 0xe0, 0x94, 0x1b, 0x78, 0x8f, 0x50, 0x0b, 0x91, 0x2f, 0x1f,
 ];
 
+/// n - 2 (big-endian), the exponent of the Fermat inverse `self^(n-2)`
+const NM2_BYTES: [u8; 32] = crate::mp::limbs::be_sub_small(&ORDER_BYTES, 2);
+
 impl Scalar {
     /// Get the multiplicative inverse.
-    ///
-    /// This currently delegates to the representation-agnostic Bernstein-Yang
-    /// "safegcd" inversion ([`Self::inverse_safegcd`]); see the note on
-    /// [`super::fp::Fp::inverse`].
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a
     /// panic.
     pub fn inverse(&self) -> Self {
         self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse the Fermat way, as `self^(r-2)`, `r`
+    /// being the group order.
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a
+    /// panic.
+    pub fn inverse_fermat(&self) -> Self {
+        assert!(!self.is_zero());
+        self.power(&NM2_BYTES)
     }
 
     /// Compute a square root `x` such that `x*x = self`, or `None` when `self`

@@ -177,6 +177,13 @@ impl FieldElement {
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
     pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
         self.invert_or_zero()
     }
@@ -411,6 +418,7 @@ mod tests {
         use super::super::FieldElement;
         use crate::{fiat_field_sqrt_unittest, fiat_field_unittest};
         fiat_field_unittest!(FieldElement);
+        crate::fiat_field_safegcd_unittest!(FieldElement);
         fiat_field_sqrt_unittest!(FieldElement);
     }
 

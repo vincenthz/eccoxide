@@ -712,20 +712,18 @@ macro_rules! fiat_field_montgomery_impl {
             ///
             /// This is an alternative to the Fermat-little-theorem based
             /// `inverse` (which computes `self^(p-2)` via a curve-specific
-            /// addition chain). It builds on the fiat-crypto generated
-            /// `msat`/`divstep`/`divstep_precomp` primitives and runs in
-            /// constant time with respect to the input.
+            /// addition chain), and does not need a hand-written addition
+            /// chain per field. It runs in constant time with respect to the
+            /// input.
             ///
-            /// Note that fiat-crypto emits a single-step `divstep` (rather
-            /// than the batched "jump" variant), so this is typically slower
-            /// than `inverse`; it is provided as a representation-agnostic
-            /// alternative that does not require a hand-written addition chain.
+            /// The divsteps are run in batches by [`crate::mp::safegcd`]: the
+            /// fiat-crypto `divstep` primitive is a single step, which would
+            /// mean one full-width pass per step (~741 of them for a 256-bit
+            /// modulus), so only `msat` is used from the generated code here.
             ///
             /// Note that 0 doesn't have a multiplicative inverse and will
             /// result in a panic
             pub fn inverse_safegcd(&self) -> Self {
-                use crate::mp::ct::CtZero;
-
                 assert!(!self.is_zero());
 
                 // the saturated two's-complement representation of f and g
@@ -733,74 +731,30 @@ macro_rules! fiat_field_montgomery_impl {
                 const SAT_LIMBS: usize = $FE_LIMBS_SIZE + 1;
 
                 // f starts as the modulus m (in saturated form)
-                let mut f = [0u64; SAT_LIMBS];
-                $fiat_msat(&mut f);
+                let mut msat = [0u64; SAT_LIMBS];
+                $fiat_msat(&mut msat);
 
-                // The number of divsteps is fixed by the bit length of the
-                // modulus, which is public, so this loop bound leaks nothing
-                // about the secret input. It must match the exponent baked
-                // into the `divstep_precomp` constant.
-                let mut len_prime = 0usize;
-                let mut i = SAT_LIMBS;
-                while i > 0 {
-                    i -= 1;
-                    if f[i] != 0 {
-                        len_prime = i * 64 + (64 - f[i].leading_zeros() as usize);
-                        break;
-                    }
-                }
-                let iterations = (49 * len_prime + if len_prime < 46 { 80 } else { 57 }) / 17;
+                let iterations = crate::mp::safegcd::iterations(&msat);
 
                 // g starts as the integer value of self, i.e. taken out of the
-                // Montgomery domain and zero-extended into the saturated form.
+                // Montgomery domain; the accumulator is seeded with the
+                // Montgomery one so that the result comes back as a Montgomery
+                // representative.
                 let mut a_std = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
                 $fiat_from_montgomery(&mut a_std, &self.0);
-                let mut g = [0u64; SAT_LIMBS];
-                let mut j = 0;
-                while j < $FE_LIMBS_SIZE {
-                    g[j] = a_std.0[j];
-                    j += 1;
-                }
 
-                // v and r track the coefficient of `a` for f and g in the
-                // Montgomery domain: f = m has coefficient 0 (v = 0) and g = a
-                // has coefficient 1 (r = Montgomery one).
-                let mut v = [0u64; $FE_LIMBS_SIZE];
-                let mut r = (Self::one().0).0;
-                let mut d: u64 = 1;
+                let (v, f_is_negative) = crate::mp::safegcd::inverse::<
+                    { $FE_LIMBS_SIZE },
+                    { $FE_LIMBS_SIZE + 1 },
+                >(
+                    &msat, &a_std.0, &(Self::one().0).0, iterations
+                );
 
-                let mut step = 0;
-                while step < iterations {
-                    let mut nd = 0u64;
-                    let mut nf = [0u64; SAT_LIMBS];
-                    let mut ng = [0u64; SAT_LIMBS];
-                    let mut nv = [0u64; $FE_LIMBS_SIZE];
-                    let mut nr = [0u64; $FE_LIMBS_SIZE];
-                    $fiat_divstep(&mut nd, &mut nf, &mut ng, &mut nv, &mut nr, d, &f, &g, &v, &r);
-                    d = nd;
-                    f = nf;
-                    g = ng;
-                    v = nv;
-                    r = nr;
-                    step += 1;
-                }
-
-                // After the divsteps, the inverse is in v up to the sign of f:
-                // negate v when f ended up negative (top bit of its most
-                // significant limb set).
+                // the batched accumulator already carries the division by
+                // 2^steps, so all that is left is the sign of f
                 let v_fe = $FE($fiat_constr_montgomery(v));
                 let neg_v = -&v_fe;
-                let f_is_negative = (f[SAT_LIMBS - 1] >> 63).ct_nonzero();
-                let v_signed =
-                    <$FE as crate::mp::ct::CtSelect>::ct_select(f_is_negative, &neg_v, &v_fe);
-
-                // multiply by the precomputed constant ((m-1)/2)^iterations to
-                // undo the factor of 2 accumulated at every divstep.
-                let mut precomp = [0u64; $FE_LIMBS_SIZE];
-                $fiat_divstep_precomp(&mut precomp);
-                let precomp_fe = $FE($fiat_constr_montgomery(precomp));
-
-                &v_signed * &precomp_fe
+                <$FE as crate::mp::ct::CtSelect>::ct_select(f_is_negative, &neg_v, &v_fe)
             }
         }
 
@@ -977,6 +931,58 @@ macro_rules! fiat_field_solinas_impl {
                 let mut out = self.to_bytes_le();
                 out.reverse(); // swap endianness
                 out
+            }
+
+            /// Get the multiplicative inverse using the Bernstein-Yang
+            /// "safegcd" constant-time modular inversion algorithm.
+            ///
+            /// The unsaturated-Solinas representation cannot be handed to
+            /// [`crate::mp::safegcd`] the way a Montgomery field's limbs can,
+            /// since safegcd works on saturated two's-complement limbs. It
+            /// goes through the canonical byte encoding instead, which is the
+            /// saturated form; the two conversions are a few tens of cycles
+            /// against an inversion's several thousand.
+            ///
+            /// There being no Montgomery domain here, the accumulator is
+            /// seeded with a plain one and the result comes back as the plain
+            /// integer.
+            ///
+            /// Note that 0 doesn't have a multiplicative inverse and will
+            /// result in a panic
+            pub fn inverse_safegcd(&self) -> Self {
+                assert!(!self.is_zero());
+
+                /// saturated 64-bit limbs a field element occupies
+                const SAT: usize = ($FE::SIZE_BITS + 63) / 64;
+                /// bytes of the canonical encoding
+                const NB: usize = $FE::SIZE_BYTES;
+                /// the modulus, saturated little-endian
+                const MODULUS: [u64; SAT] =
+                    $crate::mp::limbs::limbs_from_be::<NB, SAT>(&$FIELD_P_BYTES);
+
+                // f starts as the modulus, in the one-limb-wider form that
+                // leaves room for the sign of f and g
+                let mut msat = [0u64; SAT + 1];
+                let mut i = 0;
+                while i < SAT {
+                    msat[i] = MODULUS[i];
+                    i += 1;
+                }
+
+                let a = $crate::mp::limbs::limbs_from_le::<NB, SAT>(&self.to_bytes_le());
+                let mut one = [0u64; SAT];
+                one[0] = 1;
+
+                let iterations = $crate::mp::safegcd::iterations(&msat);
+                let (v, f_is_negative) =
+                    $crate::mp::safegcd::inverse::<SAT, { SAT + 1 }>(&msat, &a, &one, iterations);
+
+                // the accumulator is reduced, so the encoding round-trips
+                let v_fe = Self::from_bytes_unchecked_le(
+                    &$crate::mp::limbs::limbs_to_le::<SAT, NB>(&v),
+                );
+                let neg_v = -&v_fe;
+                <$FE as $crate::mp::ct::CtSelect>::ct_select(f_is_negative, &neg_v, &v_fe)
             }
         }
 
@@ -1279,14 +1285,24 @@ macro_rules! fiat_field_safegcd_unittest {
     ($FE:ident) => {
         #[test]
         fn inverse_safegcd_matches_fermat() {
-            // cross-check the Bernstein-Yang inverse against the (independent)
-            // Fermat addition-chain inverse, and the defining property a*a^-1=1.
+            // Cross-check the two inversions against each other and against
+            // the defining property a*a^-1 = 1. These must name the two
+            // implementations directly: `inverse` is whichever of them is
+            // faster for this field, so comparing against it would compare
+            // one of them with itself.
             for i in 1..200u64 {
                 let fe = $FE::from_u64(i);
-                let via_flt = fe.inverse();
-                let via_by = fe.inverse_safegcd();
-                assert_eq!(via_flt, via_by, "safegcd != fermat for {}", i);
-                assert_eq!(&fe * &via_by, $FE::one(), "a * a^-1 != 1 for {}", i);
+                let via_fermat = fe.inverse_fermat();
+                let via_safegcd = fe.inverse_safegcd();
+                assert_eq!(via_fermat, via_safegcd, "safegcd != fermat for {}", i);
+                assert_eq!(&fe * &via_safegcd, $FE::one(), "a * a^-1 != 1 for {}", i);
+                // and `inverse` has to be one of them
+                assert_eq!(
+                    fe.inverse(),
+                    via_safegcd,
+                    "inverse != either path for {}",
+                    i
+                );
             }
 
             // also exercise some large/structured values built from bytes
@@ -1294,8 +1310,27 @@ macro_rules! fiat_field_safegcd_unittest {
             let mut bytes = [0xa5u8; $FE::SIZE_BYTES];
             bytes[0] = 0; // keep it below the modulus
             let fe = $FE::from_bytes_be(&bytes).expect("below modulus");
-            assert_eq!(fe.inverse(), fe.inverse_safegcd());
+            assert_eq!(fe.inverse_fermat(), fe.inverse_safegcd());
             assert_eq!(&fe * &fe.inverse_safegcd(), $FE::one());
+
+            // A deterministic sweep of full-width values: squaring spreads a
+            // small seed across the whole field, so unlike the small integers
+            // above these exercise every limb, both signs of the final `f`,
+            // and the batching boundaries of the safegcd inversion.
+            let mut acc = $FE::from_u64(0x9e37_79b9_7f4a_7c15);
+            for i in 0..64u64 {
+                acc = acc.square() * &$FE::from_u64(i | 1);
+                if acc.is_zero() {
+                    continue;
+                }
+                assert_eq!(
+                    acc.inverse_fermat(),
+                    acc.inverse_safegcd(),
+                    "safegcd != fermat at sweep {}",
+                    i
+                );
+                assert_eq!(&acc * &acc.inverse_safegcd(), $FE::one());
+            }
         }
     };
 }

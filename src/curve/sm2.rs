@@ -50,13 +50,20 @@ fiat_field_sqrt_define!(FieldElement);
 impl FieldElement {
     /// Get the multiplicative inverse
     ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse
+    ///
     /// Computes `self^(p-2)` via a repunit-based Fermat addition chain; the
     /// prime `p = 2^256 - 2^224 - 2^96 + 2^64 - 1` has long runs of set bits
     /// which the chain exploits. Cross-checked against the generic safegcd
     /// inversion by the test-suite.
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
-    pub fn inverse(&self) -> Self {
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
         let r1 = self.clone();
         let r2 = r1.square_rep(1) * &r1;
@@ -148,13 +155,20 @@ fiat_field_montgomery_impl!(
 impl Scalar {
     /// Get the multiplicative inverse
     ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse
+    ///
     /// Computes `self^(n-2)` via a Fermat addition chain, where `n` is the
     /// group order. Cross-checked against the generic safegcd inversion by
     /// the test-suite.
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
     /// TODO this will change to being a method of NonZeroScalar
-    pub fn inverse(&self) -> Self {
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
         let r1 = self.clone();
         let r2 = r1.square_rep(1) * &r1;

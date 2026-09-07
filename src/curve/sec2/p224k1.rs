@@ -47,6 +47,13 @@ impl FieldElement {
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
     pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
         let x2 = self.square() * self;
         let x3 = x2.square() * self;
@@ -144,6 +151,14 @@ impl Scalar {
     /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
     /// TODO this will change to being a method of NonZeroScalar
     pub fn inverse(&self) -> Self {
+        self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a panic
+    /// TODO this will change to being a method of NonZeroScalar
+    pub fn inverse_fermat(&self) -> Self {
         assert!(!self.is_zero());
         let x2 = self.square() * self;
         let x3 = x2.square() * self;

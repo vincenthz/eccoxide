@@ -10,7 +10,7 @@
 use crate::curve::fiat::bls12_381_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtZero};
-use crate::params::bls12_381::{P_LIMBS, P_PLUS1_DIV4_BYTES};
+use crate::params::bls12_381::{P_BYTES, P_LIMBS, P_PLUS1_DIV4_BYTES};
 use crate::{fiat_field_montgomery_impl, fiat_field_sqrt_define};
 
 /// Number of 64-bit limbs of a base field element (381 bits -> 6 limbs).
@@ -41,19 +41,31 @@ fiat_field_montgomery_impl!(
 );
 fiat_field_sqrt_define!(Fp);
 
+/// p - 2 (big-endian), the exponent of the Fermat inverse `self^(p-2)`
+const PM2_BYTES: [u8; 48] = crate::mp::limbs::be_sub_small(&P_BYTES, 2);
+
 impl Fp {
     /// Get the multiplicative inverse.
-    ///
-    /// This currently delegates to the representation-agnostic Bernstein-Yang
-    /// "safegcd" inversion ([`Self::inverse_safegcd`]) rather than a
-    /// hand-crafted Fermat addition chain: it is constant-time and correct for
-    /// the 381-bit modulus, at the cost of some speed. A dedicated addition
-    /// chain can be introduced later as an optimisation.
     ///
     /// Note that 0 doesn't have a multiplicative inverse and will result in a
     /// panic.
     pub fn inverse(&self) -> Self {
         self.inverse_safegcd()
+    }
+
+    /// Get the multiplicative inverse the Fermat way, as `self^(p-2)`.
+    ///
+    /// Unlike the SEC2 fields this is a plain square-and-multiply over the
+    /// public exponent rather than a hand-crafted addition chain as the
+    /// 381-bit modulus has no structure a chain could exploit so
+    /// it is several times slower than [`Self::inverse_safegcd`] and exists
+    /// as the independent second opinion the test-suite cross-checks against.
+    ///
+    /// Note that 0 doesn't have a multiplicative inverse and will result in a
+    /// panic.
+    pub fn inverse_fermat(&self) -> Self {
+        assert!(!self.is_zero());
+        self.power(&PM2_BYTES)
     }
 
     /// Compute the square root `x` of the field element such that `x*x = self`.
