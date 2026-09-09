@@ -4,10 +4,12 @@
 //! * field: Field abstractions
 //! * group: Curve point group abstraction
 //! * affine: Affine point on short weierstrass curve
-//! * projective: Projective point on short weierstrass curve
+//! * projective: Projective point on short weierstrass curve (complete formulas)
+//! * jacobian: Jacobian point on short weierstrass curve (faster, incomplete formulas)
 //! * weierstrass: Abstraction for short weierstrass curve
 //! * montgomery: Abstraction for montgomery curve
 //! * edwards: Abstraction for (twisted) edwards curve
+//! * wnaf: utilities for Windowed Non Adjacent Form
 //!
 //! For implementation of specific curve:
 //! * sec2 (e.g. p192r1, p5p256k1, p256k1, p384r1, p521r1)
@@ -29,9 +31,11 @@ pub mod affine;
 pub mod edwards;
 pub mod field;
 pub mod group;
+pub mod jacobian;
 pub mod montgomery;
 pub mod projective;
 pub mod weierstrass;
+pub mod wnaf;
 
 pub use field::Sign;
 pub use group::CurveGroup;
