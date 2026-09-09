@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Weierstrass curves**: add a generic jacobian point module
 - **X25519** / **X448**: Montgomery Points now hold just a u-coordinate, and use
   faster implementation using fiat crypto loose/tight domains instead of the
   field element only tightened operation. Also for curve25519, use the optimised
