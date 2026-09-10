@@ -11,6 +11,14 @@ pub mod curve25519_64;
 pub mod curve25519_scalar_64;
 #[cfg(feature = "jubjub")]
 pub mod jubjub_scalar_64;
+#[cfg(feature = "p112r1")]
+pub mod p112r1_64;
+#[cfg(feature = "p128r1")]
+pub mod p128r1_64;
+#[cfg(feature = "p160r1")]
+pub mod p160r1_64;
+#[cfg(feature = "p160r2")]
+pub mod p160r2_64;
 #[cfg(feature = "p192k1")]
 pub mod p192k1_64;
 #[cfg(feature = "p192k1")]
