@@ -12,9 +12,84 @@ def sec(name, p, ps, a, b, gx, gy, order, size):
         computed_order = E.order()
         assert computed_order == order
 
+    if not order.is_prime():
+        print('%s not prime order curve' % name)
+
     # scalar finite field
     #S = FiniteField(order)
     return { 'name': name, 'p' : p, 'ps': ps, 'E': E, 'G': G, 'order': order, 'size': size }
+
+def secp112r1():
+    p = 0xdb7c2abf62e35e668076bead208b
+    ps = "0xdb7c2abf62e35e668076bead208b"
+    a = 0xdb7c2abf62e35e668076bead2088
+    b = 0x659ef8ba043916eede8911702b22
+    gx = 0x09487239995a5ee76b55f9c2f098
+    gy = 0xa89ce5af8724c0a23e0e0ff77500
+    order = 0xdb7c2abf62e35e7628dfac6561c5 * 0x01
+    return sec("p112r1", p, ps, a, b, gx, gy, order, 14)
+
+# not prime order
+def secp112r2():
+    p = 0xdb7c2abf62e35e668076bead208b
+    ps = "0xdb7c2abf62e35e668076bead208b"
+    a = 0x6127c24c05f38a0aaaf65c0ef02c
+    b = 0x51def1815db5ed74fcc34c85d709
+    gx = 0x4ba30ab5e892b4e1649dd0928643
+    gy = 0xadcd46f5882e3747def36e956e97
+    order = 0x36df0aafd8b8d7597ca10520d04b * 0x04
+    return sec("p112r2", p, ps, a, b, gx, gy, order, 14)
+
+def secp128r1():
+    p = 0xfffffffdffffffffffffffffffffffff
+    ps = "2^128 - 2^97 - 1"
+    a = 0xfffffffdfffffffffffffffffffffffc
+    b = 0xe87579c11079f43dd824993c2cee5ed3
+    gx = 0x161ff7528b899b2d0c28607ca52c5b86
+    gy = 0xcf5ac8395bafeb13c02da292dded7a83
+    order = 0xfffffffe0000000075a30d1b9038a115 * 0x01
+    return sec("p128r1", p, ps, a, b, gx, gy, order, 16)
+
+# not prime order
+def secp128r2():
+    p = 0xfffffffdffffffffffffffffffffffff
+    ps = "2^128 - 2^97 - 1"
+    a = 0xd6031998d1b3bbfebf59cc9bbff9aee1
+    b = 0x5eeefca380d02919dc2c6558bb6d8a5d
+    gx = 0x7b6aa5d85e572983e6fb32a7cdebc140
+    gy = 0x27b6916a894d3aee7106fe805fc34b44
+    order = 0x3fffffff7fffffffbe0024720613b5a3 * 0x04
+    return sec("p128r2", p, ps, a, b, gx, gy, order, 16)
+
+def secp160k1():
+    p = 0xfffffffffffffffffffffffffffffffeffffac73
+    ps = "2^160 - 2^32 - 2^14 - 2^12 - 2^9 - 2^8 - 2^7 - 2^3 - 2^2 - 1"
+    a = 0x0000000000000000000000000000000000000000
+    b = 0x0000000000000000000000000000000000000007
+    gx = 0x3b4c382ce37aa192a4019e763036f4f5dd4d7ebb
+    gy = 0x938cf935318fdced6bc28286531733c3f03c4fee
+    order = 0x0100000000000000000001b8fa16dfab9aca16b6b3 * 0x1
+    return sec("p160k1", p, ps, a, b, gx, gy, order, 20)
+
+def secp160r1():
+    p = 0xffffffffffffffffffffffffffffffff7fffffff
+    ps = "2^160 - 2^31 - 1"
+    a = 0xffffffffffffffffffffffffffffffff7ffffffc
+    b = 0x1c97befc54bd7a8b65acf89f81d4d4adc565fa45
+    gx = 0x4a96b5688ef573284664698968c38bb913cbfc82
+    gy = 0x23a628553168947d59dcc912042351377ac5fb32
+    order = 0x0100000000000000000001f4c8f927aed3ca752257 * 0x01
+    return sec("p160r1", p, ps, a, b, gx, gy, order, 20)
+
+def secp160r2():
+    p = 0xfffffffffffffffffffffffffffffffeffffac73
+    ps = "2^160 - 2^32 - 2^14 - 2^12 - 2^9 - 2^8 - 2^7 - 2^3 - 2^2 - 1"
+    a = 0xfffffffffffffffffffffffffffffffeffffac70
+    b = 0xb4e134d3fb59eb8bab57274904664d5af50388ba
+    gx = 0x52dcb034293a117e1f4ff11b30f7199d3144ce6d
+    gy = 0xfeaffef2e331f296e071fa0df9982cfea7d43f2e
+    order = 0x0100000000000000000000351ee786a818f3a1a16b * 0x01
+    return sec("p160r2", p, ps, a, b, gx, gy, order, 20)
 
 def secp192k1():
     # p = 0xfffffffffffffffffffffffffffffffffffffffeffffee37
@@ -142,6 +217,15 @@ def print_docs(d):
     size = d['size'];
     print("//! Curve %s as defined over the prime field of order %s" % (d['name'], d['ps']))
 
+print_kats(secp112r1())
+# not prime order
+# print_kats(secp112r2())
+print_kats(secp128r1())
+# not prime order
+# print_kats(secp128r2())
+print_kats(secp160k1())
+print_kats(secp160r1())
+print_kats(secp160r2())
 print_kats(secp192k1())
 print_kats(secp192r1())
 print_kats(secp224k1())
