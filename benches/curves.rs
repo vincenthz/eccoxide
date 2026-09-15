@@ -325,6 +325,11 @@ macro_rules! curve_benches {
     };
 }
 
+curve_benches!("p112r1", p112r1, eccoxide::curve::sec2::p112r1);
+curve_benches!("p128r1", p128r1, eccoxide::curve::sec2::p128r1);
+curve_benches!("p160k1", p160k1, eccoxide::curve::sec2::p160k1);
+curve_benches!("p160r1", p160r1, eccoxide::curve::sec2::p160r1);
+curve_benches!("p160r2", p160r2, eccoxide::curve::sec2::p160r2);
 curve_benches!("p192k1", p192k1, eccoxide::curve::sec2::p192k1);
 curve_benches!("p192r1", p192r1, eccoxide::curve::sec2::p192r1);
 curve_benches!("p224k1", p224k1, eccoxide::curve::sec2::p224k1);

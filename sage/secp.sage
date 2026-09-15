@@ -201,9 +201,12 @@ def print_compress(p, sz):
 def print_kats(d):
     G = d['G'];
     size = d['size'];
-    print("struct KAT { n: u64, x: [u8;%d], y: [u8;%d] }" % (size, size))
-    number_kats = 10;
-    print("const KATS : [KAT; %d] = [" % number_kats)
+    name = d['name'];
+    print("#[cfg(feature = \"%s\")]" % name)
+    print("pub(crate) mod %s {" % name)
+    print("pub struct KAT { pub n: u64, pub x: [u8;%d], pub y: [u8;%d] }" % (size, size))
+    number_kats = 11;
+    print("pub const KATS : [KAT; %d] = [" % (number_kats-1))
     for x in range(1, number_kats):
         p = x * G
         print("KAT {")
@@ -211,6 +214,7 @@ def print_kats(d):
         print_compress(p, size)
         print("}, ")
     print("];")
+    print("}")
 
 def print_docs(d):
     G = d['G'];
@@ -230,6 +234,7 @@ print_kats(secp192k1())
 print_kats(secp192r1())
 print_kats(secp224k1())
 print_kats(secp224r1())
+print_kats(secp256k1())
 print_kats(secp256r1())
 print_kats(secp384r1())
 print_kats(secp521r1())

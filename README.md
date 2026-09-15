@@ -26,17 +26,18 @@ on the values expected.
 
 ### Short Weierstrass (SEC2)
 
-Most SEC2 curves are supported through fiat-crypto:
+Most SEC2 curves are supported:
 
 * p256r1, p256k1, p384r1, p521r1
 * p192r1, p192k1: not particularly recommended due to size
 * p224k1: p=5 mod 8, using alternative approach for sqrt calculation
 * p224r1: p=1 mod 8, using (non constant time) tonelli shanks algorithm for sqrt calculation
 
-Optionally someone can enable all SEC2 curves less than 192bits (112 to 160 bits)
-using the `sec2-small` feature, but the size of those curves are too small to be used
-in normal settings. Also those curves are using a generic backend using num-traits
-and num-bigint, which is not particularly fast, nor secure.
+The `sec2-small` feature enables p112r1, p128r1, p160k1, p160r1, and p160r2.
+These curves are too small for normal cryptographic use.
+The 160-bit curves use 21-byte (161-bit) scalars and 20-byte field elements.
+
+Note p112r2 and p128r2 are not supported due to non prime order curves (cofactor 4)
 
 Also available:
 
@@ -69,10 +70,14 @@ each behind its own cargo feature:
 
 Curves:
 
-* `sec2` (default): all SEC2 curves from 192 bits and up
-* `sec2-small`: the smaller SEC2 curves (112 to 160 bits), via the generic bigint backend
-* `table` (default): embed fixed-base precomputation tables so `Point::mul_base` uses a
-  constant-time comb (~4x faster); adds static data to the binary
+* `p256k1` (default): P256K1 curve, also known as K256, widely known through bitcoin / ethereum.
+* `p256r1` (default): P256R1 curve, widely used in HSMs.
+* `p384r1` (default): P384R1 curve, often found in TLS.
+* `p521r1` (default): P512R1 curve.
+* `p224k1`: P224K1 curve
+* `p224r1`: P256R1 curve, non recommended for use, non constant SQRT due to characteristic of prime field (p=1 mod 8).
+* `p192k1`, `p192r1`: 192bits curves, not recommended due to size, but sometimes still used
+* `p112r1`, `p128r1`, `p160k1`, `p160r1`, `p160r2`: Smaller SEC2 curves, not recommended to their small size that are under typical security margin
 * `curve25519` (default), `curve448`: the Edwards/Montgomery curves
 * `bls12-381` (default): the BLS12-381 pairing-friendly curve — G1, G2, the
   `Fp2`/`Fp6`/`Fp12` tower and the optimal-ate pairing
@@ -80,7 +85,16 @@ Curves:
   (pulls `cryptoxide` for SHA-256)
 * `jubjub`: the Jubjub twisted Edwards curve over BLS12-381 `Fr`
 * `ristretto255`
-* individual SEC2 curves (e.g. `p256r1`) can be enabled one at a time
+
+Or as group of curves:
+
+* `sec2` (default): all SEC2 curves from 224 bits and up
+* `sec2-small`: the smaller SEC2 curves (112 to 192 bits), generally not a good idea to enable
+
+Optimisation features:
+
+* `table` (default): embed fixed-base precomputation tables so `Point::mul_base` uses a
+  constant-time comb (~4x faster); adds static data to the binary
 
 Protocols:
 

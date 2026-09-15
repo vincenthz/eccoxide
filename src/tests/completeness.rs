@@ -119,6 +119,16 @@ macro_rules! test_completeness {
     };
 }
 
+#[cfg(feature = "p112r1")]
+test_completeness!(p112r1);
+#[cfg(feature = "p128r1")]
+test_completeness!(p128r1);
+#[cfg(feature = "p160k1")]
+test_completeness!(p160k1);
+#[cfg(feature = "p160r1")]
+test_completeness!(p160r1);
+#[cfg(feature = "p160r2")]
+test_completeness!(p160r2);
 #[cfg(feature = "p192k1")]
 test_completeness!(p192k1);
 #[cfg(feature = "p192r1")]

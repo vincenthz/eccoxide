@@ -1,16 +1,15 @@
 //! Prime Elliptic Curve defined in [SEC2](https://www.secg.org/sec2-v2.pdf)
 
-#[cfg(any(
-    feature = "p112r1",
-    feature = "p112r2",
-    feature = "p128r1",
-    feature = "p128r2",
-    feature = "p160k1",
-    feature = "p160r1",
-    feature = "p160r2",
-))]
-mod bigint;
-
+#[cfg(feature = "p112r1")]
+pub mod p112r1;
+#[cfg(feature = "p128r1")]
+pub mod p128r1;
+#[cfg(feature = "p160k1")]
+pub mod p160k1;
+#[cfg(feature = "p160r1")]
+pub mod p160r1;
+#[cfg(feature = "p160r2")]
+pub mod p160r2;
 #[cfg(feature = "p192k1")]
 pub mod p192k1;
 #[cfg(feature = "p192r1")]
@@ -27,14 +26,3 @@ pub mod p256r1;
 pub mod p384r1;
 #[cfg(feature = "p521r1")]
 pub mod p521r1;
-
-#[cfg(any(
-    feature = "p112r1",
-    feature = "p112r2",
-    feature = "p128r1",
-    feature = "p128r2",
-    feature = "p160k1",
-    feature = "p160r1",
-    feature = "p160r2",
-))]
-pub use bigint::*;

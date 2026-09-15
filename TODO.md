@@ -26,7 +26,6 @@ no_std:
 * [ ] replace the `OnceLock<Box<..>>` comb caches with a const-evaluated
   `static`, decoding the embedded bytes at compile time the way `GENERATOR_WNAF`
   already does.
-* [ ] the `bigint` backend need `OnceLock`
 * [ ] `#![no_std]` itself, plus `extern crate std` under `cfg(test)` for the test
   modules, and a `std` / `alloc` feature pair to select the tiers
 * [ ] turn the last `Vec`s into fixed-size arrays.

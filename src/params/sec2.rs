@@ -3,6 +3,8 @@
 /// Elliptic curve parameters for p112r1 over Fp (112 bits)
 #[cfg(feature = "p112r1")]
 pub mod p112r1 {
+    #[cfg(feature = "table")]
+    include!("comb/p112r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 14] = [
         0xdb, 0x7c, 0x2a, 0xbf, 0x62, 0xe3, 0x5e, 0x66, 0x80, 0x76, 0xbe, 0xad, 0x20, 0x8b,
@@ -65,74 +67,11 @@ pub mod p112r1 {
     pub const GY_LIMBS: [u64; 2] = [0x0000a89ce5af8724, 0xc0a23e0e0ff77500];
 }
 
-/// Elliptic curve parameters for p112r2 over Fp (112 bits)
-#[cfg(feature = "p112r2")]
-pub mod p112r2 {
-    /// Finite field of prime order (BE bytes representation)
-    pub const P_BYTES: [u8; 14] = [
-        0xdb, 0x7c, 0x2a, 0xbf, 0x62, 0xe3, 0x5e, 0x66, 0x80, 0x76, 0xbe, 0xad, 0x20, 0x8b,
-    ];
-    /// Finite field of prime order (BE 64-bits limbs representation)
-    pub const P_LIMBS: [u64; 2] = [0x0000db7c2abf62e3, 0x5e668076bead208b];
-    /// P-2 (BE bytes representation)
-    pub const PM2_BYTES: [u8; 14] = [
-        0xdb, 0x7c, 0x2a, 0xbf, 0x62, 0xe3, 0x5e, 0x66, 0x80, 0x76, 0xbe, 0xad, 0x20, 0x89,
-    ];
-    /// P-2 (BE 64-bits limbs representation)
-    pub const PM2_LIMBS: [u64; 2] = [0x0000db7c2abf62e3, 0x5e668076bead2089];
-    /// pre-computed µ barrett modular reduction (BE bytes representation)
-    pub const MICRO_BYTES: [u8; 28] = [
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x2a, 0x97, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x7f, 0xc5,
-    ];
-    /// pre-computed µ barrett modular reduction (BE 64-bits limbs representation)
-    pub const MICRO_LIMBS: [u64; 4] = [
-        0x0000000000000000,
-        0x0000000000012a97,
-        0x0000000000000000,
-        0x0000000000037fc5,
-    ];
-    /// Order of point on the curve (BE bytes representation)
-    pub const ORDER_BYTES: [u8; 14] = [
-        0x36, 0xdf, 0x0a, 0xaf, 0xd8, 0xb8, 0xd7, 0x59, 0x7c, 0xa1, 0x05, 0x20, 0xd0, 0x4b,
-    ];
-    /// Order of point on the curve (BE 64-bits limbs representation)
-    pub const ORDER_LIMBS: [u64; 2] = [0x000036df0aafd8b8, 0xd7597ca10520d04b];
-    /// A factor in the short weirstrass curve (BE bytes representation)
-    pub const A_BYTES: [u8; 14] = [
-        0x61, 0x27, 0xc2, 0x4c, 0x05, 0xf3, 0x8a, 0x0a, 0xaa, 0xf6, 0x5c, 0x0e, 0xf0, 0x2c,
-    ];
-    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
-    pub const A_LIMBS: [u64; 2] = [0x00006127c24c05f3, 0x8a0aaaf65c0ef02c];
-    /// B factor in the short weirstrass curve (BE bytes representation)
-    pub const B_BYTES: [u8; 14] = [
-        0x51, 0xde, 0xf1, 0x81, 0x5d, 0xb5, 0xed, 0x74, 0xfc, 0xc3, 0x4c, 0x85, 0xd7, 0x09,
-    ];
-    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
-    pub const B_LIMBS: [u64; 2] = [0x000051def1815db5, 0xed74fcc34c85d709];
-    /// B*3 factor in the short weirstrass curve (BE bytes representation)
-    pub const B3_BYTES: [u8; 14] = [
-        0x1a, 0x20, 0xa9, 0xc4, 0xb6, 0x3e, 0x69, 0xf8, 0x75, 0xd3, 0x26, 0xe4, 0x64, 0x90,
-    ];
-    /// B*3 factor in the short weirstrass curve (BE 64-bits limbs representation)
-    pub const B3_LIMBS: [u64; 2] = [0x00001a20a9c4b63e, 0x69f875d326e46490];
-    /// X-Coordinate of the generator point of the curve (BE bytes representation)
-    pub const GX_BYTES: [u8; 14] = [
-        0x4b, 0xa3, 0x0a, 0xb5, 0xe8, 0x92, 0xb4, 0xe1, 0x64, 0x9d, 0xd0, 0x92, 0x86, 0x43,
-    ];
-    /// X-Coordinate of the generator point of the curve (BE 64-bits limbs representation)
-    pub const GX_LIMBS: [u64; 2] = [0x00004ba30ab5e892, 0xb4e1649dd0928643];
-    /// Y-Coordinate of the generator point of the curve (BE bytes representation)
-    pub const GY_BYTES: [u8; 14] = [
-        0xad, 0xcd, 0x46, 0xf5, 0x88, 0x2e, 0x37, 0x47, 0xde, 0xf3, 0x6e, 0x95, 0x6e, 0x97,
-    ];
-    /// Y-Coordinate of the generator point of the curve (BE 64-bits limbs representation)
-    pub const GY_LIMBS: [u64; 2] = [0x0000adcd46f5882e, 0x3747def36e956e97];
-}
-
 /// Elliptic curve parameters for p128r1 over Fp (128 bits)
 #[cfg(feature = "p128r1")]
 pub mod p128r1 {
+    #[cfg(feature = "table")]
+    include!("comb/p128r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 16] = [
         0xff, 0xff, 0xff, 0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -204,83 +143,11 @@ pub mod p128r1 {
     pub const GY_LIMBS: [u64; 2] = [0xcf5ac8395bafeb13, 0xc02da292dded7a83];
 }
 
-/// Elliptic curve parameters for p128r2 over Fp (128 bits)
-#[cfg(feature = "p128r2")]
-pub mod p128r2 {
-    /// Finite field of prime order (BE bytes representation)
-    pub const P_BYTES: [u8; 16] = [
-        0xff, 0xff, 0xff, 0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff,
-    ];
-    /// Finite field of prime order (BE 64-bits limbs representation)
-    pub const P_LIMBS: [u64; 2] = [0xfffffffdffffffff, 0xffffffffffffffff];
-    /// P-2 (BE bytes representation)
-    pub const PM2_BYTES: [u8; 16] = [
-        0xff, 0xff, 0xff, 0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xfd,
-    ];
-    /// P-2 (BE 64-bits limbs representation)
-    pub const PM2_LIMBS: [u64; 2] = [0xfffffffdffffffff, 0xfffffffffffffffd];
-    /// pre-computed µ barrett modular reduction (BE bytes representation)
-    pub const MICRO_BYTES: [u8; 32] = [
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,
-        0x00, 0x11,
-    ];
-    /// pre-computed µ barrett modular reduction (BE 64-bits limbs representation)
-    pub const MICRO_LIMBS: [u64; 4] = [
-        0x0000000000000000,
-        0x0000000000000001,
-        0x0000000200000004,
-        0x0000000800000011,
-    ];
-    /// Order of point on the curve (BE bytes representation)
-    pub const ORDER_BYTES: [u8; 16] = [
-        0x3f, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xbe, 0x00, 0x24, 0x72, 0x06, 0x13, 0xb5,
-        0xa3,
-    ];
-    /// Order of point on the curve (BE 64-bits limbs representation)
-    pub const ORDER_LIMBS: [u64; 2] = [0x3fffffff7fffffff, 0xbe0024720613b5a3];
-    /// A factor in the short weirstrass curve (BE bytes representation)
-    pub const A_BYTES: [u8; 16] = [
-        0xd6, 0x03, 0x19, 0x98, 0xd1, 0xb3, 0xbb, 0xfe, 0xbf, 0x59, 0xcc, 0x9b, 0xbf, 0xf9, 0xae,
-        0xe1,
-    ];
-    /// A factor in the short weirstrass curve (BE 64-bits limbs representation)
-    pub const A_LIMBS: [u64; 2] = [0xd6031998d1b3bbfe, 0xbf59cc9bbff9aee1];
-    /// B factor in the short weirstrass curve (BE bytes representation)
-    pub const B_BYTES: [u8; 16] = [
-        0x5e, 0xee, 0xfc, 0xa3, 0x80, 0xd0, 0x29, 0x19, 0xdc, 0x2c, 0x65, 0x58, 0xbb, 0x6d, 0x8a,
-        0x5d,
-    ];
-    /// B factor in the short weirstrass curve (BE 64-bits limbs representation)
-    pub const B_LIMBS: [u64; 2] = [0x5eeefca380d02919, 0xdc2c6558bb6d8a5d];
-    /// B*3 factor in the short weirstrass curve (BE bytes representation)
-    pub const B3_BYTES: [u8; 16] = [
-        0x1c, 0xcc, 0xf5, 0xec, 0x82, 0x70, 0x7b, 0x4d, 0x94, 0x85, 0x30, 0x0a, 0x32, 0x48, 0x9f,
-        0x18,
-    ];
-    /// B*3 factor in the short weirstrass curve (BE 64-bits limbs representation)
-    pub const B3_LIMBS: [u64; 2] = [0x1cccf5ec82707b4d, 0x9485300a32489f18];
-    /// X-Coordinate of the generator point of the curve (BE bytes representation)
-    pub const GX_BYTES: [u8; 16] = [
-        0x7b, 0x6a, 0xa5, 0xd8, 0x5e, 0x57, 0x29, 0x83, 0xe6, 0xfb, 0x32, 0xa7, 0xcd, 0xeb, 0xc1,
-        0x40,
-    ];
-    /// X-Coordinate of the generator point of the curve (BE 64-bits limbs representation)
-    pub const GX_LIMBS: [u64; 2] = [0x7b6aa5d85e572983, 0xe6fb32a7cdebc140];
-    /// Y-Coordinate of the generator point of the curve (BE bytes representation)
-    pub const GY_BYTES: [u8; 16] = [
-        0x27, 0xb6, 0x91, 0x6a, 0x89, 0x4d, 0x3a, 0xee, 0x71, 0x06, 0xfe, 0x80, 0x5f, 0xc3, 0x4b,
-        0x44,
-    ];
-    /// Y-Coordinate of the generator point of the curve (BE 64-bits limbs representation)
-    pub const GY_LIMBS: [u64; 2] = [0x27b6916a894d3aee, 0x7106fe805fc34b44];
-}
-
 /// Elliptic curve parameters for p160k1 over Fp (160 bits)
 #[cfg(feature = "p160k1")]
 pub mod p160k1 {
+    #[cfg(feature = "table")]
+    include!("comb/p160k1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 20] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -356,6 +223,8 @@ pub mod p160k1 {
 /// Elliptic curve parameters for p160r1 over Fp (160 bits)
 #[cfg(feature = "p160r1")]
 pub mod p160r1 {
+    #[cfg(feature = "table")]
+    include!("comb/p160r1.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 20] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -431,6 +300,8 @@ pub mod p160r1 {
 /// Elliptic curve parameters for p160r2 over Fp (160 bits)
 #[cfg(feature = "p160r2")]
 pub mod p160r2 {
+    #[cfg(feature = "table")]
+    include!("comb/p160r2.rs");
     /// Finite field of prime order (BE bytes representation)
     pub const P_BYTES: [u8; 20] = [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -506,7 +377,6 @@ pub mod p160r2 {
 /// Elliptic curve parameters for p192k1 over Fp (192 bits)
 #[cfg(feature = "p192k1")]
 pub mod p192k1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p192k1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -586,7 +456,6 @@ pub mod p192k1 {
 /// Elliptic curve parameters for p192r1 over Fp (192 bits)
 #[cfg(feature = "p192r1")]
 pub mod p192r1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p192r1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -666,7 +535,6 @@ pub mod p192r1 {
 /// Elliptic curve parameters for p224k1 over Fp (224 bits)
 #[cfg(feature = "p224k1")]
 pub mod p224k1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p224k1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -787,7 +655,6 @@ pub mod p224k1 {
 /// Elliptic curve parameters for p224r1 over Fp (224 bits)
 #[cfg(feature = "p224r1")]
 pub mod p224r1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p224r1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -908,7 +775,6 @@ pub mod p224r1 {
 /// Elliptic curve parameters for p256k1 over Fp (256 bits)
 #[cfg(feature = "p256k1")]
 pub mod p256k1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p256k1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -1039,7 +905,6 @@ pub mod p256k1 {
 /// Elliptic curve parameters for p256r1 over Fp (256 bits)
 #[cfg(feature = "p256r1")]
 pub mod p256r1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p256r1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -1170,7 +1035,6 @@ pub mod p256r1 {
 /// Elliptic curve parameters for p384r1 over Fp (384 bits)
 #[cfg(feature = "p384r1")]
 pub mod p384r1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p384r1.rs");
     /// Finite field of prime order (BE bytes representation)
@@ -1331,7 +1195,6 @@ pub mod p384r1 {
 /// Elliptic curve parameters for p521r1 over Fp (521 bits)
 #[cfg(feature = "p521r1")]
 pub mod p521r1 {
-    // Fixed-base (generator) comb precomputation table, see `sage/comb.sage`.
     #[cfg(feature = "table")]
     include!("comb/p521r1.rs");
     /// Finite field of prime order (BE bytes representation)
