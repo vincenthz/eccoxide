@@ -72,6 +72,9 @@ sec2 = ["p224k1", "p224r1", "p256k1", "p256r1", "p384r1", "p521r1"]
 # 224 bits for signing data.
 sec2-small = ["p112r1", "p128r1", "p160k1", "p160r1", "p160r2", "p192k1", "p192r1"]
 
+# unsupported F2M curve params values, no full implementation
+sec2-params-unsupported = []
+
 ################################
 #### all individual curves
 ################################

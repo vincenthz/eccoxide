@@ -1392,6 +1392,7 @@ pub mod p521r1 {
 }
 
 /// Elliptic curve parameters for t113r1 over F2m (113 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t113r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 15] = [
@@ -1420,6 +1421,7 @@ pub mod t113r1 {
 }
 
 /// Elliptic curve parameters for t113r2 over F2m (113 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t113r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 15] = [
@@ -1448,6 +1450,7 @@ pub mod t113r2 {
 }
 
 /// Elliptic curve parameters for t131r1 over F2m (131 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t131r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 17] = [
@@ -1480,6 +1483,7 @@ pub mod t131r1 {
 }
 
 /// Elliptic curve parameters for t131r2 over F2m (131 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t131r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 17] = [
@@ -1512,6 +1516,7 @@ pub mod t131r2 {
 }
 
 /// Elliptic curve parameters for t163k1 over F2m (163 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t163k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 21] = [
@@ -1544,6 +1549,7 @@ pub mod t163k1 {
 }
 
 /// Elliptic curve parameters for t163r1 over F2m (163 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t163r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 21] = [
@@ -1576,6 +1582,7 @@ pub mod t163r1 {
 }
 
 /// Elliptic curve parameters for t163r2 over F2m (163 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t163r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 21] = [
@@ -1608,6 +1615,7 @@ pub mod t163r2 {
 }
 
 /// Elliptic curve parameters for t193r1 over F2m (193 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t193r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 25] = [
@@ -1655,6 +1663,7 @@ pub mod t193r1 {
 }
 
 /// Elliptic curve parameters for t193r2 over F2m (193 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t193r2 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 25] = [
@@ -1702,6 +1711,7 @@ pub mod t193r2 {
 }
 
 /// Elliptic curve parameters for t233k1 over F2m (233 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t233k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 30] = [
@@ -1754,6 +1764,7 @@ pub mod t233k1 {
 }
 
 /// Elliptic curve parameters for t233r1 over F2m (233 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t233r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 30] = [
@@ -1806,6 +1817,7 @@ pub mod t233r1 {
 }
 
 /// Elliptic curve parameters for t239k1 over F2m (239 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t239k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 30] = [
@@ -1858,6 +1870,7 @@ pub mod t239k1 {
 }
 
 /// Elliptic curve parameters for t283k1 over F2m (283 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t283k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 36] = [
@@ -1918,6 +1931,7 @@ pub mod t283k1 {
 }
 
 /// Elliptic curve parameters for t283r1 over F2m (283 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t283r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 36] = [
@@ -1978,6 +1992,7 @@ pub mod t283r1 {
 }
 
 /// Elliptic curve parameters for t409k1 over F2m (409 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t409k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 52] = [
@@ -2050,6 +2065,7 @@ pub mod t409k1 {
 }
 
 /// Elliptic curve parameters for t409r1 over F2m (409 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t409r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 52] = [
@@ -2122,6 +2138,7 @@ pub mod t409r1 {
 }
 
 /// Elliptic curve parameters for t571k1 over F2m (571 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t571k1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 72] = [
@@ -2206,6 +2223,7 @@ pub mod t571k1 {
 }
 
 /// Elliptic curve parameters for t571r1 over F2m (571 bits)
+#[cfg(feature = "sec2-params-unsupported")]
 pub mod t571r1 {
     /// Reduction polynomial F(X) for Finite field (BE bytes representation)
     pub const F_BYTES: [u8; 72] = [
