@@ -3,32 +3,25 @@ macro_rules! test_kats_mul {
         #[test]
         fn $curve() {
             use super::kats_data::$curve::KATS;
+            use crate::curve::field::Field;
             use crate::curve::sec2::$curve::{FieldElement, Point, PointAffine, Scalar};
 
-            //let kats: &[KV] = &KATS[$start..$end];
             for kv in KATS.iter() {
-                /*
-                let mut xraw = [0u8; FieldElement::SIZE_BYTES];
-                let mut yraw = [0u8; FieldElement::SIZE_BYTES];
-                let mut kraw = [0u8; Scalar::SIZE_BYTES];
-
-                xraw[FieldElement::SIZE_BYTES - kv.x.len()..].copy_from_slice(&kv.x);
-                yraw[FieldElement::SIZE_BYTES - kv.y.len()..].copy_from_slice(&kv.y);
-                kraw[Scalar::SIZE_BYTES - kv.k.len()..].copy_from_slice(&kv.k);
-
-                let x = FieldElement::from_bytes(&xraw).expect("x fits");
-                let y = FieldElement::from_bytes(&yraw).expect("y fits");
-                let k = Scalar::from_bytes(&kraw).unwrap();
-                */
-
                 let x = FieldElement::from_bytes(&kv.x).expect("x fits");
                 let y = FieldElement::from_bytes(&kv.y).expect("y fits");
-                let k = Scalar::from_u64(kv.n);
 
-                let paffine = PointAffine::from_coordinate(&x, &y).unwrap();
-                let expected = Point::from_affine(&paffine);
+                let k = if kv.n >= 0 {
+                    Scalar::from_u64(kv.n as u64)
+                } else {
+                    Scalar::ZERO - Scalar::from_u64(kv.n.abs() as u64)
+                };
+
+                let expected_affine = PointAffine::from_coordinate(&x, &y).unwrap();
+                let expected = Point::from_affine(&expected_affine);
                 let got = &Point::GENERATOR * &k;
-                assert_eq!(expected, got);
+                let got_affine = got.to_affine().expect("KAT has affine");
+                assert_eq!(expected_affine, got_affine, "KAT {}", kv.n);
+                assert_eq!(expected, got, "KAT {}", kv.n);
             }
         }
     };

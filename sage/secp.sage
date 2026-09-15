@@ -17,7 +17,7 @@ def sec(name, p, ps, a, b, gx, gy, order, size):
 
     # scalar finite field
     #S = FiniteField(order)
-    return { 'name': name, 'p' : p, 'ps': ps, 'E': E, 'G': G, 'order': order, 'size': size }
+    return { 'name': name, 'p' : p, 'ps': ps, 'E': E, 'F': F, 'G': G, 'order': order, 'size': size }
 
 def secp112r1():
     p = 0xdb7c2abf62e35e668076bead208b
@@ -200,19 +200,27 @@ def print_compress(p, sz):
 
 def print_kats(d):
     G = d['G'];
+    F = d['F'];
     size = d['size'];
     name = d['name'];
     print("#[cfg(feature = \"%s\")]" % name)
     print("pub(crate) mod %s {" % name)
-    print("pub struct KAT { pub n: u64, pub x: [u8;%d], pub y: [u8;%d] }" % (size, size))
-    number_kats = 11;
-    print("pub const KATS : [KAT; %d] = [" % (number_kats-1))
-    for x in range(1, number_kats):
-        p = x * G
+    print("pub struct KAT { pub n: i64, pub x: [u8;%d], pub y: [u8;%d] }" % (size, size))
+    number_kats = 10;
+    print("pub const KATS : [KAT; %d] = [" % (number_kats * 2))
+    for x in range(1, number_kats+1):
+        p = F(x) * G
         print("KAT {")
         print("n: %d," % x)
         print_compress(p, size)
         print("}, ")
+    for x in range(1, number_kats+1):
+        p = (-x) * G
+        print("KAT {")
+        print("n: -%d," % x)
+        print_compress(p, size)
+        print("}, ")
+
     print("];")
     print("}")
 
