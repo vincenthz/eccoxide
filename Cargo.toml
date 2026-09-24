@@ -13,14 +13,11 @@ repository = "https://github.com/vincenthz/eccoxide/"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# SHA-512 backend for the ed25519 signature scheme, and the SHA-2 backends
-# for the provided ecdsa schemes
-cryptoxide = { version = "0.6", optional = true }
+cryptoxide = { version = "0.6", optional = true, default-features = false }
 
 [dev-dependencies]
 divan = "0.1"
-# hash functions for the ecdsa tests, and comparison benchmarks
-cryptoxide = "0.6"
+cryptoxide = "0.6.5"
 
 [[bench]]
 name = "curves"
@@ -87,7 +84,7 @@ jubjub = ["bls12-381"]
 # Hashing to the BLS12-381 groups (RFC 9380): the SSWU maps, the isogenies and
 # the suites BLS12381G{1,2}_XMD:SHA-256_SSWU_{RO,NU}_. Pulls cryptoxide for
 # SHA-256, hence the separate feature.
-bls12-381-hash-to-curve = ["bls12-381", "cryptoxide"]
+bls12-381-hash-to-curve = ["bls12-381", "cryptoxide", "cryptoxide/sha2"]
 
 ristretto255 = ["curve25519"] # built on top of curve25519
 
@@ -118,10 +115,13 @@ protocols = ["x25519", "ed25519", "x448", "ecdsa"]
 # Protocol built on top of curve25519: Montgomery ladder (X25519) and Signature (Ed25519)
 # Note that ed25519 pull cryptoxide for hashing with sha512
 x25519 = ["curve25519"]
-ed25519 = ["curve25519", "cryptoxide"]
+ed25519 = ["curve25519", "cryptoxide", "cryptoxide/sha2"]
+
+# Ed25519 parametrized by BLAKE2b-512
+ed25519-blake2 = ["ed25519", "cryptoxide/blake2"]
 
 # Protocol built on top of curve448: Montgomery ladder (X448)
 x448 = ["curve448"]
 
 # ECDSA signatures on the sec2 weierstrass curves.
-ecdsa = ["cryptoxide"]
+ecdsa = ["cryptoxide", "cryptoxide/sha2"]

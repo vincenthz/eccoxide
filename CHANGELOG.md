@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Ed25519**: the scheme is parametrized by its hash function. Every operation
+  that need a hash algorithm has a `_with` variant. the plain API is the
+  standard ED25519 pre-applied to `sha512`. The new `ed25519-blake2`
+  feature flag adds `blake2b512` and an `ed25519::blake2b` module exposing similar API.
 - **Weierstrass curves**: add a generic jacobian point module
 - **X25519** / **X448**: Montgomery Points now hold just a u-coordinate, and use
   faster implementation using fiat crypto loose/tight domains instead of the
