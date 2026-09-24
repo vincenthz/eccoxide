@@ -57,7 +57,9 @@ Higher-level protocols are built on top of the curves above (in the `protocol` m
 each behind its own cargo feature:
 
 * `x25519`: X25519 Diffie-Hellman key agreement (RFC 7748), on Curve25519
-* `ed25519`: Ed25519 digital signatures (RFC 8032), on edwards25519
+* `ed25519`: Ed25519 digital signatures (RFC 8032), on edwards25519; the
+  scheme is also parametrized by the hash function through the `_with`
+  interface, with BLAKE2b-512 provided behind `ed25519-blake2`
 * `x448`: X448 Diffie-Hellman key agreement (RFC 7748), on Curve448
 * `ristretto255`: the ristretto255 prime-order group (RFC 9496), on edwards25519,
   with canonical encoding/decoding and a uniform-bytes one-way map
@@ -101,6 +103,7 @@ Protocols:
 * `protocols`: to enable all protocols in this crates
 * `x25519`: enable X25519 (DH)
 * `ed25519`: enable Ed25519 signature
+* `ed25519-blake2`: enable the BLAKE2b-512 variant of Ed25519 and expose the `protocol::ed25519::blake2b` module
 * `x448`: enable X448 (DH)
 * `ecdsa`: enable ECDSA for many SEC2 curves
 
