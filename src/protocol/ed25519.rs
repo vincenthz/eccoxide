@@ -2,24 +2,74 @@
 //!
 //! Keys, signatures and encoded points use the RFC 8032 little-endian wire
 //! format. The internal SHA-512 is provided by the `cryptoxide` crate.
+//!
+//! # Alternative hash function
+//!
+//! Ed25519 is defined by RFC 8032 on top of SHA-512, and that is what the plain
+//! API of this module uses. The scheme itself only needs a 512-bit hash
+//! function though, so every operation that need a hash function is also available
+//! parametrized through the `_with` suffixed methods (e.g. [`Keypair::sign_with`]),
+//! where the hash function is any `Fn(&[&[u8]]) -> [u8; HASH_LENGTH]`
+//! hashing the concatenation of all the given slices.
+//!
+//! Two such hash functions are provided: [`sha512`] (the standard one) and,
+//! with the `ed25519-blake2` feature, BLAKE2b-512.
+#![cfg_attr(
+    feature = "ed25519-blake2",
+    doc = "For convenience, the [`blake2b`] module mirrors the API of this module pre-applied to [`blake2b512`]."
+)]
+//!
+//! Note that keys and signatures are bound to the hash function they were
+//! created with: they are *not* interchangeable with the standard SHA-512 ones.
+//!
+//! ```
+//! use eccoxide::protocol::ed25519::{sha512, Keypair};
+//!
+//! // the standard scheme, spelled out through the parametrized interface
+//! let keypair = Keypair::from_seed_with(sha512, [42u8; 32]);
+//! let signature = keypair.sign_with(sha512, b"message");
+//! assert!(keypair.public().verify(b"message", &signature));
+//! ```
 
 use crate::curve::curve25519::{FieldElement, Point, PrecomputedPoint, Scalar};
 use crate::curve::field::Sign;
+#[cfg(feature = "ed25519-blake2")]
+use cryptoxide::hashing::blake2b::Blake2b;
 use cryptoxide::hashing::sha2::Sha512;
 
-/// SHA-512 of the concatenation of `parts`.
-fn sha512(parts: &[&[u8]]) -> [u8; 64] {
+/// Digest size (64 bytes) a hash function needs to output to be usable here
+pub const HASH_LENGTH: usize = 64;
+
+/// SHA-512 of the concatenation of all the given slices.
+///
+/// This is the hash function of the standard Ed25519 scheme, and thus the one
+/// the plain API uses: handing it to the `_with` methods (e.g.
+/// [`Keypair::sign_with`]) yields the same results as their plain counterpart.
+pub fn sha512(slices: &[&[u8]]) -> [u8; HASH_LENGTH] {
     let mut h = Sha512::new();
-    for p in parts {
+    for p in slices {
         h.update_mut(p);
     }
     h.finalize()
 }
 
-/// Reduce a 64-byte SHA-512 output, interpreted little-endian, modulo the group
+/// BLAKE2b-512 of the concatenation of all the given slices.
+///
+/// A non standard choice of hash function for Ed25519, to be used with the
+/// `_with` methods or through the [`blake2b`] module.
+#[cfg(feature = "ed25519-blake2")]
+pub fn blake2b512(slices: &[&[u8]]) -> [u8; HASH_LENGTH] {
+    let mut h = Blake2b::<512>::new();
+    for p in slices {
+        h.update_mut(p);
+    }
+    h.finalize()
+}
+
+/// Reduce a 64-byte hash output, interpreted little-endian, modulo the group
 /// order `l`.
-fn reduce_wide_le(hash: &[u8; 64]) -> Scalar {
-    Scalar::init_from_wide_bytes_le(*hash)
+fn reduce_wide_le(digest: &[u8; HASH_LENGTH]) -> Scalar {
+    Scalar::init_from_wide_bytes_le(*digest)
 }
 
 /// Encode a point to its 32-byte RFC 8032 representation: little-endian y with
@@ -58,9 +108,13 @@ fn decode_point(bytes: &[u8; 32]) -> Option<Point> {
     Point::decompress(&y, want)
 }
 
-/// Expand a 32-byte seed into the secret scalar (mod l) and the nonce prefix.
-fn expand_secret(seed: &[u8; 32]) -> (Scalar, [u8; 32]) {
-    let h = sha512(&[&seed[..]]);
+/// Expand a 32-byte seed into the secret scalar (mod l) and the nonce prefix,
+/// with the given hash function.
+fn expand_secret<H>(hash: &H, seed: &[u8; 32]) -> (Scalar, [u8; 32])
+where
+    H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+{
+    let h = hash(&[&seed[..]]);
 
     let mut a_le = [0u8; 32];
     a_le.copy_from_slice(&h[..32]);
@@ -79,8 +133,11 @@ fn expand_secret(seed: &[u8; 32]) -> (Scalar, [u8; 32]) {
     (a, prefix)
 }
 
-fn public_from_seed(seed: &[u8; 32]) -> [u8; 32] {
-    let (a, _) = expand_secret(seed);
+fn public_from_seed<H>(hash: &H, seed: &[u8; 32]) -> [u8; 32]
+where
+    H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+{
+    let (a, _) = expand_secret(hash, seed);
     encode_point(&Point::mul_base(&a))
 }
 
@@ -91,13 +148,22 @@ fn public_from_seed(seed: &[u8; 32]) -> [u8; 32] {
 /// part of the 64-byte `R || S` output), so when the public key is already known
 /// — as it is for a [`Keypair`] — this avoids the extra fixed-base scalar
 /// multiplication that recomputing A would cost.
-fn sign_with_public(a: &Scalar, prefix: &[u8; 32], public: &[u8; 32], message: &[u8]) -> [u8; 64] {
+fn sign_with_public<H>(
+    hash: &H,
+    a: &Scalar,
+    prefix: &[u8; 32],
+    public: &[u8; 32],
+    message: &[u8],
+) -> [u8; 64]
+where
+    H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+{
     // r = H(prefix || M) mod l ; R = [r]B
-    let r = reduce_wide_le(&sha512(&[&prefix[..], message]));
+    let r = reduce_wide_le(&hash(&[&prefix[..], message]));
     let r_encoded = encode_point(&Point::mul_base(&r));
 
     // k = H(R || A || M) mod l
-    let k = reduce_wide_le(&sha512(&[&r_encoded[..], &public[..], message]));
+    let k = reduce_wide_le(&hash(&[&r_encoded[..], &public[..], message]));
 
     // S = (r + k·a) mod l
     let s = r + &(&k * a);
@@ -109,22 +175,29 @@ fn sign_with_public(a: &Scalar, prefix: &[u8; 32], public: &[u8; 32], message: &
     sig
 }
 
-fn sign(seed: &[u8; 32], message: &[u8]) -> [u8; 64] {
+fn sign<H>(hash: &H, seed: &[u8; 32], message: &[u8]) -> [u8; 64]
+where
+    H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+{
     // A bare seed has no cached public key, so A must be derived here.
-    let (a, prefix) = expand_secret(seed);
+    let (a, prefix) = expand_secret(hash, seed);
     let public = encode_point(&Point::mul_base(&a));
-    sign_with_public(&a, &prefix, &public, message)
+    sign_with_public(hash, &a, &prefix, &public, message)
 }
 
 /// The verification equation common part for verify to cope with precomputed / non precomputed difference
 ///
 /// `lhs` callback is handed `(S, k)` and must return `[S]B + [k](-A)`
-fn verify_equation(
+fn verify_equation<H>(
+    hash: &H,
     public: &[u8; 32],
     message: &[u8],
     sig: &[u8; 64],
     lhs: impl FnOnce(&Scalar, &Scalar) -> Point,
-) -> bool {
+) -> bool
+where
+    H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+{
     let mut r_encoded = [0u8; 32];
     r_encoded.copy_from_slice(&sig[..32]);
     let r_point = match decode_point(&r_encoded) {
@@ -141,7 +214,7 @@ fn verify_equation(
     };
 
     // k = H(R || A || M) mod l
-    let k = reduce_wide_le(&sha512(&[&r_encoded[..], &public[..], message]));
+    let k = reduce_wide_le(&hash(&[&r_encoded[..], &public[..], message]));
 
     // accept iff [S]B == R + [k]A, rewritten as [S]B + [k](-A) == R so that
     // the two multiplications interleave into a variable op since all values are
@@ -149,12 +222,15 @@ fn verify_equation(
     lhs(&s, &k) == r_point
 }
 
-fn verify(public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool {
+fn verify<H>(hash: &H, public: &[u8; 32], message: &[u8], sig: &[u8; 64]) -> bool
+where
+    H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+{
     let neg_a = match decode_point(public) {
         Some(p) => -&p,
         None => return false,
     };
-    verify_equation(public, message, sig, |s, k| {
+    verify_equation(hash, public, message, sig, |s, k| {
         Point::double_scalar_mul_base_vartime(s, k, &neg_a)
     })
 }
@@ -194,11 +270,34 @@ impl SecretKey {
     }
     /// Derive the matching public key.
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(public_from_seed(&self.0))
+        self.public_key_with(sha512)
     }
+
+    /// Derive the matching public key, with the given hash function.
+    ///
+    /// This is the generic version of [`SecretKey::public_key`]; see the module
+    /// documentation about alternative hash functions.
+    pub fn public_key_with<H>(&self, hash: H) -> PublicKey
+    where
+        H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+    {
+        PublicKey(public_from_seed(&hash, &self.0))
+    }
+
     /// Sign a message.
     pub fn sign(&self, message: &[u8]) -> Signature {
-        Signature(sign(&self.0, message))
+        self.sign_with(sha512, message)
+    }
+
+    /// Sign a message, with the given hash function.
+    ///
+    /// This is the generic version of [`SecretKey::sign`]; see the module
+    /// documentation about alternative hash functions.
+    pub fn sign_with<H>(&self, hash: H, message: &[u8]) -> Signature
+    where
+        H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+    {
+        Signature(sign(&hash, &self.0, message))
     }
 }
 
@@ -209,9 +308,21 @@ impl PublicKey {
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0
     }
+
     /// Verify a signature over `message`.
     pub fn verify(&self, message: &[u8], signature: &Signature) -> bool {
-        verify(&self.0, message, &signature.0)
+        self.verify_with(sha512, message, signature)
+    }
+
+    /// Verify a signature over `message`, with the given hash function.
+    ///
+    /// This is the generic version of [`PublicKey::verify`]; see the module
+    /// documentation about alternative hash functions.
+    pub fn verify_with<H>(&self, hash: H, message: &[u8], signature: &Signature) -> bool
+    where
+        H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+    {
+        verify(&hash, &self.0, message, &signature.0)
     }
 
     /// Do the part of verification that depends on the key alone, once, for
@@ -281,7 +392,20 @@ impl PrecomputedPublicKey {
     /// Verify a signature over `message`, accepting exactly what
     /// [`PublicKey::verify`] accepts.
     pub fn verify(&self, message: &[u8], signature: &Signature) -> bool {
-        verify_equation(&self.encoded, message, &signature.0, |s, k| {
+        self.verify_with(sha512, message, signature)
+    }
+
+    /// Verify a signature over `message` with the given hash function,
+    /// accepting exactly what [`PublicKey::verify_with`] accepts.
+    ///
+    /// The precomputation itself is hash agnostic — it is the point
+    /// decompression and the multiples of `-A`, neither of which hashes — so
+    /// the same [`PrecomputedPublicKey`] serves any hash function.
+    pub fn verify_with<H>(&self, hash: H, message: &[u8], signature: &Signature) -> bool
+    where
+        H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+    {
+        verify_equation(&hash, &self.encoded, message, &signature.0, |s, k| {
             self.neg_multiples.double_scalar_mul_base_vartime(s, k)
         })
     }
@@ -299,9 +423,24 @@ impl Signature {
 impl Keypair {
     /// Build a keypair from a 32-byte seed.
     pub fn from_seed(seed: [u8; 32]) -> Self {
+        Self::from_seed_with(sha512, seed)
+    }
+
+    /// Build a keypair from a 32-byte seed, with the given hash function.
+    ///
+    /// This is the generic version of [`Keypair::from_seed`]; see the module
+    /// documentation about alternative hash functions.
+    ///
+    /// The cached expanded secret is the one the hash function derives, so
+    /// [`Keypair::sign_with`] must be handed the same hash function: signing
+    /// such a keypair with another one mixes the two schemes.
+    pub fn from_seed_with<H>(hash: H, seed: [u8; 32]) -> Self
+    where
+        H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+    {
         // expand the seed once, reusing it for both the public key and the
         // cached signing material
-        let (scalar, prefix) = expand_secret(&seed);
+        let (scalar, prefix) = expand_secret(&hash, &seed);
         let public = PublicKey(encode_point(&Point::mul_base(&scalar)));
         Keypair {
             secret: SecretKey::from_bytes(seed),
@@ -310,24 +449,180 @@ impl Keypair {
             prefix,
         }
     }
+
     pub fn public(&self) -> &PublicKey {
         &self.public
     }
     pub fn secret(&self) -> &SecretKey {
         &self.secret
     }
+
     /// Sign a message.
     ///
     /// Uses the cached expanded secret and public key, so this performs a single
     /// fixed-base scalar multiplication (for the nonce point R) instead of the
     /// two that signing from a bare seed would need.
     pub fn sign(&self, message: &[u8]) -> Signature {
+        self.sign_with(sha512, message)
+    }
+
+    /// Sign a message, with the given hash function.
+    ///
+    /// This is the generic version of [`Keypair::sign`]; see the module
+    /// documentation about alternative hash functions. The hash function must
+    /// be the one [`Keypair::from_seed_with`] expanded the seed with.
+    pub fn sign_with<H>(&self, hash: H, message: &[u8]) -> Signature
+    where
+        H: Fn(&[&[u8]]) -> [u8; HASH_LENGTH],
+    {
         Signature(sign_with_public(
+            &hash,
             &self.scalar,
             &self.prefix,
             &self.public.0,
             message,
         ))
+    }
+}
+
+/// Ed25519 using BLAKE2b-512 as its hash function
+///
+/// Every type here mirrors the identically named type of the parent module,
+/// with [`blake2b512`] substituted for [`sha512`]. This is *not* the standard
+/// scheme of RFC 8032: keys and signatures produced here are only compatible
+/// with this variant, which is why they are types of their own — the two
+/// cannot be mixed up.
+///
+/// ```
+/// use eccoxide::protocol::ed25519::blake2b::Keypair;
+///
+/// let keypair = Keypair::from_seed([42u8; 32]);
+/// let signature = keypair.sign(b"message");
+/// assert!(keypair.public().verify(b"message", &signature));
+/// ```
+#[cfg(feature = "ed25519-blake2")]
+pub mod blake2b {
+    use super::blake2b512;
+
+    /// An Ed25519 signature (64 bytes: `R || S`)
+    ///
+    /// The signature format does not depend on the hash function, so this is
+    /// the [`Signature`] of the parent module.
+    pub use super::Signature;
+
+    /// An Ed25519-BLAKE2b secret key: the 32-byte seed
+    ///
+    /// See [`SecretKey`](super::SecretKey).
+    #[derive(Clone)]
+    pub struct SecretKey(super::SecretKey);
+
+    /// An Ed25519-BLAKE2b public key (32-byte compressed point)
+    ///
+    /// See [`PublicKey`](super::PublicKey).
+    #[derive(Clone, PartialEq, Eq)]
+    pub struct PublicKey(super::PublicKey);
+
+    /// An Ed25519-BLAKE2b keypair
+    ///
+    /// See [`Keypair`](super::Keypair).
+    #[derive(Clone)]
+    pub struct Keypair(super::Keypair);
+
+    /// An Ed25519-BLAKE2b public key with the per-key half of verification
+    /// already done
+    ///
+    /// See [`PrecomputedPublicKey`](super::PrecomputedPublicKey).
+    #[derive(Clone)]
+    pub struct PrecomputedPublicKey(super::PrecomputedPublicKey);
+
+    impl SecretKey {
+        pub fn from_bytes(seed: [u8; 32]) -> Self {
+            SecretKey(super::SecretKey::from_bytes(seed))
+        }
+        pub fn to_bytes(&self) -> [u8; 32] {
+            self.0.to_bytes()
+        }
+        /// Derive the matching public key.
+        pub fn public_key(&self) -> PublicKey {
+            PublicKey(self.0.public_key_with(blake2b512))
+        }
+        /// Sign a message.
+        pub fn sign(&self, message: &[u8]) -> Signature {
+            self.0.sign_with(blake2b512, message)
+        }
+    }
+
+    impl PublicKey {
+        pub fn from_bytes(bytes: [u8; 32]) -> Self {
+            PublicKey(super::PublicKey::from_bytes(bytes))
+        }
+
+        pub fn to_bytes(&self) -> [u8; 32] {
+            self.0.to_bytes()
+        }
+
+        /// Verify a signature over `message`.
+        pub fn verify(&self, message: &[u8], signature: &Signature) -> bool {
+            self.0.verify_with(blake2b512, message, signature)
+        }
+
+        /// Do the part of verification that depends on the key alone, once, for
+        /// verifying many signatures under this key.
+        ///
+        /// `None` if the key is not a valid point encoding
+        pub fn precompute(&self) -> Option<PrecomputedPublicKey> {
+            PrecomputedPublicKey::new(self)
+        }
+    }
+
+    impl PrecomputedPublicKey {
+        /// Precompute the verification tables of `public`, or `None` if it is
+        /// not a valid point encoding.
+        pub fn new(public: &PublicKey) -> Option<Self> {
+            super::PrecomputedPublicKey::new(&public.0).map(PrecomputedPublicKey)
+        }
+
+        /// The public key the precomputation was built from.
+        pub fn public_key(&self) -> PublicKey {
+            PublicKey(self.0.public_key())
+        }
+
+        pub fn to_bytes(&self) -> [u8; 32] {
+            self.0.to_bytes()
+        }
+
+        /// Verify a signature over `message`, accepting exactly what
+        /// [`PublicKey::verify`] accepts.
+        pub fn verify(&self, message: &[u8], signature: &Signature) -> bool {
+            self.0.verify_with(blake2b512, message, signature)
+        }
+    }
+
+    impl Keypair {
+        /// Build a keypair from a 32-byte seed.
+        pub fn from_seed(seed: [u8; 32]) -> Self {
+            Keypair(super::Keypair::from_seed_with(blake2b512, seed))
+        }
+
+        /// The public key of the keypair.
+        ///
+        /// Unlike [`Keypair::public`](super::Keypair::public) this returns by
+        /// value: the key the parent keypair holds is the SHA-512 type, and the
+        /// two variants are distinct types.
+        pub fn public(&self) -> PublicKey {
+            PublicKey(self.0.public().clone())
+        }
+
+        /// The secret key of the keypair, returned by value for the same reason
+        /// as [`Keypair::public`].
+        pub fn secret(&self) -> SecretKey {
+            SecretKey(self.0.secret().clone())
+        }
+
+        /// Sign a message.
+        pub fn sign(&self, message: &[u8]) -> Signature {
+            self.0.sign_with(blake2b512, message)
+        }
     }
 }
 
@@ -636,6 +931,181 @@ mod tests {
             let msg: Vec<u8> = (0..len).map(|i| (i * 3 + 1) as u8).collect();
             let sig = kp.sign(&msg);
             assert!(kp.public().verify(&msg, &sig), "len={}", len);
+        }
+    }
+
+    #[test]
+    fn generic_hash_with_sha512_matches_plain() {
+        // handed the standard hash, the parametrized interface must reproduce
+        // the plain API exactly, RFC 8032 vectors included
+        for v in VECTORS {
+            let seed: [u8; 32] = hex(v.seed);
+            let expected_sig: [u8; 64] = hex(v.signature);
+            let message = hex_vec(v.message);
+
+            let sk = SecretKey::from_bytes(seed);
+            assert_eq!(sk.public_key_with(sha512).to_bytes(), hex::<32>(v.public));
+            assert_eq!(sk.sign_with(sha512, &message).to_bytes(), expected_sig);
+
+            let kp = Keypair::from_seed_with(sha512, seed);
+            assert_eq!(kp.public().to_bytes(), hex::<32>(v.public));
+            assert_eq!(kp.sign_with(sha512, &message).to_bytes(), expected_sig);
+
+            let sig = Signature::from_bytes(expected_sig);
+            let pk = PublicKey::from_bytes(hex(v.public));
+            assert!(pk.verify_with(sha512, &message, &sig));
+            assert!(pk
+                .precompute()
+                .expect("RFC public key decodes")
+                .verify_with(sha512, &message, &sig));
+        }
+    }
+
+    /// A hash function of our own: SHA-512 with a domain separation prefix.
+    /// Nothing standard — the point is that an arbitrary
+    /// `Fn(&[&[u8]]) -> [u8; HASH_LENGTH]` is usable and yields a scheme that
+    /// is consistent with itself and with nothing else.
+    fn prefixed_sha512(slices: &[&[u8]]) -> [u8; HASH_LENGTH] {
+        let mut parts: Vec<&[u8]> = alloc::vec![b"eccoxide test hash"];
+        parts.extend_from_slice(slices);
+        sha512(&parts)
+    }
+
+    #[test]
+    fn arbitrary_hash_is_self_consistent() {
+        let seed = [11u8; 32];
+        let message = b"custom hash";
+
+        let kp = Keypair::from_seed_with(prefixed_sha512, seed);
+        let sig = kp.sign_with(prefixed_sha512, message);
+
+        // the same scheme reached from the bare secret key
+        let sk = SecretKey::from_bytes(seed);
+        assert_eq!(
+            sk.public_key_with(prefixed_sha512).to_bytes(),
+            kp.public().to_bytes()
+        );
+        assert_eq!(
+            sk.sign_with(prefixed_sha512, message).to_bytes(),
+            sig.to_bytes()
+        );
+
+        assert!(kp.public().verify_with(prefixed_sha512, message, &sig));
+        assert!(kp
+            .public()
+            .precompute()
+            .expect("derived key decodes")
+            .verify_with(prefixed_sha512, message, &sig));
+
+        // and a scheme of its own: the standard one neither derives the same
+        // key nor accepts the signature
+        let standard = Keypair::from_seed(seed);
+        assert_ne!(kp.public().to_bytes(), standard.public().to_bytes());
+        assert!(!kp.public().verify(message, &sig));
+    }
+
+    /// The BLAKE2b-512 variant, cross-checked against the reference
+    /// implementation of `cryptoxide::ed25519::blake2b`.
+    #[cfg(feature = "ed25519-blake2")]
+    mod blake2b_variant {
+        use super::super::{blake2b, blake2b512, Keypair, PublicKey, Signature};
+        use cryptoxide::ed25519::blake2b as reference;
+
+        const SEEDS: [[u8; 32]; 3] = [[0u8; 32], [1u8; 32], [0xabu8; 32]];
+        const MESSAGES: [&[u8]; 4] = [b"", b"a", b"the quick brown fox", &[0xffu8; 100]];
+
+        #[test]
+        fn matches_cryptoxide() {
+            for seed in SEEDS {
+                let (ref_keypair, ref_public) = reference::keypair(&seed);
+                let kp = blake2b::Keypair::from_seed(seed);
+                let sk = blake2b::SecretKey::from_bytes(seed);
+
+                assert_eq!(kp.public().to_bytes(), ref_public);
+                assert_eq!(sk.public_key().to_bytes(), ref_public);
+                assert_eq!(kp.secret().to_bytes(), seed);
+
+                for message in MESSAGES {
+                    let sig = kp.sign(message);
+                    assert_eq!(sig.to_bytes(), reference::signature(message, &ref_keypair));
+                    assert_eq!(sk.sign(message).to_bytes(), sig.to_bytes());
+                    assert!(reference::verify(message, &ref_public, &sig.to_bytes()));
+                    assert!(kp.public().verify(message, &sig));
+                }
+            }
+        }
+
+        #[test]
+        fn is_the_parametrized_scheme_on_blake2b512() {
+            // the module is exactly the generic interface pre-applied
+            let seed = [3u8; 32];
+            let module = blake2b::Keypair::from_seed(seed);
+            let generic = Keypair::from_seed_with(blake2b512, seed);
+            assert_eq!(module.public().to_bytes(), generic.public().to_bytes());
+            for message in MESSAGES {
+                assert_eq!(
+                    module.sign(message).to_bytes(),
+                    generic.sign_with(blake2b512, message).to_bytes()
+                );
+            }
+        }
+
+        #[test]
+        fn precomputed_verify_agrees_with_plain() {
+            let kp = blake2b::Keypair::from_seed([5u8; 32]);
+            let public = kp.public();
+            let precomputed = public.precompute().expect("derived key decodes");
+            assert_eq!(precomputed.to_bytes(), public.to_bytes());
+            assert!(precomputed.public_key() == public);
+
+            for message in MESSAGES {
+                let sig = kp.sign(message);
+                assert!(precomputed.verify(message, &sig));
+                assert!(public.verify(message, &sig));
+
+                // damaged R, damaged S, and a non-canonical S
+                let mut cases = alloc::vec![];
+                for byte in [0usize, 31, 32, 63] {
+                    let mut bad = sig.to_bytes();
+                    bad[byte] ^= 0x80;
+                    cases.push(bad);
+                }
+                let mut s_max = sig.to_bytes();
+                s_max[32..].copy_from_slice(&[0xff; 32]);
+                cases.push(s_max);
+
+                for bad in cases {
+                    let bad = Signature::from_bytes(bad);
+                    assert!(!public.verify(message, &bad));
+                    assert_eq!(
+                        precomputed.verify(message, &bad),
+                        public.verify(message, &bad)
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn not_interchangeable_with_sha512() {
+            let seed = [7u8; 32];
+            let message: &[u8] = b"hash binding";
+            let variant = blake2b::Keypair::from_seed(seed);
+            let standard = Keypair::from_seed(seed);
+            assert_ne!(variant.public().to_bytes(), standard.public().to_bytes());
+
+            // the standard scheme rejects a BLAKE2b signature, under its own
+            // key and under the BLAKE2b one
+            let variant_sig = variant.sign(message);
+            assert!(!standard.public().verify(message, &variant_sig));
+            assert!(
+                !PublicKey::from_bytes(variant.public().to_bytes()).verify(message, &variant_sig)
+            );
+
+            // and the variant rejects a standard signature
+            let standard_sig = standard.sign(message);
+            assert!(!variant.public().verify(message, &standard_sig));
+            let standard_as_variant = blake2b::PublicKey::from_bytes(standard.public().to_bytes());
+            assert!(!standard_as_variant.verify(message, &standard_sig));
         }
     }
 }
