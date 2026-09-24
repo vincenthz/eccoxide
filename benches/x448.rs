@@ -15,7 +15,7 @@ fn main() {
 
 #[cfg(feature = "x448")]
 mod x448 {
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
     use eccoxide::protocol::x448::{x448, x448_base};
 
     // Two arbitrary secret scalars (RFC 7748 section 6.2).

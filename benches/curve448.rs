@@ -41,7 +41,7 @@ mod curve448 {
     // --- prime field F(p) -------------------------------------------------
     mod field {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -108,7 +108,7 @@ mod curve448 {
     // --- x-only Montgomery ladder -----------------------------------------
     mod montgomery {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         // an arbitrary 56-byte (big-endian) scalar for the ladder
         fn scalar() -> [u8; 56] {

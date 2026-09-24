@@ -52,7 +52,7 @@ mod curve25519 {
     // --- prime field F(p) -------------------------------------------------
     mod field {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -119,7 +119,7 @@ mod curve25519 {
     // --- scalar field F(l) ------------------------------------------------
     mod scalar {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -173,7 +173,7 @@ mod curve25519 {
     // --- twisted-Edwards group --------------------------------------------
     mod edwards {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         fn p() -> Point {
             Point::GENERATOR
@@ -255,7 +255,7 @@ mod curve25519 {
     // --- x-only Montgomery ladder -----------------------------------------
     mod montgomery {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn scalar_mul(bencher: Bencher) {

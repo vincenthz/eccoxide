@@ -63,8 +63,8 @@
 //! random bytes, to avoid modulo bias) or a deterministic derivation such as
 //! RFC 6979.
 
-use crate::curve::field::Field;
 use crate::curve::CurveGroup;
+use crate::curve::field::Field;
 use crate::mp::ct::{CtEqual, CtOption, CtSelect};
 
 /// A concrete ECDSA instantiation: a specific curve paired with a specific
@@ -617,12 +617,16 @@ mod tests {
                 assert!(Signature::<Scalar>::from_bytes(&half_zero).is_none());
 
                 // zero secret or nonce rejected
-                assert!(sign::<Sha256>(&Scalar::zero(), &nonce, msg)
-                    .into_option()
-                    .is_none());
-                assert!(sign::<Sha256>(&secret, &Scalar::zero(), msg)
-                    .into_option()
-                    .is_none());
+                assert!(
+                    sign::<Sha256>(&Scalar::zero(), &nonce, msg)
+                        .into_option()
+                        .is_none()
+                );
+                assert!(
+                    sign::<Sha256>(&secret, &Scalar::zero(), msg)
+                        .into_option()
+                        .is_none()
+                );
             }
 
             /// Check the fast canonical-decode path and its rare wide
@@ -677,12 +681,12 @@ mod tests {
         ($module:ident, $sha224:ident, $sha256:ident, $sha384:ident, $sha512:ident,
          $secret:expr, $ux:expr, $uy:expr, $kats:expr) => {
             mod $module {
-                use super::super::$module::{digest_to_scalar, SIGNATURE_SIZE};
-                use super::{hex, Alg, Kat};
+                use super::super::$module::{SIGNATURE_SIZE, digest_to_scalar};
+                use super::{Alg, Kat, hex};
                 use crate::curve::sec2::$module::{FieldElement, Point, Scalar};
                 use crate::protocol::ecdsa::{
-                    public_key, sign, sign_hashed, verify, verify_hashed, $sha224 as Sha224,
-                    $sha256 as Sha256, $sha384 as Sha384, $sha512 as Sha512, Signature,
+                    Signature, public_key, sign, sign_hashed, verify, verify_hashed,
+                    $sha224 as Sha224, $sha256 as Sha256, $sha384 as Sha384, $sha512 as Sha512,
                 };
 
                 fn scalar(s: &str) -> Scalar {
@@ -913,11 +917,11 @@ mod tests {
     macro_rules! ecdsa_test_roundtrip_only {
         ($module:ident, $sha256:ident, $sha512:ident) => {
             mod $module {
-                use super::super::$module::{digest_to_scalar, SIGNATURE_SIZE};
+                use super::super::$module::{SIGNATURE_SIZE, digest_to_scalar};
                 use crate::curve::sec2::$module::{Point, Scalar};
                 use crate::protocol::ecdsa::{
-                    public_key, sign, sign_hashed, verify, verify_hashed, $sha256 as Sha256,
-                    $sha512 as Sha512, Signature,
+                    Signature, public_key, sign, sign_hashed, verify, verify_hashed,
+                    $sha256 as Sha256, $sha512 as Sha512,
                 };
 
                 ecdsa_test_roundtrip!();
@@ -941,7 +945,7 @@ mod tests {
         use crate::curve::sec2::p256r1::{Point, Scalar};
         use crate::mp::ct::CtOption;
         use crate::protocol::ecdsa::{
-            p256r1::digest_to_scalar, public_key, sign, verify, EcdsaOperations, P256R1_Sha256,
+            EcdsaOperations, P256R1_Sha256, p256r1::digest_to_scalar, public_key, sign, verify,
         };
 
         struct DoubleSha256;

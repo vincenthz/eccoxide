@@ -19,19 +19,19 @@
 //!
 //! [`CurveGroup`]: crate::curve::group::CurveGroup
 
+use crate::curve::bls12_381::BLS_X;
 use crate::curve::bls12_381::fp2::Fp2 as FieldElement;
 #[cfg(feature = "bls12-381-hash-to-curve")]
 use crate::curve::bls12_381::hash_to_curve;
 use crate::curve::bls12_381::scalar::Scalar;
-use crate::curve::bls12_381::BLS_X;
 use crate::curve::field::Sign;
 use crate::curve::{
     affine, projective,
     weierstrass::{WeierstrassCurve, WeierstrassCurveA0},
 };
 use crate::mp::ct::{Choice, CtEqual};
-use crate::params::bls12_381::g2::*;
 use crate::params::bls12_381::ORDER_BYTES;
+use crate::params::bls12_381::g2::*;
 use crate::{
     bls12_381_define_point_serialization, fiat_define_weierstrass_curve,
     fiat_define_weierstrass_curve_a0, fiat_define_weierstrass_points,
@@ -325,7 +325,7 @@ mod tests {
     /// Prime-order-subgroup membership, and the endomorphism it is built on.
     mod subgroup {
         use super::super::{Curve, FieldElement, Point, PointAffine};
-        use super::{s, Scalar};
+        use super::{Scalar, s};
         use crate::curve::bls12_381::BLS_X;
         use crate::curve::field::Sign;
         use crate::params::bls12_381::ORDER_BYTES;

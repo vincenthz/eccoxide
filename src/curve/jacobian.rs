@@ -359,11 +359,7 @@ where
             return self.clone();
         }
         let (sum, same) = self.add_inner(other);
-        if same.is_true() {
-            dbl(self)
-        } else {
-            sum
-        }
+        if same.is_true() { dbl(self) } else { sum }
     }
 
     /// Add two points, correctly handling every case (`self == other`,
@@ -899,9 +895,11 @@ mod tests {
         // interoperability with the projective representation
         assert_eq!(Point::from_projective(&q3).to_affine(), g3.to_affine());
         assert_eq!(g3.to_projective().to_affine(), q3.to_affine());
-        assert!(Point::<FE>::from_projective(&projective::Point::INFINITY)
-            .is_infinity()
-            .is_true());
+        assert!(
+            Point::<FE>::from_projective(&projective::Point::INFINITY)
+                .is_infinity()
+                .is_true()
+        );
         assert!(inf.to_projective().is_infinity().is_true());
 
         // scalar multiplication, constant-time and variable-time, against the
@@ -956,10 +954,11 @@ mod tests {
             g2.add_or_double_mixed_a0::<C>(&g1).to_affine(),
             g2.add_or_double::<C>(&g1).to_affine()
         );
-        assert!(g1
-            .add_or_double_a0::<C>(&(-g1.clone()))
-            .is_infinity()
-            .is_true());
+        assert!(
+            g1.add_or_double_a0::<C>(&(-g1.clone()))
+                .is_infinity()
+                .is_true()
+        );
 
         let n: [u8; 8] = [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0];
         let expected = g1.scale_ct::<C>(&n).to_affine();
@@ -999,10 +998,11 @@ mod tests {
             g2.add_or_double_mixed_am3::<C>(&g1).to_affine(),
             g2.add_or_double::<C>(&g1).to_affine()
         );
-        assert!(g1
-            .add_or_double_am3::<C>(&(-g1.clone()))
-            .is_infinity()
-            .is_true());
+        assert!(
+            g1.add_or_double_am3::<C>(&(-g1.clone()))
+                .is_infinity()
+                .is_true()
+        );
 
         let n: [u8; 8] = [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0];
         let expected = g1.scale_ct::<C>(&n).to_affine();

@@ -25,7 +25,7 @@ const MESSAGE: &[u8] = b"the quick brown fox jumps over the lazy dog";
 #[cfg(feature = "ed25519")]
 mod keygen {
     use super::SEED;
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
 
     #[divan::bench]
     fn eccoxide(bencher: Bencher) {
@@ -43,7 +43,7 @@ mod keygen {
 #[cfg(feature = "ed25519")]
 mod sign {
     use super::{MESSAGE, SEED};
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
 
     // Both sides sign from a precomputed keypair (cached public key), so this is
     // an apples-to-apples comparison of the per-signature cost.
@@ -69,7 +69,7 @@ mod sign {
 #[cfg(feature = "ed25519")]
 mod verify {
     use super::{MESSAGE, SEED};
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
 
     #[divan::bench]
     fn eccoxide(bencher: Bencher) {
@@ -104,7 +104,7 @@ mod verify {
 #[cfg(feature = "ed25519")]
 mod precompute {
     use super::SEED;
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
 
     #[divan::bench]
     fn eccoxide(bencher: Bencher) {
@@ -122,7 +122,7 @@ mod precompute {
 #[cfg(feature = "ed25519")]
 mod verify_n {
     use super::{MESSAGE, SEED};
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
     use eccoxide::protocol::ed25519::{SecretKey, Signature};
 
     const COUNTS: &[usize] = &[1, 2, 4, 16, 64];

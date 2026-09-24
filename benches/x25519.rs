@@ -32,7 +32,7 @@ const SK_B: [u8; 32] = [
 #[cfg(feature = "x25519")]
 mod derive_public {
     use super::SK_A;
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
 
     #[divan::bench]
     fn eccoxide(bencher: Bencher) {
@@ -44,7 +44,7 @@ mod derive_public {
     /// that `x25519_base` uses under the `table` feature.
     #[divan::bench]
     fn eccoxide_ladder(bencher: Bencher) {
-        use ::eccoxide::protocol::x25519::{x25519, BASEPOINT};
+        use ::eccoxide::protocol::x25519::{BASEPOINT, x25519};
         bencher.bench(|| x25519(black_box(&SK_A), &BASEPOINT));
     }
 
@@ -60,7 +60,7 @@ mod derive_public {
 #[cfg(feature = "x25519")]
 mod agreement {
     use super::{SK_A, SK_B};
-    use divan::{black_box, Bencher};
+    use divan::{Bencher, black_box};
 
     #[divan::bench]
     fn eccoxide(bencher: Bencher) {

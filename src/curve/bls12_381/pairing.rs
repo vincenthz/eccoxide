@@ -50,11 +50,11 @@
 //! ```
 
 use super::fp::Fp;
-use super::fp12::Fp12;
 use super::fp2::Fp2;
+use super::fp12::Fp12;
 // the seed `x = -BLS_X`: the Miller loop runs over its magnitude and the
 // negative sign is corrected by conjugating the result
-use super::{g1, g2, BLS_X, BLS_X_IS_NEGATIVE};
+use super::{BLS_X, BLS_X_IS_NEGATIVE, g1, g2};
 use crate::curve::{affine, projective};
 use crate::params::bls12_381::HARD_EXP_LAMBDA3_BYTES;
 use alloc::vec::Vec;
@@ -229,11 +229,7 @@ fn cyclotomic_pow(f: &Fp12, exp: &[u8]) -> Fp12 {
 /// the sign costs nothing.
 fn exp_by_x(f: &Fp12) -> Fp12 {
     let t = cyclotomic_pow(f, &BLS_X.to_be_bytes());
-    if BLS_X_IS_NEGATIVE {
-        t.conjugate()
-    } else {
-        t
-    }
+    if BLS_X_IS_NEGATIVE { t.conjugate() } else { t }
 }
 
 /// The easy part of the final exponentiation: `f^((p⁶ - 1)(p² + 1))`.
@@ -347,11 +343,7 @@ pub fn multi_miller_loop(terms: &[(&g1::PointAffine, &g2::PointAffine)]) -> Mill
 /// Conjugation is a field automorphism, so applying it to a whole product once
 /// is the same as applying it to every factor.
 fn sign_correct(f: Fp12) -> Fp12 {
-    if BLS_X_IS_NEGATIVE {
-        f.conjugate()
-    } else {
-        f
-    }
+    if BLS_X_IS_NEGATIVE { f.conjugate() } else { f }
 }
 
 /// Compute the optimal-ate pairing `e(p, q)` of a `G1` point and a `G2` point.
@@ -365,12 +357,12 @@ pub fn pairing(p: &g1::PointAffine, q: &g2::PointAffine) -> Fp12 {
 #[cfg(test)]
 mod tests {
     use super::{
-        addition_step, doubling_step, miller_loop, multi_miller_loop, pairing, MillerLoopResult,
-        Point, BLS_X,
+        BLS_X, MillerLoopResult, Point, addition_step, doubling_step, miller_loop,
+        multi_miller_loop, pairing,
     };
     use crate::curve::affine;
-    use crate::curve::bls12_381::fp12::Fp12;
     use crate::curve::bls12_381::fp2::Fp2;
+    use crate::curve::bls12_381::fp12::Fp12;
     use crate::curve::bls12_381::scalar::Scalar;
     use crate::curve::bls12_381::{g1, g2};
     use crate::params::bls12_381::{FINAL_EXP_BYTES, ORDER_BYTES};
@@ -389,9 +381,9 @@ mod tests {
     /// Kept here as an independent reference for the fast implementation.
     mod reference {
         use crate::curve::bls12_381::fp::Fp;
-        use crate::curve::bls12_381::fp12::Fp12;
         use crate::curve::bls12_381::fp2::Fp2;
         use crate::curve::bls12_381::fp6::Fp6;
+        use crate::curve::bls12_381::fp12::Fp12;
         use crate::curve::bls12_381::{g1, g2};
         use crate::params::bls12_381::FINAL_EXP_BYTES;
 

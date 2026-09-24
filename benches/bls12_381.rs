@@ -23,7 +23,7 @@ mod bls12_381 {
     // NOTE: `g1` and `g2` are deliberately not imported here — the group
     // benchmarks below generate modules of those names, which divan uses to
     // label them.
-    use eccoxide::curve::bls12_381::{Fp, Fp12, Fp2, Fp6, Scalar};
+    use eccoxide::curve::bls12_381::{Fp, Fp2, Fp6, Fp12, Scalar};
 
     // --- sample values ----------------------------------------------------
 
@@ -84,7 +84,7 @@ mod bls12_381 {
     // --- base prime field Fp ----------------------------------------------
     mod fp {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -151,7 +151,7 @@ mod bls12_381 {
     // --- quadratic extension Fp2 (the G2 base field) ----------------------
     mod fp2 {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -219,7 +219,7 @@ mod bls12_381 {
     // --- cubic extension Fp6 ----------------------------------------------
     mod fp6 {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -275,7 +275,7 @@ mod bls12_381 {
     // --- degree-12 extension Fp12 (the pairing codomain) ------------------
     mod fp12 {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         /// An element of the cyclotomic subgroup, as the easy part of the final
         /// exponentiation produces; `cyclotomic_square` is only valid there.
@@ -341,7 +341,7 @@ mod bls12_381 {
     // --- scalar field F(r) ------------------------------------------------
     mod scalar {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
 
         #[divan::bench]
         fn add(bencher: Bencher) {
@@ -391,7 +391,7 @@ mod bls12_381 {
         ($name:ident, $group:path) => {
             mod $name {
                 use super::*;
-                use divan::{black_box, Bencher};
+                use divan::{Bencher, black_box};
                 use eccoxide::curve::group::CurveGroup;
                 use $group::{Point, PointAffine};
 
@@ -514,7 +514,7 @@ mod bls12_381 {
     // --- optimal-ate pairing ----------------------------------------------
     mod pairing {
         use super::*;
-        use divan::{black_box, Bencher};
+        use divan::{Bencher, black_box};
         use eccoxide::curve::bls12_381::pairing::{miller_loop, multi_miller_loop, pairing};
         use eccoxide::curve::bls12_381::{g1, g2};
 

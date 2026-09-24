@@ -954,10 +954,11 @@ mod tests {
             let sig = Signature::from_bytes(expected_sig);
             let pk = PublicKey::from_bytes(hex(v.public));
             assert!(pk.verify_with(sha512, &message, &sig));
-            assert!(pk
-                .precompute()
-                .expect("RFC public key decodes")
-                .verify_with(sha512, &message, &sig));
+            assert!(
+                pk.precompute()
+                    .expect("RFC public key decodes")
+                    .verify_with(sha512, &message, &sig)
+            );
         }
     }
 
@@ -991,11 +992,12 @@ mod tests {
         );
 
         assert!(kp.public().verify_with(prefixed_sha512, message, &sig));
-        assert!(kp
-            .public()
-            .precompute()
-            .expect("derived key decodes")
-            .verify_with(prefixed_sha512, message, &sig));
+        assert!(
+            kp.public()
+                .precompute()
+                .expect("derived key decodes")
+                .verify_with(prefixed_sha512, message, &sig)
+        );
 
         // and a scheme of its own: the standard one neither derives the same
         // key nor accepts the signature
@@ -1008,7 +1010,7 @@ mod tests {
     /// implementation of `cryptoxide::ed25519::blake2b`.
     #[cfg(feature = "ed25519-blake2")]
     mod blake2b_variant {
-        use super::super::{blake2b, blake2b512, Keypair, PublicKey, Signature};
+        use super::super::{Keypair, PublicKey, Signature, blake2b, blake2b512};
         use cryptoxide::ed25519::blake2b as reference;
 
         const SEEDS: [[u8; 32]; 3] = [[0u8; 32], [1u8; 32], [0xabu8; 32]];

@@ -20,7 +20,7 @@
 use crate::curve::edwards::{EdwardsCurve, EdwardsCurveAM1};
 use crate::curve::field::Sign;
 use crate::mp::ct::{Choice, CtEqual, CtSelect};
-use crate::params::jubjub::{A_BYTES, D2_BYTES, D_BYTES, GT_BYTES, GX_BYTES, GY_BYTES};
+use crate::params::jubjub::{A_BYTES, D_BYTES, D2_BYTES, GT_BYTES, GX_BYTES, GY_BYTES};
 #[cfg(feature = "table")]
 use crate::params::jubjub::{COMB_TABLE, COMB_WINDOWS};
 #[cfg(feature = "table")]

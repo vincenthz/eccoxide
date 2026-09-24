@@ -104,10 +104,7 @@ where
     }
 
     pub fn double<C: WeierstrassCurve<FieldElement = FE>>(&self) -> Self {
-        let Point {
-            x: ref x1,
-            y: ref y1,
-        } = self;
+        let Point { x: x1, y: y1 } = self;
         let l = (FE::from(3u64) * (x1.square()) + C::A) * (y1.double()).inverse();
         let l2 = l.square();
         let x3 = l2 - x1.double();
@@ -128,14 +125,8 @@ where
     for<'a, 'b> &'a FE: Sub<&'b FE, Output = FE>,
 {
     pub fn add_different<'b>(&self, other: &'b Self) -> Self {
-        let Point {
-            x: ref x1,
-            y: ref y1,
-        } = &self;
-        let Point {
-            x: ref x2,
-            y: ref y2,
-        } = &other;
+        let Point { x: x1, y: y1 } = &self;
+        let Point { x: x2, y: y2 } = &other;
         let l = (y1 - y2) * (x1 - x2).inverse();
         let l2 = l.square();
         let x3 = l2 - x1 - x2;

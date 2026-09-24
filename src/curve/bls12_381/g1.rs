@@ -18,11 +18,11 @@
 //!
 //! [`CurveGroup`]: crate::curve::group::CurveGroup
 
+use crate::curve::bls12_381::BLS_X;
 use crate::curve::bls12_381::fp::Fp as FieldElement;
 #[cfg(feature = "bls12-381-hash-to-curve")]
 use crate::curve::bls12_381::hash_to_curve;
 use crate::curve::bls12_381::scalar::Scalar;
-use crate::curve::bls12_381::BLS_X;
 use crate::curve::field::{Field, Sign};
 use crate::curve::{
     affine, projective,
@@ -296,7 +296,7 @@ mod tests {
     /// Prime-order-subgroup membership, and the endomorphism it is built on.
     mod subgroup {
         use super::super::{Curve, Point, PointAffine};
-        use super::{s, FieldElement, Scalar};
+        use super::{FieldElement, Scalar, s};
         use crate::curve::bls12_381::BLS_X;
         use crate::curve::field::Sign;
         use crate::params::bls12_381::ORDER_BYTES;

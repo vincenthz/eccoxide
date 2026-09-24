@@ -297,7 +297,7 @@ macro_rules! bls12_381_define_point_serialization {
             /// the curve, when membership is already known or checked
             /// elsewhere.
             pub fn from_compressed(bytes: &[u8; Self::COMPRESSED_SIZE]) -> Option<Self> {
-                use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
+                use $crate::curve::bls12_381::serialize::{Compressed, read_compressed_flags};
 
                 match read_compressed_flags(bytes)? {
                     // the identity has no affine representation
@@ -321,7 +321,7 @@ macro_rules! bls12_381_define_point_serialization {
             pub fn from_compressed_oncurve_only(
                 bytes: &[u8; Self::COMPRESSED_SIZE],
             ) -> Option<Self> {
-                use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
+                use $crate::curve::bls12_381::serialize::{Compressed, read_compressed_flags};
 
                 match read_compressed_flags(bytes)? {
                     // the identity has no affine representation
@@ -431,7 +431,7 @@ macro_rules! bls12_381_define_point_serialization {
             /// format, except that the encoding of the identity is accepted
             /// and gives [`Self::INFINITY`] (which is in the subgroup).
             pub fn from_compressed(bytes: &[u8; Self::COMPRESSED_SIZE]) -> Option<Self> {
-                use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
+                use $crate::curve::bls12_381::serialize::{Compressed, read_compressed_flags};
 
                 match read_compressed_flags(bytes)? {
                     Compressed::Infinity => Some(Point::INFINITY),
@@ -453,7 +453,7 @@ macro_rules! bls12_381_define_point_serialization {
             pub fn from_compressed_oncurve_only(
                 bytes: &[u8; Self::COMPRESSED_SIZE],
             ) -> Option<Self> {
-                use $crate::curve::bls12_381::serialize::{read_compressed_flags, Compressed};
+                use $crate::curve::bls12_381::serialize::{Compressed, read_compressed_flags};
 
                 match read_compressed_flags(bytes)? {
                     Compressed::Infinity => Some(Point::INFINITY),
@@ -847,9 +847,11 @@ mod tests {
     fn largest_compares_c1_first() {
         let small = Fp::from_u64(1);
         let large = -Fp::from_u64(1); // p - 1, above the midpoint
-        assert!(!Fp2::new(large.clone(), small.clone())
-            .is_largest()
-            .is_true());
+        assert!(
+            !Fp2::new(large.clone(), small.clone())
+                .is_largest()
+                .is_true()
+        );
         assert!(Fp2::new(small, large).is_largest().is_true());
     }
 }

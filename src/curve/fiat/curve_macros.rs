@@ -468,9 +468,11 @@ macro_rules! fiat_curve_point_unittest {
                 }
                 i += 1;
             };
-            assert!(PointAffine::decompress(&x, Sign::Positive)
-                .into_option()
-                .is_none());
+            assert!(
+                PointAffine::decompress(&x, Sign::Positive)
+                    .into_option()
+                    .is_none()
+            );
         }
     };
 }

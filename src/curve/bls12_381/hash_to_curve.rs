@@ -44,8 +44,8 @@ use super::fp2::Fp2;
 use crate::curve::field::Field;
 use crate::curve::projective;
 use crate::mp::ct::{Choice, CtEqual, CtSelect, CtZero};
-use crate::params::bls12_381::h2c;
 use crate::params::bls12_381::P_MINUS3_DIV4_BYTES;
+use crate::params::bls12_381::h2c;
 use cryptoxide::hashing::sha2::Sha256;
 
 /// Output size of SHA-256, `b / 8` in the language of section 5.3.1.
@@ -536,8 +536,8 @@ mod vectors;
 #[cfg(test)]
 mod tests {
     use super::vectors::{
-        ExpandVector, Vector, G1_NU, G1_NU_DST, G1_RO, G1_RO_DST, G2_NU, G2_NU_DST, G2_RO,
-        G2_RO_DST, XMD, XMD_DST, XMD_LONG, XMD_LONG_DST,
+        ExpandVector, G1_NU, G1_NU_DST, G1_RO, G1_RO_DST, G2_NU, G2_NU_DST, G2_RO, G2_RO_DST,
+        Vector, XMD, XMD_DST, XMD_LONG, XMD_LONG_DST,
     };
     use super::*;
     use crate::curve::bls12_381::{g1, g2};

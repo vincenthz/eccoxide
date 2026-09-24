@@ -53,7 +53,7 @@ pub(crate) const BLS_X: u64 = 0xd201000000010000;
 pub(crate) const BLS_X_IS_NEGATIVE: bool = true;
 
 pub use fp::Fp;
-pub use fp12::Fp12;
 pub use fp2::Fp2;
 pub use fp6::Fp6;
+pub use fp12::Fp12;
 pub use scalar::Scalar;
