@@ -59,6 +59,11 @@
 - **All curves**: every field now exposes both inversions, `inverse_fermat` and
   `inverse_safegcd`, and `inverse` is whichever of the two is faster for that
   field.
+- **p256r1**: optimised the base field multiplication and squaring are hand-written for
+  p = 2^256 - 2^224 + 2^192 + 2^96 - 1 instead of using the generic fiat-crypto
+  ones. This is only enabled when `p256r1-optimised` feature is enabled, when
+  the feature is disabled, the previous fiat-crypto using generic multiplication
+  and squaring are used.
 
 ## 0.5.0 - 2026-08-18
 

@@ -98,9 +98,12 @@ p192r1 = []
 p224k1 = []
 p224r1 = []
 p256k1 = []
-p256r1 = []
+p256r1 = ["p256r1-optimised"]
 p384r1 = []
 p521r1 = []
+
+# flag to support optimised handwritten implementation (replacing some fiat-crypto generated operation)
+p256r1-optimised = []
 
 # SM2: the recommended 256-bit prime-field curve of the Chinese SM2 standard
 # (GB/T 32918 / GM/T 0003). A short Weierstrass curve with a = -3, wired like

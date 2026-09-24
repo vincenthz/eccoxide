@@ -1,4 +1,5 @@
 //! Curve p256r1 as defined over the prime field of order 2^256 - 2^224 + 2^192 + 2^96 - 1
+use super::p256r1_mul::{p256_mul, p256_square};
 use crate::curve::fiat::p256_64::*;
 use crate::curve::fiat::p256_scalar_64::*;
 use crate::curve::field::{Field, FieldSqrt, Sign};
@@ -27,8 +28,8 @@ fiat_field_montgomery_impl!(
     fiat_p256_nonzero,
     fiat_p256_add,
     fiat_p256_sub,
-    fiat_p256_mul,
-    fiat_p256_square,
+    p256_mul,
+    p256_square,
     fiat_p256_opp,
     fiat_p256_to_bytes,
     fiat_p256_from_bytes,
