@@ -1,5 +1,7 @@
 //! wNAF module
 
+use alloc::vec::Vec;
+
 /// Compute the width-`w` non-adjacent form (wNAF) of the big-endian integer
 /// `n`, returned as signed digits, least-significant first.
 ///
