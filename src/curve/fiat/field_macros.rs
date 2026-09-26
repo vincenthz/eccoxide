@@ -170,6 +170,14 @@ macro_rules! fiat_field_common_impl {
                 Self::init(limbs)
             }
 
+            /// Multiply two elements, usable in const context (e.g. to build
+            /// static precomputed tables). Same as `self * other`.
+            pub(crate) const fn mul_const(&self, other: &Self) -> Self {
+                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
+                $fiat_mul(&mut out, &self.0, &other.0);
+                $FE(out)
+            }
+
             /// Return a new element that is the square of this one
             ///
             /// Always true: `self.square() == self * self`
@@ -459,9 +467,7 @@ macro_rules! fiat_field_common_impl {
             type Output = $FE;
 
             fn mul(self, other: &'b $FE) -> $FE {
-                let mut out = $fiat_constr([0u64; $FE_LIMBS_SIZE]);
-                $fiat_mul(&mut out, &self.0, &other.0);
-                $FE(out)
+                self.mul_const(other)
             }
         }
 

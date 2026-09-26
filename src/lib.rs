@@ -56,6 +56,8 @@
 //! public_key_bytes.extend_from_slice(&x.to_bytes());
 //! ```
 
+#![cfg_attr(not(test), no_std)]
+
 extern crate alloc;
 
 pub mod curve;

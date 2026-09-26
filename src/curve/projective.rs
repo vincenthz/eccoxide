@@ -381,44 +381,6 @@ impl<FE: Field> Point<FE> {
         }
         acc
     }
-
-    /// Build the runtime fixed-base comb table from the statically embedded
-    /// `sage/comb.sage` table (`src/params/comb/<curve>.rs`).
-    ///
-    /// `table[i]` holds the 15 affine points `1·B, 2·B, …, 15·B` (where
-    /// `B = 16^i·G` for window `i`) as `(x, y)` coordinate byte arrays. The
-    /// returned per-window arrays place those at indices `1..=15`, with index
-    /// `0` set to the point at infinity so a zero digit selects the neutral
-    /// element. `parse` is the coordinate decoder (`FieldElement::from_bytes`).
-    ///
-    /// The result is heap-allocated (`Box`): the table is large for the bigger
-    /// curves (e.g. p521 needs `132·16` points ≈ 450 KiB), so building it on the
-    /// stack would overflow it in unoptimized builds. We grow a `Vec` one window
-    /// at a time — only a single 16-point window is ever on the stack — and then
-    /// reuse that allocation as the boxed array (no copy of the bulk data).
-    #[cfg(feature = "table")]
-    pub(crate) fn build_comb_table<const NW: usize, const FS: usize>(
-        table: &[[([u8; FS], [u8; FS]); 15]; NW],
-        parse: fn(&[u8; FS]) -> FE,
-    ) -> alloc::boxed::Box<[[Point<FE>; 16]; NW]> {
-        let mut windows: Vec<[Point<FE>; 16]> = Vec::with_capacity(NW);
-        for w in 0..NW {
-            let mut window: [Point<FE>; 16] = core::array::from_fn(|_| Self::INFINITY);
-            for (slot, (x, y)) in window.iter_mut().skip(1).zip(table[w].iter()) {
-                *slot = Point {
-                    x: parse(x),
-                    y: parse(y),
-                    z: FE::ONE,
-                };
-            }
-            windows.push(window);
-        }
-
-        // conversion should not reallocate since we pinned the capacity
-        <alloc::boxed::Box<[[Point<FE>; 16]; NW]>>::try_from(windows.into_boxed_slice())
-            .ok()
-            .expect("comb table window count matches NW")
-    }
 }
 
 impl<FE> Point<FE>
@@ -867,7 +829,7 @@ where
     }
 
     /// Constant-time fixed-base scalar multiplication from a precomputed comb
-    /// table (see [`Self::build_comb_table`]): computes `n · G`, where `G` is the
+    /// table: computes `n · G`, where `G` is the
     /// generator the table was built from.
     ///
     /// The table already folds in the per-window `16^i` weights, so this needs
