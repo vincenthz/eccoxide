@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- **no_std**: the crate is `no_std` and no longer depends on `alloc` (apart from tests)
+- **Weierstrass curves**: the variable-time wNAF recoding reads its windows
+  directly from the scalar bytes in linear time, instead of shifting a working
+  copy of the scalar at every digit. `mul_vartime` is a bit faster.
+- **Breaking**: the variable-time `scale`, `scale_a0` and `scale_am3` of the
+  projective and jacobian points take `n: &impl ScalarBytes`, implemented for
+  byte arrays `[u8; N]`, instead of a `&[u8]` slice; the array length sizes the
+  wNAF digit buffer on the stack. Calls passing an array, e.g.
+  `&scalar.to_bytes()`, are unchanged.
+- **Breaking**: `bls12_381::pairing::multi_miller_loop` takes a fixed-size
+  array of terms, `&[(&g1::PointAffine, &g2::PointAffine); N]`, instead of a
+  slice. For a number of terms only known at runtime, multiply the results of
+  fixed-size groups of terms.
+- **Breaking**: the minimum supported Rust version (`rust-version`) is now 1.90.
+  The code already needed it (`slice::reverse` in a `const fn`); the 1.85
+  declared up to 0.5.1 did not build.
+
 ## 0.5.1 - 2026-10-09
 
 - **Ed25519**: the scheme is parametrized by its hash function. Every operation
