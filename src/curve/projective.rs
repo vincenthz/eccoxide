@@ -12,7 +12,7 @@
 use super::affine;
 use super::field::Field;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
-use super::wnaf::wnaf;
+use super::wnaf::ScalarBytes;
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect};
 use core::convert::TryFrom;
 use core::ops::{Add, Mul, Neg, Sub};
@@ -631,8 +631,11 @@ where
     /// `add_different` is the *complete* addition formula, so the `q == self`
     /// and `q == infinity` cases need no special handling.
     #[inline]
-    fn scalar_mul_wnaf<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
-        let naf = wnaf(n, WNAF_W);
+    fn scalar_mul_wnaf<C: WeierstrassCurve<FieldElement = FE>>(
+        &self,
+        n: &impl ScalarBytes,
+    ) -> Self {
+        let naf = n.wnaf(WNAF_W);
         // table[i] = (2i+1) * self, i.e. the odd multiples 1·P, 3·P, … of self
         let dbl = self.double::<C>();
         let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
@@ -643,7 +646,7 @@ where
         }
 
         let mut q = Self::INFINITY;
-        for &d in naf.iter().rev() {
+        for d in naf {
             q = q.double::<C>();
             if d > 0 {
                 q = q.add_different::<C>(&table[(d as usize) >> 1]);
@@ -657,9 +660,9 @@ where
     #[inline]
     fn scalar_mul_wnaf_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
-        n: &[u8],
+        n: &impl ScalarBytes,
     ) -> Self {
-        let naf = wnaf(n, WNAF_W);
+        let naf = n.wnaf(WNAF_W);
         let dbl = self.double_a0::<C>();
         let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
         table[0] = self.clone();
@@ -669,7 +672,7 @@ where
         }
 
         let mut q = Self::INFINITY;
-        for &d in naf.iter().rev() {
+        for d in naf {
             q = q.double_a0::<C>();
             if d > 0 {
                 q = q.add_different_a0::<C>(&table[(d as usize) >> 1]);
@@ -683,9 +686,9 @@ where
     #[inline]
     fn scalar_mul_wnaf_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
-        n: &[u8],
+        n: &impl ScalarBytes,
     ) -> Self {
-        let naf = wnaf(n, WNAF_W);
+        let naf = n.wnaf(WNAF_W);
         let dbl = self.double_am3::<C>();
         let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
         table[0] = self.clone();
@@ -695,7 +698,7 @@ where
         }
 
         let mut q = Self::INFINITY;
-        for &d in naf.iter().rev() {
+        for d in naf {
             q = q.double_am3::<C>();
             if d > 0 {
                 q = q.add_different_am3::<C>(&table[(d as usize) >> 1]);
@@ -706,20 +709,20 @@ where
         q
     }
 
-    pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
+    pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &impl ScalarBytes) -> Self {
         self.scalar_mul_wnaf::<C>(n)
     }
 
     pub fn scale_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
-        n: &[u8],
+        n: &impl ScalarBytes,
     ) -> Self {
         self.scalar_mul_wnaf_a0::<C>(n)
     }
 
     pub fn scale_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
-        n: &[u8],
+        n: &impl ScalarBytes,
     ) -> Self {
         self.scalar_mul_wnaf_am3::<C>(n)
     }

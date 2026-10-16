@@ -33,7 +33,7 @@ use super::affine;
 use super::field::Field;
 use super::projective;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
-use super::wnaf::wnaf;
+use super::wnaf::ScalarBytes;
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect};
 use core::convert::TryFrom;
 use core::ops::{Add, Mul, Neg, Sub};
@@ -616,12 +616,12 @@ where
     /// The doubling and the (variable-time complete) addition are taken as
     /// parameters so the a=0 / a=-3 / arbitrary-a variants share this body.
     #[inline]
-    fn scalar_mul_wnaf<D, A>(&self, n: &[u8], dbl: D, add: A) -> Self
+    fn scalar_mul_wnaf<D, A>(&self, n: &impl ScalarBytes, dbl: D, add: A) -> Self
     where
         D: Fn(&Self) -> Self,
         A: Fn(&Self, &Self) -> Self,
     {
-        let naf = wnaf(n, WNAF_W);
+        let naf = n.wnaf(WNAF_W);
         // table[i] = (2i+1) * self, i.e. the odd multiples 1·P, 3·P, … of self
         let dbl2 = dbl(self);
         let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
@@ -632,7 +632,7 @@ where
         }
 
         let mut q = Self::INFINITY;
-        for &d in naf.iter().rev() {
+        for d in naf {
             q = dbl(&q);
             if d > 0 {
                 q = add(&q, &table[(d as usize) >> 1]);
@@ -679,7 +679,7 @@ where
 
     /// Variable-time scalar multiplication for arbitrary a curves.
     /// See [`Self::scalar_mul_wnaf`].
-    pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
+    pub fn scale<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &impl ScalarBytes) -> Self {
         self.scalar_mul_wnaf(
             n,
             |p| p.double::<C>(),
@@ -690,7 +690,7 @@ where
     /// Variable-time scalar multiplication for a=0 curves.
     pub fn scale_a0<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveA0>(
         &self,
-        n: &[u8],
+        n: &impl ScalarBytes,
     ) -> Self {
         self.scalar_mul_wnaf(
             n,
@@ -702,7 +702,7 @@ where
     /// Variable-time scalar multiplication for a=-3 curves.
     pub fn scale_am3<C: WeierstrassCurve<FieldElement = FE> + WeierstrassCurveAM3>(
         &self,
-        n: &[u8],
+        n: &impl ScalarBytes,
     ) -> Self {
         self.scalar_mul_wnaf(
             n,
