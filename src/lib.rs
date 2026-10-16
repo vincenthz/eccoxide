@@ -58,6 +58,8 @@
 
 #![cfg_attr(not(test), no_std)]
 
+// the library itself never allocates; only the tests use `alloc`
+#[cfg(test)]
 extern crate alloc;
 
 pub mod curve;

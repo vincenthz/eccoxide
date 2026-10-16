@@ -554,9 +554,9 @@ mod bls12_381 {
         /// The shared Miller loop of a product of `N` pairings: compare with `N`
         /// times [`miller`] to see the saved `Fp12` squarings.
         #[divan::bench(sample_count = 20, sample_size = 1, consts = [2, 4])]
-        fn multi_miller<const N: u64>(bencher: Bencher) {
-            let pairs: Vec<_> = (0..N).map(points).collect();
-            let terms: Vec<_> = pairs.iter().map(|(p, q)| (p, q)).collect();
+        fn multi_miller<const N: usize>(bencher: Bencher) {
+            let pairs: [_; N] = core::array::from_fn(|i| points(i as u64));
+            let terms = pairs.each_ref().map(|(p, q)| (p, q));
             bencher.bench(|| multi_miller_loop(black_box(&terms)));
         }
     }

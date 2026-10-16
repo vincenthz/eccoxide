@@ -57,7 +57,6 @@ use super::fp12::Fp12;
 use super::{BLS_X, BLS_X_IS_NEGATIVE, g1, g2};
 use crate::curve::{affine, projective};
 use crate::params::bls12_381::HARD_EXP_LAMBDA3_BYTES;
-use alloc::vec::Vec;
 use core::ops::Mul;
 
 /// `3b'`, three times the `b` coefficient `4(1 + u)` of the G2 twist.
@@ -164,18 +163,15 @@ fn miller(px: &Fp, py: &Fp, qx: &Fp2, qy: &Fp2) -> Fp12 {
 /// term, which is the entire saving over multiplying separate Miller values.
 /// The line evaluations are still one per term per step, and each term keeps its
 /// own accumulator `Tᵢ`.
-fn multi_miller(terms: &[(&g1::PointAffine, &g2::PointAffine)]) -> Fp12 {
+fn multi_miller<const N: usize>(terms: &[(&g1::PointAffine, &g2::PointAffine); N]) -> Fp12 {
     let mut f = Fp12::ONE;
-    let mut ts: Vec<Point> = terms
-        .iter()
-        .map(|(_, q)| {
-            let (qx, qy) = q.to_coordinate();
-            Point::from_affine(&affine::Point {
-                x: qx.clone(),
-                y: qy.clone(),
-            })
+    let mut ts: [Point; N] = terms.each_ref().map(|(_, q)| {
+        let (qx, qy) = q.to_coordinate();
+        Point::from_affine(&affine::Point {
+            x: qx.clone(),
+            y: qy.clone(),
         })
-        .collect();
+    });
 
     for i in (0..63).rev() {
         f = f.square();
@@ -326,10 +322,17 @@ pub fn miller_loop(p: &g1::PointAffine, q: &g2::PointAffine) -> MillerLoopResult
 /// `Fp12` squaring of each of the 63 steps is done once for the whole product
 /// instead of once per term.
 ///
-/// The inputs are affine points (i.e. not the point at infinity); an empty slice
+/// The number of terms `N` is fixed at compile time, which keeps the per-term
+/// accumulators on the stack. For a number of terms only known at runtime,
+/// multiply the [`multi_miller_loop`] values of fixed-size groups of terms, or
+/// the individual [`miller_loop`] values.
+///
+/// The inputs are affine points (i.e. not the point at infinity); an empty array
 /// gives [`MillerLoopResult::ONE`].
-pub fn multi_miller_loop(terms: &[(&g1::PointAffine, &g2::PointAffine)]) -> MillerLoopResult {
-    if terms.is_empty() {
+pub fn multi_miller_loop<const N: usize>(
+    terms: &[(&g1::PointAffine, &g2::PointAffine); N],
+) -> MillerLoopResult {
+    if N == 0 {
         return MillerLoopResult::ONE;
     }
     MillerLoopResult(sign_correct(multi_miller(terms)))
@@ -589,7 +592,7 @@ mod tests {
                 g2_mul(&Scalar::from(11)),
             ),
         ];
-        let refs: Vec<_> = terms.iter().map(|(p, q)| (p, q)).collect();
+        let refs = terms.each_ref().map(|(p, q)| (p, q));
 
         let expected = terms
             .iter()
