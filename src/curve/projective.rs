@@ -14,9 +14,17 @@ use super::field::Field;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
 use super::wnaf::wnaf;
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect};
-use alloc::vec::Vec;
 use core::convert::TryFrom;
 use core::ops::{Add, Mul, Neg, Sub};
+
+/// Width of the signed window used by the variable-time wNAF scalar
+/// multiplication. `W = 5` keeps the odd-multiple table small (`2^(W-2)`
+/// points) while giving an average non-zero digit density of `1/(W+1)`,
+/// which is close to optimal for ~192–521 bit scalars.
+const WNAF_W: u32 = 5;
+
+/// Number of odd multiples `1·P, 3·P, …, (2^(W-1)-1)·P` in the wNAF table.
+const WNAF_TABLE_LEN: usize = 1 << (WNAF_W - 2);
 
 /// Projective point with field element FE
 ///
@@ -603,12 +611,6 @@ where
         CtOption::from((z_nonzero, &self.x * &inv))
     }
 
-    /// Width of the signed window used by the variable-time wNAF scalar
-    /// multiplication. `W = 5` keeps the odd-multiple table small (`2^(W-2)`
-    /// points) while giving an average non-zero digit density of `1/(W+1)`,
-    /// which is close to optimal for ~192–521 bit scalars.
-    const WNAF_W: u32 = 5;
-
     /// Additive inverse of the point: `-(X:Y:Z) = (X:-Y:Z)`.
     #[inline]
     fn negate(&self) -> Self {
@@ -630,14 +632,14 @@ where
     /// and `q == infinity` cases need no special handling.
     #[inline]
     fn scalar_mul_wnaf<C: WeierstrassCurve<FieldElement = FE>>(&self, n: &[u8]) -> Self {
-        let naf = wnaf(n, Self::WNAF_W);
+        let naf = wnaf(n, WNAF_W);
         // table[i] = (2i+1) * self, i.e. the odd multiples 1·P, 3·P, … of self
         let dbl = self.double::<C>();
-        let tlen = 1usize << (Self::WNAF_W - 2);
-        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
-        table.push(self.clone());
-        for i in 1..tlen {
-            table.push(table[i - 1].add_different::<C>(&dbl));
+        let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
+        table[0] = self.clone();
+        for i in 1..WNAF_TABLE_LEN {
+            let next = table[i - 1].add_different::<C>(&dbl);
+            table[i] = next;
         }
 
         let mut q = Self::INFINITY;
@@ -657,13 +659,13 @@ where
         &self,
         n: &[u8],
     ) -> Self {
-        let naf = wnaf(n, Self::WNAF_W);
+        let naf = wnaf(n, WNAF_W);
         let dbl = self.double_a0::<C>();
-        let tlen = 1usize << (Self::WNAF_W - 2);
-        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
-        table.push(self.clone());
-        for i in 1..tlen {
-            table.push(table[i - 1].add_different_a0::<C>(&dbl));
+        let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
+        table[0] = self.clone();
+        for i in 1..WNAF_TABLE_LEN {
+            let next = table[i - 1].add_different_a0::<C>(&dbl);
+            table[i] = next;
         }
 
         let mut q = Self::INFINITY;
@@ -683,13 +685,13 @@ where
         &self,
         n: &[u8],
     ) -> Self {
-        let naf = wnaf(n, Self::WNAF_W);
+        let naf = wnaf(n, WNAF_W);
         let dbl = self.double_am3::<C>();
-        let tlen = 1usize << (Self::WNAF_W - 2);
-        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
-        table.push(self.clone());
-        for i in 1..tlen {
-            table.push(table[i - 1].add_different_am3::<C>(&dbl));
+        let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
+        table[0] = self.clone();
+        for i in 1..WNAF_TABLE_LEN {
+            let next = table[i - 1].add_different_am3::<C>(&dbl);
+            table[i] = next;
         }
 
         let mut q = Self::INFINITY;

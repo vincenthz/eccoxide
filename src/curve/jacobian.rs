@@ -35,11 +35,19 @@ use super::projective;
 use super::weierstrass::{WeierstrassCurve, WeierstrassCurveA0, WeierstrassCurveAM3};
 use super::wnaf::wnaf;
 use crate::mp::ct::{Choice, CtEqual, CtOption, CtSelect};
-use alloc::vec::Vec;
 use core::convert::TryFrom;
 use core::ops::{Add, Mul, Neg, Sub};
 
 pub use super::projective::AffineAtInfinity;
+
+/// Width of the signed window used by the variable-time wNAF scalar
+/// multiplication. `W = 5` keeps the odd-multiple table small (`2^(W-2)`
+/// points) while giving an average non-zero digit density of `1/(W+1)`,
+/// which is close to optimal for ~192–521 bit scalars.
+const WNAF_W: u32 = 5;
+
+/// Number of odd multiples `1·P, 3·P, …, (2^(W-1)-1)·P` in the wNAF table.
+const WNAF_TABLE_LEN: usize = 1 << (WNAF_W - 2);
 
 /// Jacobian point with field element FE
 ///
@@ -598,12 +606,6 @@ where
         acc
     }
 
-    /// Width of the signed window used by the variable-time wNAF scalar
-    /// multiplication. `W = 5` keeps the odd-multiple table small (`2^(W-2)`
-    /// points) while giving an average non-zero digit density of `1/(W+1)`,
-    /// which is close to optimal for ~192–521 bit scalars.
-    const WNAF_W: u32 = 5;
-
     /// Variable-time scalar multiplication `n * self` using a width-`W` wNAF.
     ///
     /// Compared with a plain double-and-add this keeps the same number of
@@ -619,14 +621,14 @@ where
         D: Fn(&Self) -> Self,
         A: Fn(&Self, &Self) -> Self,
     {
-        let naf = wnaf(n, Self::WNAF_W);
+        let naf = wnaf(n, WNAF_W);
         // table[i] = (2i+1) * self, i.e. the odd multiples 1·P, 3·P, … of self
         let dbl2 = dbl(self);
-        let tlen = 1usize << (Self::WNAF_W - 2);
-        let mut table: Vec<Point<FE>> = Vec::with_capacity(tlen);
-        table.push(self.clone());
-        for i in 1..tlen {
-            table.push(add(&table[i - 1], &dbl2));
+        let mut table: [Point<FE>; WNAF_TABLE_LEN] = core::array::from_fn(|_| Self::INFINITY);
+        table[0] = self.clone();
+        for i in 1..WNAF_TABLE_LEN {
+            let next = add(&table[i - 1], &dbl2);
+            table[i] = next;
         }
 
         let mut q = Self::INFINITY;
