@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1 - 2026-10-09
 
 - **Ed25519**: the scheme is parametrized by its hash function. Every operation
   that need a hash algorithm has a `_with` variant. the plain API is the
